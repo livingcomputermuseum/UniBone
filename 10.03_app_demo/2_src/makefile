@@ -88,14 +88,16 @@ OBJECTS = $(OBJDIR)/application.o	\
 	$(OBJDIR)/cpu.o	\
 	$(OBJDIR)/ka11.o	\
 	$(OBJDIR)/rl0102.o	\
-    $(OBJDIR)/rl11.o	\
+        $(OBJDIR)/rl11.o	\
+        $(OBJDIR)/rk11.o        \
+        $(OBJDIR)/rk05.o        \
 	$(OBJDIR)/storagedrive.o	\
-    $(OBJDIR)/storagecontroller.o	\
-    $(OBJDIR)/demo_io.o	\
-    $(OBJDIR)/demo_regs.o	\
-    $(OBJDIR)/unibusdevice.o	\
-    $(OBJDIR)/device.o	\
-    $(OBJDIR)/parameter.o	\
+        $(OBJDIR)/storagecontroller.o	\
+        $(OBJDIR)/demo_io.o	\
+        $(OBJDIR)/demo_regs.o	\
+        $(OBJDIR)/unibusdevice.o	\
+        $(OBJDIR)/device.o	\
+        $(OBJDIR)/parameter.o	\
 	$(OBJDIR)/panel.o	\
 	$(OBJDIR)/unibusadapter.o	\
 	$(OBJDIR)/unibus.o	\
@@ -185,6 +187,12 @@ $(OBJDIR)/rl0102.o :  $(DEVICE_SRC_DIR)/rl0102.cpp $(DEVICE_SRC_DIR)/rl0102.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/rl11.o :  $(DEVICE_SRC_DIR)/rl11.cpp $(DEVICE_SRC_DIR)/rl11.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/rk05.o :  $(DEVICE_SRC_DIR)/rk05.cpp $(DEVICE_SRC_DIR)/rk05.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/rk11.o :  $(DEVICE_SRC_DIR)/rk11.cpp $(DEVICE_SRC_DIR)/rk11.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/storagedrive.o :  $(BASE_SRC_DIR)/storagedrive.cpp $(BASE_SRC_DIR)/storagedrive.hpp
