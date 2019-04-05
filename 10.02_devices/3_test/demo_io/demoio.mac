@@ -1,0 +1,32 @@
+
+	.title	"Demo IO" test
+
+	; This program tests the UniBone "Demo IO controller".
+	; It implements two registers:
+	; "switch register"  SR @ 760100 contains the switch state
+	; "display register" DR @ 760102 can be written zu set the LEDs
+	;
+	; Funktion here: Just copy switches to LEDs endlessly.
+	; If button is pressed, branch back to monitor at 165020.
+	;
+	; Made for PDP-11/34 with M9312 boot ROM.
+	;
+	; Contact: Joerg Hoppe / j_hoppe@t-online.de / www.retromcp.com
+
+sr	=	160100		; implemented switch register
+dr	=	160102		; implemented display register
+
+monitr =	165020		; M9312 ROM monitor entry
+
+	.asect
+
+	.=1000
+
+start:
+	mov	@#sr,r0
+	mov	r0,@#dr		; copy Switch status to LEDs
+	bit	#20,r0		; button pressed?
+	beq	start		; no: loop until
+	jmp	@#monitr	; yes: back to prompt
+
+	.end

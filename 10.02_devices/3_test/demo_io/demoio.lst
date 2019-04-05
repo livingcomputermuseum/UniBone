@@ -1,0 +1,33 @@
+       1                                
+       2                                	.title	"Demo IO" test
+       3                                
+       4                                	; This program tests the UniBone "Demo IO controller".
+       5                                	; It implements two registers:
+       6                                	; "switch register"  SR @ 760100 contains the switch state
+       7                                	; "display register" DR @ 760102 can be written zu set the LEDs
+       8                                	;
+       9                                	; Funktion here: Just copy switches to LEDs endlessly.
+      10                                	; If button is pressed, branch back to monitor at 165020.
+      11                                	;
+      12                                	; Made for PDP-11/34 with M9312 boot ROM.
+      13                                	;
+      14                                	; Contact: Joerg Hoppe / j_hoppe@t-online.de / www.retromcp.com
+      15                                
+      16 160100                         sr	=	160100		; implemented switch register
+      17 160102                         dr	=	160102		; implemented display register
+      18                                
+      19 165020                         monitr =	165020		; M9312 ROM monitor entry
+      20                                
+      21                                	.asect
+      22                                
+      23 001000                         	.=1000
+      24                                
+      25                                start:
+      26 001000 013700  160100          	mov	@#sr,r0
+      27 001004 010037  160102          	mov	r0,@#dr		; copy Switch status to LEDs
+      28 001010 032700  000020          	bit	#20,r0		; button pressed?
+      29 001014 001771                  	beq	start		; no: loop until
+      30 001016 000137  165020          	jmp	@#monitr	; yes: back to prompt
+      31                                
+      32                                	.end
+      32                                

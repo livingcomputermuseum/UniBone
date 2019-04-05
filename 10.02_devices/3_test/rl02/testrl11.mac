@@ -1,0 +1,262 @@
+	.title rl11 test program
+
+	; Stimulate an emulated RL11 controller.
+	; Selected drive is always #0
+
+rlbase	= 174400		; RL11 base addrs
+cs	= 0			; RL11 register offsets
+ba	= 2
+da	= 4
+mp	= 6
+
+
+dladr	=	177560	; DL11 console base address
+psw	=	177776	; processor status
+
+monitr = 165020 		; entry into M9312 monitor
+
+	;; RL11 commands
+cmstat	= 2*2			; get status
+cmseek	= 3*2			; seek
+cmrdhd	= 4*2			; read header
+cmwrda	= 5*2			; write data
+cmrdda	= 6*2			; read data
+
+
+	.asect
+
+	.=160 ; addr for vector 160
+rlvect:
+	.word	isr		; new PC of ISR
+	.word	340		; new PSW: priority is max = 7
+
+
+
+	.=1000
+
+stack	=	. - 2		; stack grows down from start
+
+	; --- main()
+start:
+	mov	#stack,sp	; init stack
+	mov	#rlbase,r4	; r4 points to RL11 register space
+
+	mov	#shello,r1
+	call	@#puts
+
+	 call  @#test1
+	; call	  @#test2
+
+	jmp	@#monitr
+
+
+
+	; --- TEST1 do a "seek", like the PDP11GIUI driver does
+test1:
+	; wait until controller ready
+0$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+	bpl	0$
+
+	; clear and get drive status
+	mov	#013,da(r4)	; subcmd reset+getstatus
+	mov	#cmstat,r0
+	; test: command acceptet dirclty aufter INIT singal
+	; -> multiple event forwarding in ubibusadapter_c::worker()
+	reset
+
+	mov	r0,(r4) 	; GO
+1$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+	bpl	1$
+
+	; call	  @#wait65	  ;
+
+	; AGAIN: clear and get drive status
+	mov	#013,da(r4)	; subcmd reset+getstatus
+	mov	#cmstat,r0
+	mov	r0,(r4) 	; GO
+2$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+	bpl	2$
+
+	; call	  @#wait65	  ;
+
+	; seek sector: read header
+	mov	#cmrdhd,r0	; read header cmd
+	mov	r0,(r4) 	; execute
+3$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+	bpl	3$
+	mov	mp(r4),r3	; retrieve cyl/head/sector
+
+	; call	  @#wait65	  ;
+
+
+	; seek ... distance = 0
+	; assume a 0 track seek
+	mov	#0,da(r4)	; clear disk address
+	mov	#cmseek,r0
+	mov	r0,(r4) 	; execute 0 track seek
+4$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+	bpl	4$
+
+	return
+
+
+	; --- TEST2 - read sector 0 into mem at 10000 and do interrupt
+test2:
+
+	clr	@#psw		; enable all interrupt levels
+	; wait until controller ready
+0$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+	bpl	0$
+
+
+;	; clear and get drive status
+;	mov	#013,da(r4)	; subcmd reset+getstatus
+;	mov	#cmstat,r0
+;	mov	r0,(r4) 	; GO
+;1$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+;	bpl	1$
+
+
+
+	; seek max inward , to cyl0, hd 0
+	mov	#177600+1,da(r4)
+	mov	#cmseek,r0
+	mov	r0,(r4) 	; execute 0 track seek
+2$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+	bpl	2$
+	; test for "drive ready"
+	bit	#1,(r4)
+	beq	2$
+
+	mov	#buffer,ba(r4) ; setup memory address
+	mov   #0,da(r4)       ; disk address: cyl=0, hd=0, sec=0
+	mov	#177600,mp(r4)	; load wordcount -128 = 0400
+
+	clr	@#isrcnt
+	mov	#100+cmrdda,cs(r4)     ; IE=1, function=6 read data
+;	 mov	 #cmrdda,cs(r4)     ; IE=0, function=6 read data
+	; wait for ISR
+3$:
+	tst	@#isrcnt       ; wait for ISR
+	beq	3$
+;	 tstb	 cs(r4) 	; wait for CRDY
+;	 bpl	 3$
+
+	mov	#sba,r1 	; "BA="
+	call	@#puts
+	mov	ba(r4),r0
+	call	@#putnum	; content of BA register
+	mov	#scrlf,r1	; end of line
+	call	@#puts
+
+
+	mov	#sready,r1	 ; print "READY"
+	call	@#puts
+	return
+
+
+
+;	--------------
+;	--- isr - called on interupt
+;	print incremented BA ... is DMA really ready?
+isrcnt: .word			; flag: ISR hit
+isr:
+	inc	@#isrcnt	; signal "done"
+	rti
+
+
+
+
+	; -- wait 65ms, uses r0
+wait65:
+	clr	r0
+0$:
+	sob	r0,0$	: subtract one, loop until zero
+	return
+
+
+	; --- check for error
+chkerr:
+	; verify controller ready
+0$:	tstb	(r4)	    ; wait for "controller ready" (csr.7)
+	bpl	0$	    ;
+
+	mov	(r4),r0 	; return status CSR
+;	 bic	 #1777,r0	 ; ignore bits 9:0, error flags are in 15:10
+;	 bne	 1$
+;	 clc
+	return			; CSR = R1 = 0: no error
+
+
+	; ----------------------
+	; puts - print a string
+	; r1 = pointer, r0,r1 changed
+puts:
+	movb	(r1)+,r0	; load xmt char
+	beq	1$		; string ends with 0
+	call	@#putc
+	br	puts		; transmit nxt char of string
+1$:	return
+
+
+	; ----------------------
+	; putnum - print the octal number in r0
+numbf0:  .blkw	 10		 ; space to mount number string
+numbf1	=.
+putnum:
+	mov	r0,r2		; r2 = shifter
+	mov	#numbf1,r1	; r1 = buffer pointer, backwards
+	movb	#0,-(r1)	; set terminating 0
+	; repeat 6 times
+	mov	#6,r3
+1$:
+	mov	r2,r0
+	; extract lower 3 bits = octal digit
+	bic	#177770,r0 ; r0 &= 0x07
+	add	#60,r0	; r0 += '0'
+	movb	r0,-(r1) ; write in buffer
+	clc
+	ror	r2	; shift to next digit
+	ror	r2
+	ror	r2
+	sob	r3,1$	; loop for all 6 digits
+
+	call	@#puts
+	return
+
+
+	; DEC DL11 console I/O
+	; ----------------------
+	; putc - output a single char
+	; r0 = char
+putc:
+	movb	r0,@#dladr+6  ; char into transmit buffer
+1$:	tstb	@#dladr+4      ; XMT RDY?
+	bpl	1$		; no, loop
+	return
+
+
+	; --- string constants
+scrlf:	.byte	15,12		; CR, LF,
+	.byte	0
+
+
+shello:
+	.byte	15,12		; CR, LF,
+	.ascii	/Starting test!/
+	.byte	15,12		; CR, LF,
+	.byte	0
+
+sba:	.ascii	/BA=/
+	.byte	0		; NUL=end marker
+
+sready: .ascii	/Sector 0 transfered to 100000, ISR hit./
+	.byte	15,12		; CR, LF,
+	.byte	0
+
+	; ---- 32kb page
+	. = 100000
+buffer:
+	.end ;
+
+	.end

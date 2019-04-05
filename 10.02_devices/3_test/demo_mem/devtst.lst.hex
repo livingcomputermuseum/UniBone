@@ -1,0 +1,239 @@
+       1                                
+       2                                	.title	Device register test
+       3                                
+       4                                	; This program tests the UniBone "test controller"
+       5                                	; Its just a memory test on 760000 to 760176
+       6                                	;
+       7                                	; Contact: Joerg Hoppe / j_hoppe@t-online.de / www.retromcp.com
+       8                                
+       9  FF70h                         dladr	=	177560	; DL11 console base address
+      10  FFFEh                         psw	=	177776	; processor status
+      11                                
+      12                                ; membeg = 150000
+      13                                ; memend = 150177
+      14  E000h                         membeg = 160000
+      15  E07Fh                         memend = 160177
+      16                                
+      17  EA10h                         monitr = 165020
+      18                                
+      19                                
+      20                                	.asect
+      21                                
+      22  0200h                         	.=1000
+      23                                
+      24  01FEh                         stack	=	. - 2		; stack growns down from start
+      25                                
+      26                                start:
+      27  0200h  15C6h   01FEh          	mov	#stack,sp	; init stack
+      28                                
+      29  0204h  0A1Fh   FFFEh          	clr	   @#psw	; clear priority, allow all interupts
+      30                                
+      31                                	; 1. print "Hello" msg
+      32  0208h  15C1h   02F0h          	mov	#shello,r1
+      33  020Ch  09DFh   028Ch          	call	@#puts
+      34                                
+      35                                
+      36                                loop:
+      37                                	; 2. test memory
+      38  0210h  09DFh   025Eh          	call	@#memfil
+      39  0214h  09DFh   0272h          	call	@#memchk
+      40  0218h  8714h                  	bcs	error		  ; mismatch, print address and halt
+      41                                
+      42                                	; mov	  #'.,r0	   ; print a "." on each pass
+      43                                	; call	  @#putc	  ; no: echo char in r0 and loop
+      44                                
+      45                                	; echo chars until ^C hit
+      46  021Ah  15C4h   FF70h          	mov	#dladr,r4	; set base addr
+      47  021Eh  8BCCh                  	tstb	(r4)		; RCVR DONE?
+      48  0220h  80F7h                  	bpl	loop		; no, test again
+      49                                
+      50  0222h  09DFh   02E2h          	call	@#getc		; read char, return in r0
+      51  0226h  45C0h   FF80h          	bic	#177600,r0	; make 7bit: clear bits <15:7>
+      52  022Ah  A017h   0003h          	cmpb	r0,#3		; break by ^C ?
+      53  022Eh  0303h                  	beq	9$		; yes: leave loop
+      54                                
+      55  0230h  09DFh   02D2h          	call	@#putc		; no: echo char in r0 and loop
+      56  0234h  01EDh                  	br	loop
+      57                                
+      58                                9$:
+      59                                	; 3. print "Bye bye" msg and jump to monitor
+      60  0236h  15C1h   0370h          	mov	#sbye,r1
+      61  023Ah  09DFh   028Ch          	call	@#puts
+      62  023Eh  005Fh   EA10h          	jmp	@#monitr
+      63                                
+      64                                
+      65                                error: ; --- print "error at <r1>" and stop
+      66  0242h  1066h                  	mov	r1,-(sp)
+      67  0244h  15C1h   0351h          	mov	#serr0,r1
+      68  0248h  09DFh   028Ch          	call	@#puts
+      69  024Ch  1580h                  	mov	(sp)+,r0       ; restore error addr
+      70  024Eh  09DFh   02A8h          	call	@#putnum
+      71  0252h  15C1h   0364h          	mov	#serr1,r1
+      72  0256h  09DFh   028Ch          	call	@#puts
+      73  025Ah  0000h                  	halt
+      74                                	; 4. loop on CONT
+      75  025Ch  01D1h                  	br	start
+      76                                
+      77                                
+      78                                	; ----------------------
+      79                                	; memfill
+      80                                	; write pattern into memory. r1 =seed
+      81                                	; each cell is filled with <addr>+<seed>
+      82                                memfil:
+      83  025Eh  15C2h   E000h          	mov	#membeg,r2
+      84  0262h  2097h   E07Fh          1$:	cmp	r2,#memend
+      85  0266h  8204h                  	bhi	9$		; memend passed
+      86  0268h  1080h                  	mov	r2,r0		; r0 = testval[addr]
+      87  026Ah  6040h                  	add	r1,r0
+      88  026Ch  1012h                  	mov	r0,(r2)+
+      89  026Eh  01F9h                  	br	1$
+      90                                9$:
+      91  0270h  0087h                  	return
+      92                                
+      93                                	; ----------------------
+      94                                	; memcheck
+      95                                	; verify pattern in memory. r1 =seed
+      96                                	; result: Carry set =error, r2 = address
+      97                                memchk:
+      98  0272h  15C2h   E000h          	mov	#membeg,r2
+      99  0276h  2097h   E07Fh          1$:	cmp	r2,#memend
+     100  027Ah  8206h                  	bhi	9$		; memend passed: OK
+     101  027Ch  1080h                  	mov	r2,r0		; r0 = testval[addr]
+     102  027Eh  6040h                  	add	r1,r0
+     103  0280h  2012h                  	cmp	r0,(r2)+
+     104  0282h  03F9h                  	beq	1$		; OK, next word
+     105  0284h  00B1h                  	sec	; Error: set carry, r2 = address
+     106  0286h  0087h                  	return
+     107                                
+     108  0288h  00A1h                  9$:	clc	; clear carry: success
+     109  028Ah  0087h                  	return
+     110                                
+     111                                
+     112                                
+     113                                
+     114                                	; ----------------------
+     115                                	; puts - print a string
+     116                                	; r1 = pointer, r0,r1 changed
+     117                                puts:
+     118  028Ch  9440h                  	movb	(r1)+,r0	; load xmt char
+     119  028Eh  0303h                  	beq	1$		; string ends with 0
+     120  0290h  09DFh   02D2h          	call	@#putc
+     121  0294h  01FBh                  	br	puts		; transmit nxt char of string
+     122  0296h  0087h                  1$:	return
+     123                                
+     124                                
+     125                                	; ----------------------
+     126                                	; putnum - print the octal number in r0
+     127  0298h                         numbf0:  .blkw	 10		 ; space to mount number string
+     128  02A8h                         numbf1	=.
+     129                                putnum:
+     130  02A8h  1002h                  	mov	r0,r2		; r2 = shifter
+     131  02AAh  15C1h   02A8h          	mov	#numbf1,r1	; r1 = buffer pointer, backwards
+     132  02AEh  95E1h   0000h          	movb	#0,-(r1)	; set terminating 0
+     133                                	; repeat 6 times
+     134  02B2h  15C3h   0006h          	mov	#6,r3
+     135                                1$:
+     136  02B6h  1080h                  	mov	r2,r0
+     137                                	; extract lower 3 bits = octal digit
+     138  02B8h  45C0h   FFF8h          	bic	#177770,r0 ; r0 &= 0x07
+     139  02BCh  65C0h   0030h          	add	#60,r0	; r0 += '0'
+     140  02C0h  9021h                  	movb	r0,-(r1) ; write in buffer
+     141  02C2h  00A1h                  	clc
+     142  02C4h  0C02h                  	ror	r2	; shift to next digit
+     143  02C6h  0C02h                  	ror	r2
+     144  02C8h  0C02h                  	ror	r2
+     145  02CAh  7ECBh                  	sob	r3,1$	; loop for all 6 digits
+     146                                
+     147  02CCh  09DFh   028Ch          	call	@#puts
+     148  02D0h  0087h                  	return
+     149                                
+     150                                
+     151                                	; DEC DL11 console I/O
+     152                                	; ----------------------
+     153                                	; putc - output a single char
+     154                                	; r0 = char, r4 changed
+     155                                putc:
+     156  02D2h  15C4h   FF70h          	mov	#dladr,r4	; set base addr
+     157  02D6h  9034h   0006h          	movb	r0,6(r4)	; char into transmit buffer
+     158  02DAh  8BF4h   0004h          1$:	tstb	4(r4)		; XMT RDY?
+     159  02DEh  80FDh                  	bpl	1$		; no, loop
+     160  02E0h  0087h                  	return
+     161                                
+     162                                	; ----------------------
+     163                                	; getc - input a single char
+     164                                	; result in r0, r4 changed
+     165                                	;
+     166                                getc:
+     167  02E2h  15C4h   FF70h          	mov	#dladr,r4	; set base addr
+     168  02E6h  8BCCh                  1$:	tstb	(r4)		; RCVR DONE?
+     169  02E8h  80FEh                  	bpl	1$		; no, loop
+     170  02EAh  1D00h   0002h          	mov	2(r4),r0	; return data
+     171  02EEh  0087h                  	return
+     172                                
+     173                                
+     174                                	; ---- Text strings  ---------
+     175                                
+     176                                shello:
+     177  02F0h    0Dh     0Ah          	.byte	15,12		; CR, LF,
+     178  02F2h    2Ah     2Ah     2Ah  	.ascii	/*** Test of UniBone test controller ***/
+          02F5h    20h     54h     65h  
+          02F8h    73h     74h     20h  
+          02FBh    6Fh     66h     20h  
+          02FEh    55h     6Eh     69h  
+          0301h    42h     6Fh     6Eh  
+          0304h    65h     20h     74h  
+          0307h    65h     73h     74h  
+          030Ah    20h     63h     6Fh  
+          030Dh    6Eh     74h     72h  
+          0310h    6Fh     6Ch     6Ch  
+          0313h    65h     72h     20h  
+          0316h    2Ah     2Ah     2Ah  
+     179  0319h    0Dh     0Ah          	.byte	15,12		; CR, LF,
+     180  031Bh    54h     68h     65h  	.ascii	/The foreground thread echoes typed chars, ^C HALTs./
+          031Eh    20h     66h     6Fh  
+          0321h    72h     65h     67h  
+          0324h    72h     6Fh     75h  
+          0327h    6Eh     64h     20h  
+          032Ah    74h     68h     72h  
+          032Dh    65h     61h     64h  
+          0330h    20h     65h     63h  
+          0333h    68h     6Fh     65h  
+          0336h    73h     20h     74h  
+          0339h    79h     70h     65h  
+          033Ch    64h     20h     63h  
+          033Fh    68h     61h     72h  
+          0342h    73h     2Ch     20h  
+          0345h    5Eh     43h     20h  
+          0348h    48h     41h     4Ch  
+          034Bh    54h     73h     2Eh  
+     181  034Eh    0Dh     0Ah          	.byte	15,12	; CR, LF,
+     182  0350h    00h                  	.byte	0		; NUL=end marker
+     183                                
+     184                                
+     185                                serr0:
+     186  0351h    0Dh     0Ah          	.byte	15,12		; CR, LF,
+     187  0353h    4Dh     65h     6Dh  	.ascii	/Memory error at /
+          0356h    6Fh     72h     79h  
+          0359h    20h     65h     72h  
+          035Ch    72h     6Fh     72h  
+          035Fh    20h     61h     74h  
+          0362h    20h                  
+     188  0363h    00h                  	.byte	0		; NUL=end marker
+     189                                
+     190                                serr1:
+     191  0364h    2Ch     20h     68h  	.ascii	/, haltig./
+          0367h    61h     6Ch     74h  
+          036Ah    69h     67h     2Eh  
+     192  036Dh    0Dh     0Ah          	  .byte   15,12   ; CR, LF,
+     193  036Fh    00h                  	.byte	0		; NUL=end marker
+     194                                
+     195                                sbye:
+     196  0370h    0Dh     0Ah          	.byte	15,12
+     197  0372h    47h     6Fh     6Fh  	.ascii	/Good Bye!/
+          0375h    64h     20h     42h  
+          0378h    79h     65h     21h  
+     198  037Bh    0Dh     0Ah     00h  	.byte	15,12,0 	; CR, LF, NUL=end marker
+     199                                
+     200                                
+     201                                	.end
+     201                                

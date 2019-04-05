@@ -1,0 +1,65 @@
+	.title memory test program
+
+	; Tests a given memors range with changing patterns
+	; To be used to stimulate the "testcontroller"
+	; Testcontroller implements 64 read/write registeres at 760000
+	; Testing these registres exercises
+	; - the PRU->ARM register interface
+	; -  performance of PRU->ARM interrupt and
+	;	context switch time of unbusadapter.worker()
+
+	.asect
+MEMSTR	= 160000	; first cell to test
+MEMEND	= 160176	; last cell to test
+
+	. = 1000
+stack	=	. - 2		; stack grows down from start
+
+	; --- main()
+	; r3 = pointer to written cell
+	; r4 = pattern
+start:
+	mov	#stack,sp	; init stack
+	clr	r4		; init pattern
+
+	; single test run
+	; write all cells with addr+ offset
+	; then compare
+tstrun:
+	; write all mem with current pattern
+	mov	#MEMSTR,r3
+wrloop:
+	mov	r4,r0
+	add	r3,r0	; testval= addr+ offset
+	mov	r0,(r3)+
+	cmp	r3,#MEMEND
+	blos	wrloop
+
+	; compare all mem to current pattern
+	mov	#MEMSTR,r3
+rdloop:
+	mov	r4,r0
+	add	r3,r0		; testval= addr+ offset
+	mov	(r3)+,r1       ; read mem
+	cmp	r0,r1		; value atr3 as expected
+	bne	error
+	cmp	r3,#MEMEND	; last cell tested?
+	blos	rdloop
+
+        ; when testing UniBone testcontroller: add wait loop here.
+        ; Else BeagleBone Linux is 100% busy with RT DATI/DATO handling.
+
+	; repeat full test with next pattern
+	inc	r4
+	br	tstrun
+
+
+	; r3 = error address
+	; r0 = expected value
+	; r1 = found value
+error:
+	dec	r3
+	dec	r3
+	halt
+
+	.end

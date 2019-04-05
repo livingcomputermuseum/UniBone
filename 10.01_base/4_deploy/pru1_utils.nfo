@@ -1,0 +1,9 @@
+PRU C/C++ Optimizer                     v2.3.1
+Build Number 1SGNO-2LI-UASAR-TAR-C08D
+
+Global variable is not referenced in this file:
+	extern int __MCALL_implicit_state__
+	extern unsigned timeout_target
+
+
+== END OF INFO OUTPUT==

@@ -1,0 +1,279 @@
+       1                                	.title rl11 test program
+       2                                
+       3                                	; Stimulate an emulated RL11 controller.
+       4                                	; Selected drive is always #0
+       5                                
+       6 174400                         rlbase	= 174400		; RL11 base addrs
+       7 000000                         cs	= 0			; RL11 register offsets
+       8 000002                         ba	= 2
+       9 000004                         da	= 4
+      10 000006                         mp	= 6
+      11                                
+      12                                
+      13 177560                         dladr	=	177560	; DL11 console base address
+      14 177776                         psw	=	177776	; processor status
+      15                                
+      16 165020                         monitr = 165020 		; entry into M9312 monitor
+      17                                
+      18                                	;; RL11 commands
+      19 000004                         cmstat	= 2*2			; get status
+      20 000006                         cmseek	= 3*2			; seek
+      21 000010                         cmrdhd	= 4*2			; read header
+      22 000012                         cmwrda	= 5*2			; write data
+      23 000014                         cmrdda	= 6*2			; read data
+      24                                
+      25                                
+      26                                	.asect
+      27                                
+      28 000160                         	.=160 ; addr for vector 160
+      29                                rlvect:
+      30 000160 001302                  	.word	isr		; new PC of ISR
+      31 000162 000340                  	.word	340		; new PSW: priority is max = 7
+      32                                
+      33                                
+      34                                
+      35 001000                         	.=1000
+      36                                
+      37 000776                         stack	=	. - 2		; stack grows down from start
+      38                                
+      39                                	; --- main()
+      40                                start:
+      41 001000 012706  000776          	mov	#stack,sp	; init stack
+      42 001004 012704  174400          	mov	#rlbase,r4	; r4 points to RL11 register space
+      43                                
+      44 001010 012701  001453          	mov	#shello,r1
+      45 001014 004737  001326          	call	@#puts
+      46                                
+      47 001020 004737  001030          	 call  @#test1
+      48                                	; call	  @#test2
+      49                                
+      50 001024 000137  165020          	jmp	@#monitr
+      51                                
+      52                                
+      53                                
+      54                                	; --- TEST1 do a "seek", like the PDP11GIUI driver does
+      55                                test1:
+      56                                	; wait until controller ready
+      57 001030 105714                  0$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+      58 001032 100376                  	bpl	0$
+      59                                
+      60                                	; clear and get drive status
+      61 001034 012764  000013  000004  	mov	#013,da(r4)	; subcmd reset+getstatus
+      62 001042 012700  000004          	mov	#cmstat,r0
+      63                                	; test: command acceptet dirclty aufter INIT singal
+      64                                	; -> multiple event forwarding in ubibusadapter_c::worker()
+      65 001046 000005                  	reset
+      66                                
+      67 001050 010014                  	mov	r0,(r4) 	; GO
+      68 001052 105714                  1$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+      69 001054 100376                  	bpl	1$
+      70                                
+      71                                	; call	  @#wait65	  ;
+      72                                
+      73                                	; AGAIN: clear and get drive status
+      74 001056 012764  000013  000004  	mov	#013,da(r4)	; subcmd reset+getstatus
+      75 001064 012700  000004          	mov	#cmstat,r0
+      76 001070 010014                  	mov	r0,(r4) 	; GO
+      77 001072 105714                  2$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+      78 001074 100376                  	bpl	2$
+      79                                
+      80                                	; call	  @#wait65	  ;
+      81                                
+      82                                	; seek sector: read header
+      83 001076 012700  000010          	mov	#cmrdhd,r0	; read header cmd
+      84 001102 010014                  	mov	r0,(r4) 	; execute
+      85 001104 105714                  3$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+      86 001106 100376                  	bpl	3$
+      87 001110 016403  000006          	mov	mp(r4),r3	; retrieve cyl/head/sector
+      88                                
+      89                                	; call	  @#wait65	  ;
+      90                                
+      91                                
+      92                                	; seek ... distance = 0
+      93                                	; assume a 0 track seek
+      94 001114 012764  000000  000004  	mov	#0,da(r4)	; clear disk address
+      95 001122 012700  000006          	mov	#cmseek,r0
+      96 001126 010014                  	mov	r0,(r4) 	; execute 0 track seek
+      97 001130 105714                  4$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+      98 001132 100376                  	bpl	4$
+      99                                
+     100 001134 000207                  	return
+     101                                
+     102                                
+     103                                	; --- TEST2 - read sector 0 into mem at 10000 and do interrupt
+     104                                test2:
+     105                                
+     106 001136 005037  177776          	clr	@#psw		; enable all interrupt levels
+     107                                	; wait until controller ready
+     108 001142 105714                  0$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+     109 001144 100376                  	bpl	0$
+     110                                
+     111                                
+     112                                ;	; clear and get drive status
+     113                                ;	mov	#013,da(r4)	; subcmd reset+getstatus
+     114                                ;	mov	#cmstat,r0
+     115                                ;	mov	r0,(r4) 	; GO
+     116                                ;1$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+     117                                ;	bpl	1$
+     118                                
+     119                                
+     120                                
+     121                                	; seek max inward , to cyl0, hd 0
+     122 001146 012764  177601  000004  	mov	#177600+1,da(r4)
+     123 001154 012700  000006          	mov	#cmseek,r0
+     124 001160 010014                  	mov	r0,(r4) 	; execute 0 track seek
+     125 001162 105714                  2$:	tstb	(r4)		; wait for "controller ready" (csr.7)
+     126 001164 100376                  	bpl	2$
+     127                                	; test for "drive ready"
+     128 001166 032714  000001          	bit	#1,(r4)
+     129 001172 001773                  	beq	2$
+     130                                
+     131 001174 012764  100000  000002  	mov	#buffer,ba(r4) ; setup memory address
+     132 001202 012764  000000  000004  	mov   #0,da(r4)       ; disk address: cyl=0, hd=0, sec=0
+     133 001210 012764  177600  000006  	mov	#177600,mp(r4)	; load wordcount -128 = 0400
+     134                                
+     135 001216 005037  001300          	clr	@#isrcnt
+     136 001222 012764  000114  000000  	mov	#100+cmrdda,cs(r4)     ; IE=1, function=6 read data
+     137                                ;	 mov	 #cmrdda,cs(r4)     ; IE=0, function=6 read data
+     138                                	; wait for ISR
+     139                                3$:
+     140 001230 005737  001300          	tst	@#isrcnt       ; wait for ISR
+     141 001234 001775                  	beq	3$
+     142                                ;	 tstb	 cs(r4) 	; wait for CRDY
+     143                                ;	 bpl	 3$
+     144                                
+     145 001236 012701  001476          	mov	#sba,r1 	; "BA="
+     146 001242 004737  001326          	call	@#puts
+     147 001246 016400  000002          	mov	ba(r4),r0
+     148 001252 004737  001362          	call	@#putnum	; content of BA register
+     149 001256 012701  001450          	mov	#scrlf,r1	; end of line
+     150 001262 004737  001326          	call	@#puts
+     151                                
+     152                                
+     153 001266 012701  001502          	mov	#sready,r1	 ; print "READY"
+     154 001272 004737  001326          	call	@#puts
+     155 001276 000207                  	return
+     156                                
+     157                                
+     158                                
+     159                                ;	--------------
+     160                                ;	--- isr - called on interupt
+     161                                ;	print incremented BA ... is DMA really ready?
+     162 001300 000000                  isrcnt: .word			; flag: ISR hit
+     163                                isr:
+     164 001302 005237  001300          	inc	@#isrcnt	; signal "done"
+     165 001306 000002                  	rti
+     166                                
+     167                                
+     168                                
+     169                                
+     170                                	; -- wait 65ms, uses r0
+     171                                wait65:
+     172 001310 005000                  	clr	r0
+     173                                0$:
+     174 001312 077001                  	sob	r0,0$	: subtract one, loop until zero
+     175 001314 000207                  	return
+     176                                
+     177                                
+     178                                	; --- check for error
+     179                                chkerr:
+     180                                	; verify controller ready
+     181 001316 105714                  0$:	tstb	(r4)	    ; wait for "controller ready" (csr.7)
+     182 001320 100376                  	bpl	0$	    ;
+     183                                
+     184 001322 011400                  	mov	(r4),r0 	; return status CSR
+     185                                ;	 bic	 #1777,r0	 ; ignore bits 9:0, error flags are in 15:10
+     186                                ;	 bne	 1$
+     187                                ;	 clc
+     188 001324 000207                  	return			; CSR = R1 = 0: no error
+     189                                
+     190                                
+     191                                	; ----------------------
+     192                                	; puts - print a string
+     193                                	; r1 = pointer, r0,r1 changed
+     194                                puts:
+     195 001326 112100                  	movb	(r1)+,r0	; load xmt char
+     196 001330 001403                  	beq	1$		; string ends with 0
+     197 001332 004737  001434          	call	@#putc
+     198 001336 000773                  	br	puts		; transmit nxt char of string
+     199 001340 000207                  1$:	return
+     200                                
+     201                                
+     202                                	; ----------------------
+     203                                	; putnum - print the octal number in r0
+     204 001342                         numbf0:  .blkw	 10		 ; space to mount number string
+     205 001362                         numbf1	=.
+     206                                putnum:
+     207 001362 010002                  	mov	r0,r2		; r2 = shifter
+     208 001364 012701  001362          	mov	#numbf1,r1	; r1 = buffer pointer, backwards
+     209 001370 112741  000000          	movb	#0,-(r1)	; set terminating 0
+     210                                	; repeat 6 times
+     211 001374 012703  000006          	mov	#6,r3
+     212                                1$:
+     213 001400 010200                  	mov	r2,r0
+     214                                	; extract lower 3 bits = octal digit
+     215 001402 042700  177770          	bic	#177770,r0 ; r0 &= 0x07
+     216 001406 062700  000060          	add	#60,r0	; r0 += '0'
+     217 001412 110041                  	movb	r0,-(r1) ; write in buffer
+     218 001414 000241                  	clc
+     219 001416 006002                  	ror	r2	; shift to next digit
+     220 001420 006002                  	ror	r2
+     221 001422 006002                  	ror	r2
+     222 001424 077313                  	sob	r3,1$	; loop for all 6 digits
+     223                                
+     224 001426 004737  001326          	call	@#puts
+     225 001432 000207                  	return
+     226                                
+     227                                
+     228                                	; DEC DL11 console I/O
+     229                                	; ----------------------
+     230                                	; putc - output a single char
+     231                                	; r0 = char
+     232                                putc:
+     233 001434 110037  177566          	movb	r0,@#dladr+6  ; char into transmit buffer
+     234 001440 105737  177564          1$:	tstb	@#dladr+4      ; XMT RDY?
+     235 001444 100375                  	bpl	1$		; no, loop
+     236 001446 000207                  	return
+     237                                
+     238                                
+     239                                	; --- string constants
+     240 001450    015     012          scrlf:	.byte	15,12		; CR, LF,
+     241 001452    000                  	.byte	0
+     242                                
+     243                                
+     244                                shello:
+     245 001453    015     012          	.byte	15,12		; CR, LF,
+     246 001455    123     164     141  	.ascii	/Starting test!/
+         001460    162     164     151  
+         001463    156     147     040  
+         001466    164     145     163  
+         001471    164     041          
+     247 001473    015     012          	.byte	15,12		; CR, LF,
+     248 001475    000                  	.byte	0
+     249                                
+     250 001476    102     101     075  sba:	.ascii	/BA=/
+     251 001501    000                  	.byte	0		; NUL=end marker
+     252                                
+     253 001502    123     145     143  sready: .ascii	/Sector 0 transfered to 100000, ISR hit./
+         001505    164     157     162  
+         001510    040     060     040  
+         001513    164     162     141  
+         001516    156     163     146  
+         001521    145     162     145  
+         001524    144     040     164  
+         001527    157     040     061  
+         001532    060     060     060  
+         001535    060     060     054  
+         001540    040     111     123  
+         001543    122     040     150  
+         001546    151     164     056  
+     254 001551    015     012          	.byte	15,12		; CR, LF,
+     255 001553    000                  	.byte	0
+     256                                
+     257                                	; ---- 32kb page
+     258 100000                         	. = 100000
+     259                                buffer:
+     260                                	.end ;
+     261                                
+     262                                	.end
+     262                                

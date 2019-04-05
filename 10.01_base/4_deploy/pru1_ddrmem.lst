@@ -1,0 +1,1543 @@
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE    1
+
+       1;******************************************************************************
+       2;* PRU C/C++ Codegen                                              Unix v2.3.1 *
+       3;* Date/Time created: Sun Mar 31 20:55:31 2019                                *
+       4;******************************************************************************
+       5        .compiler_opts --abi=eabi --endian=little --hll_source=on --object_format=elf --silicon_versio
+       6
+       7$C$DW$CU        .dwtag  DW_TAG_compile_unit
+       8        .dwattr $C$DW$CU, DW_AT_name("pru1_ddrmem.c")
+       9        .dwattr $C$DW$CU, DW_AT_producer("TI PRU C/C++ Codegen Unix v2.3.1 Copyright (c) 2012-2017 Tex
+      10        .dwattr $C$DW$CU, DW_AT_TI_version(0x01)
+      11        .dwattr $C$DW$CU, DW_AT_comp_dir("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/pru1")
+      12$C$DW$1 .dwtag  DW_TAG_variable
+      13        .dwattr $C$DW$1, DW_AT_name("mailbox")
+      14        .dwattr $C$DW$1, DW_AT_TI_symbol_name("mailbox")
+      15        .dwattr $C$DW$1, DW_AT_type(*$C$DW$T$51)
+      16        .dwattr $C$DW$1, DW_AT_declaration
+      17        .dwattr $C$DW$1, DW_AT_external
+      18        .dwattr $C$DW$1, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/mai
+      19        .dwattr $C$DW$1, DW_AT_decl_line(0xb8)
+      20        .dwattr $C$DW$1, DW_AT_decl_column(0x1f)
+      21
+      22;       /home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/ti-cgt-pru_2.3.1//bin/optpru --gen
+      23;       /home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/ti-cgt-pru_2.3.1//bin/acpiapru -@/
+      24 00000000                         .sect   ".text:ddrmem_fill_pattern"
+      25        .clink
+      26        .global ||ddrmem_fill_pattern||
+      27
+      28$C$DW$2 .dwtag  DW_TAG_subprogram
+      29        .dwattr $C$DW$2, DW_AT_name("ddrmem_fill_pattern")
+      30        .dwattr $C$DW$2, DW_AT_low_pc(||ddrmem_fill_pattern||)
+      31        .dwattr $C$DW$2, DW_AT_high_pc(0x00)
+      32        .dwattr $C$DW$2, DW_AT_TI_symbol_name("ddrmem_fill_pattern")
+      33        .dwattr $C$DW$2, DW_AT_external
+      34        .dwattr $C$DW$2, DW_AT_TI_begin_file("pru1_ddrmem.c")
+      35        .dwattr $C$DW$2, DW_AT_TI_begin_line(0x23)
+      36        .dwattr $C$DW$2, DW_AT_TI_begin_column(0x06)
+      37        .dwattr $C$DW$2, DW_AT_decl_file("pru1_ddrmem.c")
+      38        .dwattr $C$DW$2, DW_AT_decl_line(0x23)
+      39        .dwattr $C$DW$2, DW_AT_decl_column(0x06)
+      40        .dwattr $C$DW$2, DW_AT_TI_max_frame_size(0x00)
+      41        .dwpsn  file "pru1_ddrmem.c",line 35,column 32,is_stmt,address ||ddrmem_fill_pattern||,isa 0
+      42
+      43        .dwfde $C$DW$CIE, ||ddrmem_fill_pattern||
+      44;----------------------------------------------------------------------
+      45;  35 | void ddrmem_fill_pattern(void) {                                       
+      46;  36 | unsigned n ;                                                           
+      47;----------------------------------------------------------------------
+      48
+      49;***************************************************************
+      50;* FNAME: ddrmem_fill_pattern           FR SIZE:   0           *
+      51;*                                                             *
+      52;* FUNCTION ENVIRONMENT                                        *
+      53;*                                                             *
+      54;* FUNCTION PROPERTIES                                         *
+      55;*                            0 Auto,  0 SOE     *
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE    2
+
+      56;***************************************************************
+      57
+      58||ddrmem_fill_pattern||:
+      59;* --------------------------------------------------------------------------*
+      60;* r0_0  assigned to n
+      61$C$DW$3 .dwtag  DW_TAG_variable
+      62        .dwattr $C$DW$3, DW_AT_name("n")
+      63        .dwattr $C$DW$3, DW_AT_TI_symbol_name("n")
+      64        .dwattr $C$DW$3, DW_AT_type(*$C$DW$T$11)
+      65        .dwattr $C$DW$3, DW_AT_location[DW_OP_reg0]
+      66
+      67;* r1_0  assigned to wordaddr
+      68$C$DW$4 .dwtag  DW_TAG_variable
+      69        .dwattr $C$DW$4, DW_AT_name("wordaddr")
+      70        .dwattr $C$DW$4, DW_AT_TI_symbol_name("wordaddr")
+      71        .dwattr $C$DW$4, DW_AT_type(*$C$DW$T$56)
+      72        .dwattr $C$DW$4, DW_AT_location[DW_OP_reg4]
+      73
+      74        .dwcfi  cfa_offset, 0
+      75;*** 37 -----------------------    wordaddr = (volatile unsigned short *)mailbox.ddrmem_base_physical;
+      76;***    -----------------------    #pragma MUST_ITERATE(131072, 131072, 131072)
+      77;***    -----------------------    #pragma LOOP_FLAGS(0u)
+      78;*** 38 -----------------------    n = 0u;
+      79        .dwpsn  file "pru1_ddrmem.c",line 37,column 30,is_stmt,isa 0
+      80;----------------------------------------------------------------------
+      81;  37 | volatile uint16_t *wordaddr = mailbox.ddrmem_base_physical->memory.word
+      82;     | s;                                                                     
+      83;----------------------------------------------------------------------
+      84 00000000 000880240000C0!         LDI32     r0, ||mailbox||+8     ; [ALU_PRU] |37| mailbox
+         00000007 00000021004024 
+      85        .dwpsn  file "pru1_ddrmem.c",line 38,column 14,is_stmt,isa 0
+      86;----------------------------------------------------------------------
+      87;  38 | for (n = 0; n < UNIBUS_WORDCOUNT ;  n++)                               
+      88;----------------------------------------------------------------------
+      89 00000008 00008E240002CE          LDI32     r14, 0x00020000       ; [ALU_PRU] |38| 
+         0000000f 00000000004024 
+      90        .dwpsn  file "pru1_ddrmem.c",line 37,column 30,is_stmt,isa 0
+      91 00000010 000000F1002081          LBBO      &r1, r0, 0, 4         ; [ALU_PRU] |37| wordaddr
+      92        .dwpsn  file "pru1_ddrmem.c",line 38,column 7,is_stmt,isa 0
+      93 00000014 0000002EFF8180          ZERO      &r0, 4                ; [ALU_PRU] |38| n
+      94;* --------------------------------------------------------------------------*
+      95;*   BEGIN LOOP ||$C$L1||
+      96;*
+      97;*   Loop source line                : 38
+      98;*   Loop closing brace source line  : 39
+      99;*   Known Minimum Trip Count        : 131072
+     100;*   Known Maximum Trip Count        : 131072
+     101;*   Known Max Trip Count Factor     : 131072
+     102;* --------------------------------------------------------------------------*
+     103 00000018                 ||$C$L1||:    
+     104;***    -----------------------g2:
+     105;*** 39 -----------------------    *wordaddr = n;
+     106;*** 39 -----------------------    ++wordaddr;
+     107;*** 38 -----------------------    if ( (++n) < 131072u ) goto g2;
+     108;***    -----------------------    return;
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE    3
+
+     109        .dwpsn  file "pru1_ddrmem.c",line 39,column 3,is_stmt,isa 0
+     110;----------------------------------------------------------------------
+     111;  39 | *wordaddr++ = n ;                                                      
+     112;----------------------------------------------------------------------
+     113 00000018 000000E1000180          SBBO      &r0.w0, r1, 0, 2      ; [ALU_PRU] |39| wordaddr,n
+     114 0000001c 0000000102E1E1          ADD       r1, r1, 0x02          ; [ALU_PRU] |39| wordaddr,wordaddr
+     115        .dwpsn  file "pru1_ddrmem.c",line 38,column 14,is_stmt,isa 0
+     116 00000020 0000000101E0E0          ADD       r0, r0, 0x01          ; [ALU_PRU] |38| n,n
+     117 00000024 0000004EE0EEFD          QBLT      ||$C$L1||, r14, r0    ; [ALU_PRU] |38| n
+     118;* --------------------------------------------------------------------------*
+     119$C$DW$5 .dwtag  DW_TAG_TI_branch
+     120        .dwattr $C$DW$5, DW_AT_low_pc(0x00)
+     121        .dwattr $C$DW$5, DW_AT_TI_return
+     122
+     123 00000028 00000020C30000          JMP       r3.w2                 ; [ALU_PRU] 
+     124        .dwattr $C$DW$2, DW_AT_TI_end_file("pru1_ddrmem.c")
+     125        .dwattr $C$DW$2, DW_AT_TI_end_line(0x28)
+     126        .dwattr $C$DW$2, DW_AT_TI_end_column(0x01)
+     127        .dwendentry
+     128        .dwendtag $C$DW$2
+     129
+     130;*****************************************************************************
+     131;* UNDEFINED EXTERNAL REFERENCES                                             *
+     132;*****************************************************************************
+     133        .global ||mailbox||
+     134
+     135;******************************************************************************
+     136;* TYPE INFORMATION                                                           *
+     137;******************************************************************************
+     138
+     139$C$DW$T$19      .dwtag  DW_TAG_structure_type
+     140        .dwattr $C$DW$T$19, DW_AT_byte_size(0x40000)
+     141$C$DW$6 .dwtag  DW_TAG_member
+     142        .dwattr $C$DW$6, DW_AT_type(*$C$DW$T$39)
+     143        .dwattr $C$DW$6, DW_AT_name("$P$T0")
+     144        .dwattr $C$DW$6, DW_AT_TI_symbol_name("$P$T0")
+     145        .dwattr $C$DW$6, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     146        .dwattr $C$DW$6, DW_AT_accessibility(DW_ACCESS_public)
+     147        .dwattr $C$DW$6, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/uni
+     148        .dwattr $C$DW$6, DW_AT_decl_line(0x34)
+     149        .dwattr $C$DW$6, DW_AT_decl_column(0x02)
+     150
+     151        .dwattr $C$DW$T$19, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     152        .dwattr $C$DW$T$19, DW_AT_decl_line(0x33)
+     153        .dwattr $C$DW$T$19, DW_AT_decl_column(0x10)
+     154        .dwendtag $C$DW$T$19
+     155
+     156$C$DW$T$20      .dwtag  DW_TAG_typedef
+     157        .dwattr $C$DW$T$20, DW_AT_name("unibus_memory_t")
+     158        .dwattr $C$DW$T$20, DW_AT_type(*$C$DW$T$19)
+     159        .dwattr $C$DW$T$20, DW_AT_language(DW_LANG_C)
+     160        .dwattr $C$DW$T$20, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     161        .dwattr $C$DW$T$20, DW_AT_decl_line(0x38)
+     162        .dwattr $C$DW$T$20, DW_AT_decl_column(0x03)
+     163
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE    4
+
+     164
+     165$C$DW$T$21      .dwtag  DW_TAG_structure_type
+     166        .dwattr $C$DW$T$21, DW_AT_byte_size(0x40000)
+     167$C$DW$7 .dwtag  DW_TAG_member
+     168        .dwattr $C$DW$7, DW_AT_type(*$C$DW$T$20)
+     169        .dwattr $C$DW$7, DW_AT_name("memory")
+     170        .dwattr $C$DW$7, DW_AT_TI_symbol_name("memory")
+     171        .dwattr $C$DW$7, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     172        .dwattr $C$DW$7, DW_AT_accessibility(DW_ACCESS_public)
+     173        .dwattr $C$DW$7, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ddr
+     174        .dwattr $C$DW$7, DW_AT_decl_line(0x17)
+     175        .dwattr $C$DW$7, DW_AT_decl_column(0x12)
+     176
+     177        .dwattr $C$DW$T$21, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     178        .dwattr $C$DW$T$21, DW_AT_decl_line(0x14)
+     179        .dwattr $C$DW$T$21, DW_AT_decl_column(0x10)
+     180        .dwendtag $C$DW$T$21
+     181
+     182$C$DW$T$32      .dwtag  DW_TAG_typedef
+     183        .dwattr $C$DW$T$32, DW_AT_name("ddrmem_t")
+     184        .dwattr $C$DW$T$32, DW_AT_type(*$C$DW$T$21)
+     185        .dwattr $C$DW$T$32, DW_AT_language(DW_LANG_C)
+     186        .dwattr $C$DW$T$32, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     187        .dwattr $C$DW$T$32, DW_AT_decl_line(0x18)
+     188        .dwattr $C$DW$T$32, DW_AT_decl_column(0x03)
+     189
+     190$C$DW$T$33      .dwtag  DW_TAG_volatile_type
+     191        .dwattr $C$DW$T$33, DW_AT_type(*$C$DW$T$32)
+     192
+     193$C$DW$T$34      .dwtag  DW_TAG_pointer_type
+     194        .dwattr $C$DW$T$34, DW_AT_type(*$C$DW$T$33)
+     195        .dwattr $C$DW$T$34, DW_AT_address_class(0x20)
+     196
+     197
+     198$C$DW$T$25      .dwtag  DW_TAG_structure_type
+     199        .dwattr $C$DW$T$25, DW_AT_byte_size(0x0c)
+     200$C$DW$8 .dwtag  DW_TAG_member
+     201        .dwattr $C$DW$8, DW_AT_type(*$C$DW$T$22)
+     202        .dwattr $C$DW$8, DW_AT_name("eventmask")
+     203        .dwattr $C$DW$8, DW_AT_TI_symbol_name("eventmask")
+     204        .dwattr $C$DW$8, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     205        .dwattr $C$DW$8, DW_AT_accessibility(DW_ACCESS_public)
+     206        .dwattr $C$DW$8, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/mai
+     207        .dwattr $C$DW$8, DW_AT_decl_line(0x7a)
+     208        .dwattr $C$DW$8, DW_AT_decl_column(0x0a)
+     209
+     210$C$DW$9 .dwtag  DW_TAG_member
+     211        .dwattr $C$DW$9, DW_AT_type(*$C$DW$T$22)
+     212        .dwattr $C$DW$9, DW_AT_name("unibus_control")
+     213        .dwattr $C$DW$9, DW_AT_TI_symbol_name("unibus_control")
+     214        .dwattr $C$DW$9, DW_AT_data_member_location[DW_OP_plus_uconst 0x1]
+     215        .dwattr $C$DW$9, DW_AT_accessibility(DW_ACCESS_public)
+     216        .dwattr $C$DW$9, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/mai
+     217        .dwattr $C$DW$9, DW_AT_decl_line(0x7d)
+     218        .dwattr $C$DW$9, DW_AT_decl_column(0x0a)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE    5
+
+     219
+     220$C$DW$10        .dwtag  DW_TAG_member
+     221        .dwattr $C$DW$10, DW_AT_type(*$C$DW$T$22)
+     222        .dwattr $C$DW$10, DW_AT_name("device_handle")
+     223        .dwattr $C$DW$10, DW_AT_TI_symbol_name("device_handle")
+     224        .dwattr $C$DW$10, DW_AT_data_member_location[DW_OP_plus_uconst 0x2]
+     225        .dwattr $C$DW$10, DW_AT_accessibility(DW_ACCESS_public)
+     226        .dwattr $C$DW$10, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     227        .dwattr $C$DW$10, DW_AT_decl_line(0x7f)
+     228        .dwattr $C$DW$10, DW_AT_decl_column(0x0a)
+     229
+     230$C$DW$11        .dwtag  DW_TAG_member
+     231        .dwattr $C$DW$11, DW_AT_type(*$C$DW$T$22)
+     232        .dwattr $C$DW$11, DW_AT_name("device_register_idx")
+     233        .dwattr $C$DW$11, DW_AT_TI_symbol_name("device_register_idx")
+     234        .dwattr $C$DW$11, DW_AT_data_member_location[DW_OP_plus_uconst 0x3]
+     235        .dwattr $C$DW$11, DW_AT_accessibility(DW_ACCESS_public)
+     236        .dwattr $C$DW$11, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     237        .dwattr $C$DW$11, DW_AT_decl_line(0x81)
+     238        .dwattr $C$DW$11, DW_AT_decl_column(0x0a)
+     239
+     240$C$DW$12        .dwtag  DW_TAG_member
+     241        .dwattr $C$DW$12, DW_AT_type(*$C$DW$T$23)
+     242        .dwattr $C$DW$12, DW_AT_name("addr")
+     243        .dwattr $C$DW$12, DW_AT_TI_symbol_name("addr")
+     244        .dwattr $C$DW$12, DW_AT_data_member_location[DW_OP_plus_uconst 0x4]
+     245        .dwattr $C$DW$12, DW_AT_accessibility(DW_ACCESS_public)
+     246        .dwattr $C$DW$12, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     247        .dwattr $C$DW$12, DW_AT_decl_line(0x83)
+     248        .dwattr $C$DW$12, DW_AT_decl_column(0x0b)
+     249
+     250$C$DW$13        .dwtag  DW_TAG_member
+     251        .dwattr $C$DW$13, DW_AT_type(*$C$DW$T$24)
+     252        .dwattr $C$DW$13, DW_AT_name("data")
+     253        .dwattr $C$DW$13, DW_AT_TI_symbol_name("data")
+     254        .dwattr $C$DW$13, DW_AT_data_member_location[DW_OP_plus_uconst 0x8]
+     255        .dwattr $C$DW$13, DW_AT_accessibility(DW_ACCESS_public)
+     256        .dwattr $C$DW$13, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     257        .dwattr $C$DW$13, DW_AT_decl_line(0x84)
+     258        .dwattr $C$DW$13, DW_AT_decl_column(0x0b)
+     259
+     260$C$DW$14        .dwtag  DW_TAG_member
+     261        .dwattr $C$DW$14, DW_AT_type(*$C$DW$T$22)
+     262        .dwattr $C$DW$14, DW_AT_name("initialization_signals_prev")
+     263        .dwattr $C$DW$14, DW_AT_TI_symbol_name("initialization_signals_prev")
+     264        .dwattr $C$DW$14, DW_AT_data_member_location[DW_OP_plus_uconst 0xa]
+     265        .dwattr $C$DW$14, DW_AT_accessibility(DW_ACCESS_public)
+     266        .dwattr $C$DW$14, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     267        .dwattr $C$DW$14, DW_AT_decl_line(0x87)
+     268        .dwattr $C$DW$14, DW_AT_decl_column(0x0a)
+     269
+     270$C$DW$15        .dwtag  DW_TAG_member
+     271        .dwattr $C$DW$15, DW_AT_type(*$C$DW$T$22)
+     272        .dwattr $C$DW$15, DW_AT_name("initialization_signals_cur")
+     273        .dwattr $C$DW$15, DW_AT_TI_symbol_name("initialization_signals_cur")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE    6
+
+     274        .dwattr $C$DW$15, DW_AT_data_member_location[DW_OP_plus_uconst 0xb]
+     275        .dwattr $C$DW$15, DW_AT_accessibility(DW_ACCESS_public)
+     276        .dwattr $C$DW$15, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     277        .dwattr $C$DW$15, DW_AT_decl_line(0x88)
+     278        .dwattr $C$DW$15, DW_AT_decl_column(0x0a)
+     279
+     280        .dwattr $C$DW$T$25, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     281        .dwattr $C$DW$T$25, DW_AT_decl_line(0x79)
+     282        .dwattr $C$DW$T$25, DW_AT_decl_column(0x10)
+     283        .dwendtag $C$DW$T$25
+     284
+     285$C$DW$T$35      .dwtag  DW_TAG_typedef
+     286        .dwattr $C$DW$T$35, DW_AT_name("mailbox_events_t")
+     287        .dwattr $C$DW$T$35, DW_AT_type(*$C$DW$T$25)
+     288        .dwattr $C$DW$T$35, DW_AT_language(DW_LANG_C)
+     289        .dwattr $C$DW$T$35, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     290        .dwattr $C$DW$T$35, DW_AT_decl_line(0x8b)
+     291        .dwattr $C$DW$T$35, DW_AT_decl_column(0x03)
+     292
+     293
+     294$C$DW$T$26      .dwtag  DW_TAG_structure_type
+     295        .dwattr $C$DW$T$26, DW_AT_byte_size(0x08)
+     296$C$DW$16        .dwtag  DW_TAG_member
+     297        .dwattr $C$DW$16, DW_AT_type(*$C$DW$T$23)
+     298        .dwattr $C$DW$16, DW_AT_name("addr")
+     299        .dwattr $C$DW$16, DW_AT_TI_symbol_name("addr")
+     300        .dwattr $C$DW$16, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     301        .dwattr $C$DW$16, DW_AT_accessibility(DW_ACCESS_public)
+     302        .dwattr $C$DW$16, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     303        .dwattr $C$DW$16, DW_AT_decl_line(0x4c)
+     304        .dwattr $C$DW$16, DW_AT_decl_column(0x0b)
+     305
+     306$C$DW$17        .dwtag  DW_TAG_member
+     307        .dwattr $C$DW$17, DW_AT_type(*$C$DW$T$23)
+     308        .dwattr $C$DW$17, DW_AT_name("val")
+     309        .dwattr $C$DW$17, DW_AT_TI_symbol_name("val")
+     310        .dwattr $C$DW$17, DW_AT_data_member_location[DW_OP_plus_uconst 0x4]
+     311        .dwattr $C$DW$17, DW_AT_accessibility(DW_ACCESS_public)
+     312        .dwattr $C$DW$17, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     313        .dwattr $C$DW$17, DW_AT_decl_line(0x4d)
+     314        .dwattr $C$DW$17, DW_AT_decl_column(0x0b)
+     315
+     316        .dwattr $C$DW$T$26, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     317        .dwattr $C$DW$T$26, DW_AT_decl_line(0x4b)
+     318        .dwattr $C$DW$T$26, DW_AT_decl_column(0x10)
+     319        .dwendtag $C$DW$T$26
+     320
+     321$C$DW$T$40      .dwtag  DW_TAG_typedef
+     322        .dwattr $C$DW$T$40, DW_AT_name("mailbox_test_t")
+     323        .dwattr $C$DW$T$40, DW_AT_type(*$C$DW$T$26)
+     324        .dwattr $C$DW$T$40, DW_AT_language(DW_LANG_C)
+     325        .dwattr $C$DW$T$40, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     326        .dwattr $C$DW$T$40, DW_AT_decl_line(0x4e)
+     327        .dwattr $C$DW$T$40, DW_AT_decl_column(0x03)
+     328
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE    7
+
+     329
+     330$C$DW$T$27      .dwtag  DW_TAG_structure_type
+     331        .dwattr $C$DW$T$27, DW_AT_byte_size(0x0c)
+     332$C$DW$18        .dwtag  DW_TAG_member
+     333        .dwattr $C$DW$18, DW_AT_type(*$C$DW$T$23)
+     334        .dwattr $C$DW$18, DW_AT_name("addr")
+     335        .dwattr $C$DW$18, DW_AT_TI_symbol_name("addr")
+     336        .dwattr $C$DW$18, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     337        .dwattr $C$DW$18, DW_AT_accessibility(DW_ACCESS_public)
+     338        .dwattr $C$DW$18, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     339        .dwattr $C$DW$18, DW_AT_decl_line(0x51)
+     340        .dwattr $C$DW$18, DW_AT_decl_column(0x0b)
+     341
+     342$C$DW$19        .dwtag  DW_TAG_member
+     343        .dwattr $C$DW$19, DW_AT_type(*$C$DW$T$23)
+     344        .dwattr $C$DW$19, DW_AT_name("bitmask")
+     345        .dwattr $C$DW$19, DW_AT_TI_symbol_name("bitmask")
+     346        .dwattr $C$DW$19, DW_AT_data_member_location[DW_OP_plus_uconst 0x4]
+     347        .dwattr $C$DW$19, DW_AT_accessibility(DW_ACCESS_public)
+     348        .dwattr $C$DW$19, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     349        .dwattr $C$DW$19, DW_AT_decl_line(0x52)
+     350        .dwattr $C$DW$19, DW_AT_decl_column(0x0b)
+     351
+     352$C$DW$20        .dwtag  DW_TAG_member
+     353        .dwattr $C$DW$20, DW_AT_type(*$C$DW$T$23)
+     354        .dwattr $C$DW$20, DW_AT_name("val")
+     355        .dwattr $C$DW$20, DW_AT_TI_symbol_name("val")
+     356        .dwattr $C$DW$20, DW_AT_data_member_location[DW_OP_plus_uconst 0x8]
+     357        .dwattr $C$DW$20, DW_AT_accessibility(DW_ACCESS_public)
+     358        .dwattr $C$DW$20, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     359        .dwattr $C$DW$20, DW_AT_decl_line(0x53)
+     360        .dwattr $C$DW$20, DW_AT_decl_column(0x0b)
+     361
+     362        .dwattr $C$DW$T$27, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     363        .dwattr $C$DW$T$27, DW_AT_decl_line(0x50)
+     364        .dwattr $C$DW$T$27, DW_AT_decl_column(0x10)
+     365        .dwendtag $C$DW$T$27
+     366
+     367$C$DW$T$41      .dwtag  DW_TAG_typedef
+     368        .dwattr $C$DW$T$41, DW_AT_name("mailbox_buslatch_t")
+     369        .dwattr $C$DW$T$41, DW_AT_type(*$C$DW$T$27)
+     370        .dwattr $C$DW$T$41, DW_AT_language(DW_LANG_C)
+     371        .dwattr $C$DW$T$41, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     372        .dwattr $C$DW$T$41, DW_AT_decl_line(0x54)
+     373        .dwattr $C$DW$T$41, DW_AT_decl_column(0x03)
+     374
+     375
+     376$C$DW$T$28      .dwtag  DW_TAG_structure_type
+     377        .dwattr $C$DW$T$28, DW_AT_byte_size(0x04)
+     378$C$DW$21        .dwtag  DW_TAG_member
+     379        .dwattr $C$DW$21, DW_AT_type(*$C$DW$T$22)
+     380        .dwattr $C$DW$21, DW_AT_name("addr_0_7")
+     381        .dwattr $C$DW$21, DW_AT_TI_symbol_name("addr_0_7")
+     382        .dwattr $C$DW$21, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     383        .dwattr $C$DW$21, DW_AT_accessibility(DW_ACCESS_public)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE    8
+
+     384        .dwattr $C$DW$21, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     385        .dwattr $C$DW$21, DW_AT_decl_line(0x57)
+     386        .dwattr $C$DW$21, DW_AT_decl_column(0x0a)
+     387
+     388$C$DW$22        .dwtag  DW_TAG_member
+     389        .dwattr $C$DW$22, DW_AT_type(*$C$DW$T$22)
+     390        .dwattr $C$DW$22, DW_AT_name("addr_8_15")
+     391        .dwattr $C$DW$22, DW_AT_TI_symbol_name("addr_8_15")
+     392        .dwattr $C$DW$22, DW_AT_data_member_location[DW_OP_plus_uconst 0x1]
+     393        .dwattr $C$DW$22, DW_AT_accessibility(DW_ACCESS_public)
+     394        .dwattr $C$DW$22, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     395        .dwattr $C$DW$22, DW_AT_decl_line(0x58)
+     396        .dwattr $C$DW$22, DW_AT_decl_column(0x0a)
+     397
+     398$C$DW$23        .dwtag  DW_TAG_member
+     399        .dwattr $C$DW$23, DW_AT_type(*$C$DW$T$22)
+     400        .dwattr $C$DW$23, DW_AT_name("data_0_7")
+     401        .dwattr $C$DW$23, DW_AT_TI_symbol_name("data_0_7")
+     402        .dwattr $C$DW$23, DW_AT_data_member_location[DW_OP_plus_uconst 0x2]
+     403        .dwattr $C$DW$23, DW_AT_accessibility(DW_ACCESS_public)
+     404        .dwattr $C$DW$23, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     405        .dwattr $C$DW$23, DW_AT_decl_line(0x59)
+     406        .dwattr $C$DW$23, DW_AT_decl_column(0x0a)
+     407
+     408$C$DW$24        .dwtag  DW_TAG_member
+     409        .dwattr $C$DW$24, DW_AT_type(*$C$DW$T$22)
+     410        .dwattr $C$DW$24, DW_AT_name("data_8_15")
+     411        .dwattr $C$DW$24, DW_AT_TI_symbol_name("data_8_15")
+     412        .dwattr $C$DW$24, DW_AT_data_member_location[DW_OP_plus_uconst 0x3]
+     413        .dwattr $C$DW$24, DW_AT_accessibility(DW_ACCESS_public)
+     414        .dwattr $C$DW$24, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     415        .dwattr $C$DW$24, DW_AT_decl_line(0x5a)
+     416        .dwattr $C$DW$24, DW_AT_decl_column(0x0a)
+     417
+     418        .dwattr $C$DW$T$28, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     419        .dwattr $C$DW$T$28, DW_AT_decl_line(0x56)
+     420        .dwattr $C$DW$T$28, DW_AT_decl_column(0x10)
+     421        .dwendtag $C$DW$T$28
+     422
+     423$C$DW$T$42      .dwtag  DW_TAG_typedef
+     424        .dwattr $C$DW$T$42, DW_AT_name("mailbox_buslatch_test_t")
+     425        .dwattr $C$DW$T$42, DW_AT_type(*$C$DW$T$28)
+     426        .dwattr $C$DW$T$42, DW_AT_language(DW_LANG_C)
+     427        .dwattr $C$DW$T$42, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     428        .dwattr $C$DW$T$42, DW_AT_decl_line(0x5b)
+     429        .dwattr $C$DW$T$42, DW_AT_decl_column(0x03)
+     430
+     431
+     432$C$DW$T$30      .dwtag  DW_TAG_structure_type
+     433        .dwattr $C$DW$T$30, DW_AT_byte_size(0x40c)
+     434$C$DW$25        .dwtag  DW_TAG_member
+     435        .dwattr $C$DW$25, DW_AT_type(*$C$DW$T$22)
+     436        .dwattr $C$DW$25, DW_AT_name("cur_status")
+     437        .dwattr $C$DW$25, DW_AT_TI_symbol_name("cur_status")
+     438        .dwattr $C$DW$25, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE    9
+
+     439        .dwattr $C$DW$25, DW_AT_accessibility(DW_ACCESS_public)
+     440        .dwattr $C$DW$25, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     441        .dwattr $C$DW$25, DW_AT_decl_line(0x61)
+     442        .dwattr $C$DW$25, DW_AT_decl_column(0x0a)
+     443
+     444$C$DW$26        .dwtag  DW_TAG_member
+     445        .dwattr $C$DW$26, DW_AT_type(*$C$DW$T$22)
+     446        .dwattr $C$DW$26, DW_AT_name("control")
+     447        .dwattr $C$DW$26, DW_AT_TI_symbol_name("control")
+     448        .dwattr $C$DW$26, DW_AT_data_member_location[DW_OP_plus_uconst 0x1]
+     449        .dwattr $C$DW$26, DW_AT_accessibility(DW_ACCESS_public)
+     450        .dwattr $C$DW$26, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     451        .dwattr $C$DW$26, DW_AT_decl_line(0x62)
+     452        .dwattr $C$DW$26, DW_AT_decl_column(0x0a)
+     453
+     454$C$DW$27        .dwtag  DW_TAG_member
+     455        .dwattr $C$DW$27, DW_AT_type(*$C$DW$T$24)
+     456        .dwattr $C$DW$27, DW_AT_name("wordcount")
+     457        .dwattr $C$DW$27, DW_AT_TI_symbol_name("wordcount")
+     458        .dwattr $C$DW$27, DW_AT_data_member_location[DW_OP_plus_uconst 0x2]
+     459        .dwattr $C$DW$27, DW_AT_accessibility(DW_ACCESS_public)
+     460        .dwattr $C$DW$27, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     461        .dwattr $C$DW$27, DW_AT_decl_line(0x63)
+     462        .dwattr $C$DW$27, DW_AT_decl_column(0x0b)
+     463
+     464$C$DW$28        .dwtag  DW_TAG_member
+     465        .dwattr $C$DW$28, DW_AT_type(*$C$DW$T$23)
+     466        .dwattr $C$DW$28, DW_AT_name("cur_addr")
+     467        .dwattr $C$DW$28, DW_AT_TI_symbol_name("cur_addr")
+     468        .dwattr $C$DW$28, DW_AT_data_member_location[DW_OP_plus_uconst 0x4]
+     469        .dwattr $C$DW$28, DW_AT_accessibility(DW_ACCESS_public)
+     470        .dwattr $C$DW$28, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     471        .dwattr $C$DW$28, DW_AT_decl_line(0x64)
+     472        .dwattr $C$DW$28, DW_AT_decl_column(0x0b)
+     473
+     474$C$DW$29        .dwtag  DW_TAG_member
+     475        .dwattr $C$DW$29, DW_AT_type(*$C$DW$T$23)
+     476        .dwattr $C$DW$29, DW_AT_name("startaddr")
+     477        .dwattr $C$DW$29, DW_AT_TI_symbol_name("startaddr")
+     478        .dwattr $C$DW$29, DW_AT_data_member_location[DW_OP_plus_uconst 0x8]
+     479        .dwattr $C$DW$29, DW_AT_accessibility(DW_ACCESS_public)
+     480        .dwattr $C$DW$29, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     481        .dwattr $C$DW$29, DW_AT_decl_line(0x65)
+     482        .dwattr $C$DW$29, DW_AT_decl_column(0x0b)
+     483
+     484$C$DW$30        .dwtag  DW_TAG_member
+     485        .dwattr $C$DW$30, DW_AT_type(*$C$DW$T$29)
+     486        .dwattr $C$DW$30, DW_AT_name("words")
+     487        .dwattr $C$DW$30, DW_AT_TI_symbol_name("words")
+     488        .dwattr $C$DW$30, DW_AT_data_member_location[DW_OP_plus_uconst 0xc]
+     489        .dwattr $C$DW$30, DW_AT_accessibility(DW_ACCESS_public)
+     490        .dwattr $C$DW$30, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     491        .dwattr $C$DW$30, DW_AT_decl_line(0x66)
+     492        .dwattr $C$DW$30, DW_AT_decl_column(0x0b)
+     493
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   10
+
+     494        .dwattr $C$DW$T$30, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     495        .dwattr $C$DW$T$30, DW_AT_decl_line(0x5f)
+     496        .dwattr $C$DW$T$30, DW_AT_decl_column(0x10)
+     497        .dwendtag $C$DW$T$30
+     498
+     499$C$DW$T$43      .dwtag  DW_TAG_typedef
+     500        .dwattr $C$DW$T$43, DW_AT_name("mailbox_dma_t")
+     501        .dwattr $C$DW$T$43, DW_AT_type(*$C$DW$T$30)
+     502        .dwattr $C$DW$T$43, DW_AT_language(DW_LANG_C)
+     503        .dwattr $C$DW$T$43, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     504        .dwattr $C$DW$T$43, DW_AT_decl_line(0x67)
+     505        .dwattr $C$DW$T$43, DW_AT_decl_column(0x03)
+     506
+     507
+     508$C$DW$T$31      .dwtag  DW_TAG_structure_type
+     509        .dwattr $C$DW$T$31, DW_AT_byte_size(0x03)
+     510$C$DW$31        .dwtag  DW_TAG_member
+     511        .dwattr $C$DW$31, DW_AT_type(*$C$DW$T$24)
+     512        .dwattr $C$DW$31, DW_AT_name("vector")
+     513        .dwattr $C$DW$31, DW_AT_TI_symbol_name("vector")
+     514        .dwattr $C$DW$31, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     515        .dwattr $C$DW$31, DW_AT_accessibility(DW_ACCESS_public)
+     516        .dwattr $C$DW$31, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     517        .dwattr $C$DW$31, DW_AT_decl_line(0x6b)
+     518        .dwattr $C$DW$31, DW_AT_decl_column(0x0b)
+     519
+     520$C$DW$32        .dwtag  DW_TAG_member
+     521        .dwattr $C$DW$32, DW_AT_type(*$C$DW$T$22)
+     522        .dwattr $C$DW$32, DW_AT_name("priority_bit")
+     523        .dwattr $C$DW$32, DW_AT_TI_symbol_name("priority_bit")
+     524        .dwattr $C$DW$32, DW_AT_data_member_location[DW_OP_plus_uconst 0x2]
+     525        .dwattr $C$DW$32, DW_AT_accessibility(DW_ACCESS_public)
+     526        .dwattr $C$DW$32, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     527        .dwattr $C$DW$32, DW_AT_decl_line(0x6c)
+     528        .dwattr $C$DW$32, DW_AT_decl_column(0x0a)
+     529
+     530        .dwattr $C$DW$T$31, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     531        .dwattr $C$DW$T$31, DW_AT_decl_line(0x6a)
+     532        .dwattr $C$DW$T$31, DW_AT_decl_column(0x10)
+     533        .dwendtag $C$DW$T$31
+     534
+     535$C$DW$T$44      .dwtag  DW_TAG_typedef
+     536        .dwattr $C$DW$T$44, DW_AT_name("mailbox_intr_t")
+     537        .dwattr $C$DW$T$44, DW_AT_type(*$C$DW$T$31)
+     538        .dwattr $C$DW$T$44, DW_AT_language(DW_LANG_C)
+     539        .dwattr $C$DW$T$44, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     540        .dwattr $C$DW$T$44, DW_AT_decl_line(0x6d)
+     541        .dwattr $C$DW$T$44, DW_AT_decl_column(0x03)
+     542
+     543
+     544$C$DW$T$36      .dwtag  DW_TAG_structure_type
+     545        .dwattr $C$DW$T$36, DW_AT_byte_size(0x424)
+     546$C$DW$33        .dwtag  DW_TAG_member
+     547        .dwattr $C$DW$33, DW_AT_type(*$C$DW$T$23)
+     548        .dwattr $C$DW$33, DW_AT_name("arm2pru_req")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   11
+
+     549        .dwattr $C$DW$33, DW_AT_TI_symbol_name("arm2pru_req")
+     550        .dwattr $C$DW$33, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     551        .dwattr $C$DW$33, DW_AT_accessibility(DW_ACCESS_public)
+     552        .dwattr $C$DW$33, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     553        .dwattr $C$DW$33, DW_AT_decl_line(0x90)
+     554        .dwattr $C$DW$33, DW_AT_decl_column(0x0b)
+     555
+     556$C$DW$34        .dwtag  DW_TAG_member
+     557        .dwattr $C$DW$34, DW_AT_type(*$C$DW$T$23)
+     558        .dwattr $C$DW$34, DW_AT_name("arm2pru_resp")
+     559        .dwattr $C$DW$34, DW_AT_TI_symbol_name("arm2pru_resp")
+     560        .dwattr $C$DW$34, DW_AT_data_member_location[DW_OP_plus_uconst 0x4]
+     561        .dwattr $C$DW$34, DW_AT_accessibility(DW_ACCESS_public)
+     562        .dwattr $C$DW$34, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     563        .dwattr $C$DW$34, DW_AT_decl_line(0x91)
+     564        .dwattr $C$DW$34, DW_AT_decl_column(0x0b)
+     565
+     566$C$DW$35        .dwtag  DW_TAG_member
+     567        .dwattr $C$DW$35, DW_AT_type(*$C$DW$T$34)
+     568        .dwattr $C$DW$35, DW_AT_name("ddrmem_base_physical")
+     569        .dwattr $C$DW$35, DW_AT_TI_symbol_name("ddrmem_base_physical")
+     570        .dwattr $C$DW$35, DW_AT_data_member_location[DW_OP_plus_uconst 0x8]
+     571        .dwattr $C$DW$35, DW_AT_accessibility(DW_ACCESS_public)
+     572        .dwattr $C$DW$35, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     573        .dwattr $C$DW$35, DW_AT_decl_line(0x94)
+     574        .dwattr $C$DW$35, DW_AT_decl_column(0x15)
+     575
+     576$C$DW$36        .dwtag  DW_TAG_member
+     577        .dwattr $C$DW$36, DW_AT_type(*$C$DW$T$35)
+     578        .dwattr $C$DW$36, DW_AT_name("events")
+     579        .dwattr $C$DW$36, DW_AT_TI_symbol_name("events")
+     580        .dwattr $C$DW$36, DW_AT_data_member_location[DW_OP_plus_uconst 0xc]
+     581        .dwattr $C$DW$36, DW_AT_accessibility(DW_ACCESS_public)
+     582        .dwattr $C$DW$36, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     583        .dwattr $C$DW$36, DW_AT_decl_line(0x97)
+     584        .dwattr $C$DW$36, DW_AT_decl_column(0x13)
+     585
+     586$C$DW$37        .dwtag  DW_TAG_member
+     587        .dwattr $C$DW$37, DW_AT_type(*$C$DW$T$45)
+     588        .dwattr $C$DW$37, DW_AT_name("$P$T1")
+     589        .dwattr $C$DW$37, DW_AT_TI_symbol_name("$P$T1")
+     590        .dwattr $C$DW$37, DW_AT_data_member_location[DW_OP_plus_uconst 0x18]
+     591        .dwattr $C$DW$37, DW_AT_accessibility(DW_ACCESS_public)
+     592        .dwattr $C$DW$37, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     593        .dwattr $C$DW$37, DW_AT_decl_line(0x9a)
+     594        .dwattr $C$DW$37, DW_AT_decl_column(0x02)
+     595
+     596        .dwattr $C$DW$T$36, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     597        .dwattr $C$DW$T$36, DW_AT_decl_line(0x8d)
+     598        .dwattr $C$DW$T$36, DW_AT_decl_column(0x10)
+     599        .dwendtag $C$DW$T$36
+     600
+     601$C$DW$T$50      .dwtag  DW_TAG_typedef
+     602        .dwattr $C$DW$T$50, DW_AT_name("mailbox_t")
+     603        .dwattr $C$DW$T$50, DW_AT_type(*$C$DW$T$36)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   12
+
+     604        .dwattr $C$DW$T$50, DW_AT_language(DW_LANG_C)
+     605        .dwattr $C$DW$T$50, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     606        .dwattr $C$DW$T$50, DW_AT_decl_line(0xa1)
+     607        .dwattr $C$DW$T$50, DW_AT_decl_column(0x03)
+     608
+     609$C$DW$T$51      .dwtag  DW_TAG_volatile_type
+     610        .dwattr $C$DW$T$51, DW_AT_type(*$C$DW$T$50)
+     611
+     612
+     613$C$DW$T$39      .dwtag  DW_TAG_union_type
+     614        .dwattr $C$DW$T$39, DW_AT_byte_size(0x40000)
+     615$C$DW$38        .dwtag  DW_TAG_member
+     616        .dwattr $C$DW$38, DW_AT_type(*$C$DW$T$37)
+     617        .dwattr $C$DW$38, DW_AT_name("words")
+     618        .dwattr $C$DW$38, DW_AT_TI_symbol_name("words")
+     619        .dwattr $C$DW$38, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     620        .dwattr $C$DW$38, DW_AT_accessibility(DW_ACCESS_public)
+     621        .dwattr $C$DW$38, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/un
+     622        .dwattr $C$DW$38, DW_AT_decl_line(0x35)
+     623        .dwattr $C$DW$38, DW_AT_decl_column(0x0b)
+     624
+     625$C$DW$39        .dwtag  DW_TAG_member
+     626        .dwattr $C$DW$39, DW_AT_type(*$C$DW$T$38)
+     627        .dwattr $C$DW$39, DW_AT_name("bytes")
+     628        .dwattr $C$DW$39, DW_AT_TI_symbol_name("bytes")
+     629        .dwattr $C$DW$39, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     630        .dwattr $C$DW$39, DW_AT_accessibility(DW_ACCESS_public)
+     631        .dwattr $C$DW$39, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/un
+     632        .dwattr $C$DW$39, DW_AT_decl_line(0x36)
+     633        .dwattr $C$DW$39, DW_AT_decl_column(0x0b)
+     634
+     635        .dwattr $C$DW$T$39, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     636        .dwattr $C$DW$T$39, DW_AT_decl_line(0x34)
+     637        .dwattr $C$DW$T$39, DW_AT_decl_column(0x08)
+     638        .dwendtag $C$DW$T$39
+     639
+     640
+     641$C$DW$T$45      .dwtag  DW_TAG_union_type
+     642        .dwattr $C$DW$T$45, DW_AT_byte_size(0x40c)
+     643$C$DW$40        .dwtag  DW_TAG_member
+     644        .dwattr $C$DW$40, DW_AT_type(*$C$DW$T$40)
+     645        .dwattr $C$DW$40, DW_AT_name("mailbox_test")
+     646        .dwattr $C$DW$40, DW_AT_TI_symbol_name("mailbox_test")
+     647        .dwattr $C$DW$40, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     648        .dwattr $C$DW$40, DW_AT_accessibility(DW_ACCESS_public)
+     649        .dwattr $C$DW$40, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     650        .dwattr $C$DW$40, DW_AT_decl_line(0x9b)
+     651        .dwattr $C$DW$40, DW_AT_decl_column(0x12)
+     652
+     653$C$DW$41        .dwtag  DW_TAG_member
+     654        .dwattr $C$DW$41, DW_AT_type(*$C$DW$T$41)
+     655        .dwattr $C$DW$41, DW_AT_name("buslatch")
+     656        .dwattr $C$DW$41, DW_AT_TI_symbol_name("buslatch")
+     657        .dwattr $C$DW$41, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     658        .dwattr $C$DW$41, DW_AT_accessibility(DW_ACCESS_public)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   13
+
+     659        .dwattr $C$DW$41, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     660        .dwattr $C$DW$41, DW_AT_decl_line(0x9c)
+     661        .dwattr $C$DW$41, DW_AT_decl_column(0x16)
+     662
+     663$C$DW$42        .dwtag  DW_TAG_member
+     664        .dwattr $C$DW$42, DW_AT_type(*$C$DW$T$42)
+     665        .dwattr $C$DW$42, DW_AT_name("buslatch_test")
+     666        .dwattr $C$DW$42, DW_AT_TI_symbol_name("buslatch_test")
+     667        .dwattr $C$DW$42, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     668        .dwattr $C$DW$42, DW_AT_accessibility(DW_ACCESS_public)
+     669        .dwattr $C$DW$42, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     670        .dwattr $C$DW$42, DW_AT_decl_line(0x9d)
+     671        .dwattr $C$DW$42, DW_AT_decl_column(0x1b)
+     672
+     673$C$DW$43        .dwtag  DW_TAG_member
+     674        .dwattr $C$DW$43, DW_AT_type(*$C$DW$T$43)
+     675        .dwattr $C$DW$43, DW_AT_name("dma")
+     676        .dwattr $C$DW$43, DW_AT_TI_symbol_name("dma")
+     677        .dwattr $C$DW$43, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     678        .dwattr $C$DW$43, DW_AT_accessibility(DW_ACCESS_public)
+     679        .dwattr $C$DW$43, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     680        .dwattr $C$DW$43, DW_AT_decl_line(0x9e)
+     681        .dwattr $C$DW$43, DW_AT_decl_column(0x11)
+     682
+     683$C$DW$44        .dwtag  DW_TAG_member
+     684        .dwattr $C$DW$44, DW_AT_type(*$C$DW$T$44)
+     685        .dwattr $C$DW$44, DW_AT_name("intr")
+     686        .dwattr $C$DW$44, DW_AT_TI_symbol_name("intr")
+     687        .dwattr $C$DW$44, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     688        .dwattr $C$DW$44, DW_AT_accessibility(DW_ACCESS_public)
+     689        .dwattr $C$DW$44, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/ma
+     690        .dwattr $C$DW$44, DW_AT_decl_line(0x9f)
+     691        .dwattr $C$DW$44, DW_AT_decl_column(0x12)
+     692
+     693        .dwattr $C$DW$T$45, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/
+     694        .dwattr $C$DW$T$45, DW_AT_decl_line(0x9a)
+     695        .dwattr $C$DW$T$45, DW_AT_decl_column(0x08)
+     696        .dwendtag $C$DW$T$45
+     697
+     698$C$DW$T$2       .dwtag  DW_TAG_unspecified_type
+     699        .dwattr $C$DW$T$2, DW_AT_name("void")
+     700
+     701$C$DW$T$4       .dwtag  DW_TAG_base_type
+     702        .dwattr $C$DW$T$4, DW_AT_encoding(DW_ATE_boolean)
+     703        .dwattr $C$DW$T$4, DW_AT_name("bool")
+     704        .dwattr $C$DW$T$4, DW_AT_byte_size(0x01)
+     705
+     706$C$DW$T$5       .dwtag  DW_TAG_base_type
+     707        .dwattr $C$DW$T$5, DW_AT_encoding(DW_ATE_signed_char)
+     708        .dwattr $C$DW$T$5, DW_AT_name("signed char")
+     709        .dwattr $C$DW$T$5, DW_AT_byte_size(0x01)
+     710
+     711$C$DW$T$6       .dwtag  DW_TAG_base_type
+     712        .dwattr $C$DW$T$6, DW_AT_encoding(DW_ATE_unsigned_char)
+     713        .dwattr $C$DW$T$6, DW_AT_name("unsigned char")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   14
+
+     714        .dwattr $C$DW$T$6, DW_AT_byte_size(0x01)
+     715
+     716$C$DW$T$22      .dwtag  DW_TAG_typedef
+     717        .dwattr $C$DW$T$22, DW_AT_name("uint8_t")
+     718        .dwattr $C$DW$T$22, DW_AT_type(*$C$DW$T$6)
+     719        .dwattr $C$DW$T$22, DW_AT_language(DW_LANG_C)
+     720        .dwattr $C$DW$T$22, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     721        .dwattr $C$DW$T$22, DW_AT_decl_line(0x3d)
+     722        .dwattr $C$DW$T$22, DW_AT_decl_column(0x1c)
+     723
+     724
+     725$C$DW$T$38      .dwtag  DW_TAG_array_type
+     726        .dwattr $C$DW$T$38, DW_AT_type(*$C$DW$T$22)
+     727        .dwattr $C$DW$T$38, DW_AT_language(DW_LANG_C)
+     728        .dwattr $C$DW$T$38, DW_AT_byte_size(0x40000)
+     729$C$DW$45        .dwtag  DW_TAG_subrange_type
+     730        .dwattr $C$DW$45, DW_AT_upper_bound(0x3ffff)
+     731
+     732        .dwendtag $C$DW$T$38
+     733
+     734$C$DW$T$7       .dwtag  DW_TAG_base_type
+     735        .dwattr $C$DW$T$7, DW_AT_encoding(DW_ATE_signed_char)
+     736        .dwattr $C$DW$T$7, DW_AT_name("wchar_t")
+     737        .dwattr $C$DW$T$7, DW_AT_byte_size(0x04)
+     738
+     739$C$DW$T$8       .dwtag  DW_TAG_base_type
+     740        .dwattr $C$DW$T$8, DW_AT_encoding(DW_ATE_signed)
+     741        .dwattr $C$DW$T$8, DW_AT_name("short")
+     742        .dwattr $C$DW$T$8, DW_AT_byte_size(0x02)
+     743
+     744$C$DW$T$9       .dwtag  DW_TAG_base_type
+     745        .dwattr $C$DW$T$9, DW_AT_encoding(DW_ATE_unsigned)
+     746        .dwattr $C$DW$T$9, DW_AT_name("unsigned short")
+     747        .dwattr $C$DW$T$9, DW_AT_byte_size(0x02)
+     748
+     749$C$DW$T$24      .dwtag  DW_TAG_typedef
+     750        .dwattr $C$DW$T$24, DW_AT_name("uint16_t")
+     751        .dwattr $C$DW$T$24, DW_AT_type(*$C$DW$T$9)
+     752        .dwattr $C$DW$T$24, DW_AT_language(DW_LANG_C)
+     753        .dwattr $C$DW$T$24, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     754        .dwattr $C$DW$T$24, DW_AT_decl_line(0x3f)
+     755        .dwattr $C$DW$T$24, DW_AT_decl_column(0x1c)
+     756
+     757
+     758$C$DW$T$29      .dwtag  DW_TAG_array_type
+     759        .dwattr $C$DW$T$29, DW_AT_type(*$C$DW$T$24)
+     760        .dwattr $C$DW$T$29, DW_AT_language(DW_LANG_C)
+     761        .dwattr $C$DW$T$29, DW_AT_byte_size(0x400)
+     762$C$DW$46        .dwtag  DW_TAG_subrange_type
+     763        .dwattr $C$DW$46, DW_AT_upper_bound(0x1ff)
+     764
+     765        .dwendtag $C$DW$T$29
+     766
+     767
+     768$C$DW$T$37      .dwtag  DW_TAG_array_type
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   15
+
+     769        .dwattr $C$DW$T$37, DW_AT_type(*$C$DW$T$24)
+     770        .dwattr $C$DW$T$37, DW_AT_language(DW_LANG_C)
+     771        .dwattr $C$DW$T$37, DW_AT_byte_size(0x40000)
+     772$C$DW$47        .dwtag  DW_TAG_subrange_type
+     773        .dwattr $C$DW$47, DW_AT_upper_bound(0x1ffff)
+     774
+     775        .dwendtag $C$DW$T$37
+     776
+     777$C$DW$T$55      .dwtag  DW_TAG_volatile_type
+     778        .dwattr $C$DW$T$55, DW_AT_type(*$C$DW$T$24)
+     779
+     780$C$DW$T$56      .dwtag  DW_TAG_pointer_type
+     781        .dwattr $C$DW$T$56, DW_AT_type(*$C$DW$T$55)
+     782        .dwattr $C$DW$T$56, DW_AT_address_class(0x20)
+     783
+     784$C$DW$T$10      .dwtag  DW_TAG_base_type
+     785        .dwattr $C$DW$T$10, DW_AT_encoding(DW_ATE_signed)
+     786        .dwattr $C$DW$T$10, DW_AT_name("int")
+     787        .dwattr $C$DW$T$10, DW_AT_byte_size(0x04)
+     788
+     789$C$DW$T$11      .dwtag  DW_TAG_base_type
+     790        .dwattr $C$DW$T$11, DW_AT_encoding(DW_ATE_unsigned)
+     791        .dwattr $C$DW$T$11, DW_AT_name("unsigned int")
+     792        .dwattr $C$DW$T$11, DW_AT_byte_size(0x04)
+     793
+     794$C$DW$T$23      .dwtag  DW_TAG_typedef
+     795        .dwattr $C$DW$T$23, DW_AT_name("uint32_t")
+     796        .dwattr $C$DW$T$23, DW_AT_type(*$C$DW$T$11)
+     797        .dwattr $C$DW$T$23, DW_AT_language(DW_LANG_C)
+     798        .dwattr $C$DW$T$23, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     799        .dwattr $C$DW$T$23, DW_AT_decl_line(0x41)
+     800        .dwattr $C$DW$T$23, DW_AT_decl_column(0x1c)
+     801
+     802$C$DW$T$12      .dwtag  DW_TAG_base_type
+     803        .dwattr $C$DW$T$12, DW_AT_encoding(DW_ATE_signed)
+     804        .dwattr $C$DW$T$12, DW_AT_name("long")
+     805        .dwattr $C$DW$T$12, DW_AT_byte_size(0x04)
+     806
+     807$C$DW$T$13      .dwtag  DW_TAG_base_type
+     808        .dwattr $C$DW$T$13, DW_AT_encoding(DW_ATE_unsigned)
+     809        .dwattr $C$DW$T$13, DW_AT_name("unsigned long")
+     810        .dwattr $C$DW$T$13, DW_AT_byte_size(0x04)
+     811
+     812$C$DW$T$14      .dwtag  DW_TAG_base_type
+     813        .dwattr $C$DW$T$14, DW_AT_encoding(DW_ATE_signed)
+     814        .dwattr $C$DW$T$14, DW_AT_name("long long")
+     815        .dwattr $C$DW$T$14, DW_AT_byte_size(0x08)
+     816
+     817$C$DW$T$15      .dwtag  DW_TAG_base_type
+     818        .dwattr $C$DW$T$15, DW_AT_encoding(DW_ATE_unsigned)
+     819        .dwattr $C$DW$T$15, DW_AT_name("unsigned long long")
+     820        .dwattr $C$DW$T$15, DW_AT_byte_size(0x08)
+     821
+     822$C$DW$T$16      .dwtag  DW_TAG_base_type
+     823        .dwattr $C$DW$T$16, DW_AT_encoding(DW_ATE_float)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   16
+
+     824        .dwattr $C$DW$T$16, DW_AT_name("float")
+     825        .dwattr $C$DW$T$16, DW_AT_byte_size(0x04)
+     826
+     827$C$DW$T$17      .dwtag  DW_TAG_base_type
+     828        .dwattr $C$DW$T$17, DW_AT_encoding(DW_ATE_float)
+     829        .dwattr $C$DW$T$17, DW_AT_name("double")
+     830        .dwattr $C$DW$T$17, DW_AT_byte_size(0x08)
+     831
+     832$C$DW$T$18      .dwtag  DW_TAG_base_type
+     833        .dwattr $C$DW$T$18, DW_AT_encoding(DW_ATE_float)
+     834        .dwattr $C$DW$T$18, DW_AT_name("long double")
+     835        .dwattr $C$DW$T$18, DW_AT_byte_size(0x08)
+     836
+     837        .dwattr $C$DW$CU, DW_AT_language(DW_LANG_C)
+     838
+     839;***************************************************************
+     840;* DWARF CIE ENTRIES                                           *
+     841;***************************************************************
+     842
+     843$C$DW$CIE       .dwcie 14
+     844        .dwcfi  cfa_register, 8
+     845        .dwcfi  cfa_offset, 0
+     846        .dwcfi  same_value, 8
+     847        .dwcfi  same_value, 9
+     848        .dwcfi  same_value, 10
+     849        .dwcfi  same_value, 11
+     850        .dwcfi  same_value, 16
+     851        .dwcfi  same_value, 17
+     852        .dwcfi  same_value, 18
+     853        .dwcfi  same_value, 19
+     854        .dwcfi  same_value, 20
+     855        .dwcfi  same_value, 21
+     856        .dwcfi  same_value, 22
+     857        .dwcfi  same_value, 23
+     858        .dwcfi  same_value, 24
+     859        .dwcfi  same_value, 25
+     860        .dwcfi  same_value, 26
+     861        .dwcfi  same_value, 27
+     862        .dwcfi  same_value, 28
+     863        .dwcfi  same_value, 29
+     864        .dwcfi  same_value, 30
+     865        .dwcfi  same_value, 31
+     866        .dwcfi  same_value, 32
+     867        .dwcfi  same_value, 33
+     868        .dwcfi  same_value, 34
+     869        .dwcfi  same_value, 35
+     870        .dwcfi  same_value, 36
+     871        .dwcfi  same_value, 37
+     872        .dwcfi  same_value, 38
+     873        .dwcfi  same_value, 39
+     874        .dwcfi  same_value, 40
+     875        .dwcfi  same_value, 41
+     876        .dwcfi  same_value, 42
+     877        .dwcfi  same_value, 43
+     878        .dwcfi  same_value, 44
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   17
+
+     879        .dwcfi  same_value, 45
+     880        .dwcfi  same_value, 46
+     881        .dwcfi  same_value, 47
+     882        .dwcfi  same_value, 48
+     883        .dwcfi  same_value, 49
+     884        .dwcfi  same_value, 50
+     885        .dwcfi  same_value, 51
+     886        .dwcfi  same_value, 52
+     887        .dwcfi  same_value, 53
+     888        .dwcfi  same_value, 54
+     889        .dwcfi  same_value, 55
+     890        .dwendentry
+     891
+     892;***************************************************************
+     893;* DWARF REGISTER MAP                                          *
+     894;***************************************************************
+     895
+     896$C$DW$48        .dwtag  DW_TAG_TI_assign_register
+     897        .dwattr $C$DW$48, DW_AT_name("R0_b0")
+     898        .dwattr $C$DW$48, DW_AT_location[DW_OP_reg0]
+     899
+     900$C$DW$49        .dwtag  DW_TAG_TI_assign_register
+     901        .dwattr $C$DW$49, DW_AT_name("R0_b1")
+     902        .dwattr $C$DW$49, DW_AT_location[DW_OP_reg1]
+     903
+     904$C$DW$50        .dwtag  DW_TAG_TI_assign_register
+     905        .dwattr $C$DW$50, DW_AT_name("R0_b2")
+     906        .dwattr $C$DW$50, DW_AT_location[DW_OP_reg2]
+     907
+     908$C$DW$51        .dwtag  DW_TAG_TI_assign_register
+     909        .dwattr $C$DW$51, DW_AT_name("R0_b3")
+     910        .dwattr $C$DW$51, DW_AT_location[DW_OP_reg3]
+     911
+     912$C$DW$52        .dwtag  DW_TAG_TI_assign_register
+     913        .dwattr $C$DW$52, DW_AT_name("R1_b0")
+     914        .dwattr $C$DW$52, DW_AT_location[DW_OP_reg4]
+     915
+     916$C$DW$53        .dwtag  DW_TAG_TI_assign_register
+     917        .dwattr $C$DW$53, DW_AT_name("R1_b1")
+     918        .dwattr $C$DW$53, DW_AT_location[DW_OP_reg5]
+     919
+     920$C$DW$54        .dwtag  DW_TAG_TI_assign_register
+     921        .dwattr $C$DW$54, DW_AT_name("R1_b2")
+     922        .dwattr $C$DW$54, DW_AT_location[DW_OP_reg6]
+     923
+     924$C$DW$55        .dwtag  DW_TAG_TI_assign_register
+     925        .dwattr $C$DW$55, DW_AT_name("R1_b3")
+     926        .dwattr $C$DW$55, DW_AT_location[DW_OP_reg7]
+     927
+     928$C$DW$56        .dwtag  DW_TAG_TI_assign_register
+     929        .dwattr $C$DW$56, DW_AT_name("R2_b0")
+     930        .dwattr $C$DW$56, DW_AT_location[DW_OP_reg8]
+     931
+     932$C$DW$57        .dwtag  DW_TAG_TI_assign_register
+     933        .dwattr $C$DW$57, DW_AT_name("R2_b1")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   18
+
+     934        .dwattr $C$DW$57, DW_AT_location[DW_OP_reg9]
+     935
+     936$C$DW$58        .dwtag  DW_TAG_TI_assign_register
+     937        .dwattr $C$DW$58, DW_AT_name("R2_b2")
+     938        .dwattr $C$DW$58, DW_AT_location[DW_OP_reg10]
+     939
+     940$C$DW$59        .dwtag  DW_TAG_TI_assign_register
+     941        .dwattr $C$DW$59, DW_AT_name("R2_b3")
+     942        .dwattr $C$DW$59, DW_AT_location[DW_OP_reg11]
+     943
+     944$C$DW$60        .dwtag  DW_TAG_TI_assign_register
+     945        .dwattr $C$DW$60, DW_AT_name("R3_b0")
+     946        .dwattr $C$DW$60, DW_AT_location[DW_OP_reg12]
+     947
+     948$C$DW$61        .dwtag  DW_TAG_TI_assign_register
+     949        .dwattr $C$DW$61, DW_AT_name("R3_b1")
+     950        .dwattr $C$DW$61, DW_AT_location[DW_OP_reg13]
+     951
+     952$C$DW$62        .dwtag  DW_TAG_TI_assign_register
+     953        .dwattr $C$DW$62, DW_AT_name("R3_b2")
+     954        .dwattr $C$DW$62, DW_AT_location[DW_OP_reg14]
+     955
+     956$C$DW$63        .dwtag  DW_TAG_TI_assign_register
+     957        .dwattr $C$DW$63, DW_AT_name("R3_b3")
+     958        .dwattr $C$DW$63, DW_AT_location[DW_OP_reg15]
+     959
+     960$C$DW$64        .dwtag  DW_TAG_TI_assign_register
+     961        .dwattr $C$DW$64, DW_AT_name("R4_b0")
+     962        .dwattr $C$DW$64, DW_AT_location[DW_OP_reg16]
+     963
+     964$C$DW$65        .dwtag  DW_TAG_TI_assign_register
+     965        .dwattr $C$DW$65, DW_AT_name("R4_b1")
+     966        .dwattr $C$DW$65, DW_AT_location[DW_OP_reg17]
+     967
+     968$C$DW$66        .dwtag  DW_TAG_TI_assign_register
+     969        .dwattr $C$DW$66, DW_AT_name("R4_b2")
+     970        .dwattr $C$DW$66, DW_AT_location[DW_OP_reg18]
+     971
+     972$C$DW$67        .dwtag  DW_TAG_TI_assign_register
+     973        .dwattr $C$DW$67, DW_AT_name("R4_b3")
+     974        .dwattr $C$DW$67, DW_AT_location[DW_OP_reg19]
+     975
+     976$C$DW$68        .dwtag  DW_TAG_TI_assign_register
+     977        .dwattr $C$DW$68, DW_AT_name("R5_b0")
+     978        .dwattr $C$DW$68, DW_AT_location[DW_OP_reg20]
+     979
+     980$C$DW$69        .dwtag  DW_TAG_TI_assign_register
+     981        .dwattr $C$DW$69, DW_AT_name("R5_b1")
+     982        .dwattr $C$DW$69, DW_AT_location[DW_OP_reg21]
+     983
+     984$C$DW$70        .dwtag  DW_TAG_TI_assign_register
+     985        .dwattr $C$DW$70, DW_AT_name("R5_b2")
+     986        .dwattr $C$DW$70, DW_AT_location[DW_OP_reg22]
+     987
+     988$C$DW$71        .dwtag  DW_TAG_TI_assign_register
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   19
+
+     989        .dwattr $C$DW$71, DW_AT_name("R5_b3")
+     990        .dwattr $C$DW$71, DW_AT_location[DW_OP_reg23]
+     991
+     992$C$DW$72        .dwtag  DW_TAG_TI_assign_register
+     993        .dwattr $C$DW$72, DW_AT_name("R6_b0")
+     994        .dwattr $C$DW$72, DW_AT_location[DW_OP_reg24]
+     995
+     996$C$DW$73        .dwtag  DW_TAG_TI_assign_register
+     997        .dwattr $C$DW$73, DW_AT_name("R6_b1")
+     998        .dwattr $C$DW$73, DW_AT_location[DW_OP_reg25]
+     999
+    1000$C$DW$74        .dwtag  DW_TAG_TI_assign_register
+    1001        .dwattr $C$DW$74, DW_AT_name("R6_b2")
+    1002        .dwattr $C$DW$74, DW_AT_location[DW_OP_reg26]
+    1003
+    1004$C$DW$75        .dwtag  DW_TAG_TI_assign_register
+    1005        .dwattr $C$DW$75, DW_AT_name("R6_b3")
+    1006        .dwattr $C$DW$75, DW_AT_location[DW_OP_reg27]
+    1007
+    1008$C$DW$76        .dwtag  DW_TAG_TI_assign_register
+    1009        .dwattr $C$DW$76, DW_AT_name("R7_b0")
+    1010        .dwattr $C$DW$76, DW_AT_location[DW_OP_reg28]
+    1011
+    1012$C$DW$77        .dwtag  DW_TAG_TI_assign_register
+    1013        .dwattr $C$DW$77, DW_AT_name("R7_b1")
+    1014        .dwattr $C$DW$77, DW_AT_location[DW_OP_reg29]
+    1015
+    1016$C$DW$78        .dwtag  DW_TAG_TI_assign_register
+    1017        .dwattr $C$DW$78, DW_AT_name("R7_b2")
+    1018        .dwattr $C$DW$78, DW_AT_location[DW_OP_reg30]
+    1019
+    1020$C$DW$79        .dwtag  DW_TAG_TI_assign_register
+    1021        .dwattr $C$DW$79, DW_AT_name("R7_b3")
+    1022        .dwattr $C$DW$79, DW_AT_location[DW_OP_reg31]
+    1023
+    1024$C$DW$80        .dwtag  DW_TAG_TI_assign_register
+    1025        .dwattr $C$DW$80, DW_AT_name("R8_b0")
+    1026        .dwattr $C$DW$80, DW_AT_location[DW_OP_regx 0x20]
+    1027
+    1028$C$DW$81        .dwtag  DW_TAG_TI_assign_register
+    1029        .dwattr $C$DW$81, DW_AT_name("R8_b1")
+    1030        .dwattr $C$DW$81, DW_AT_location[DW_OP_regx 0x21]
+    1031
+    1032$C$DW$82        .dwtag  DW_TAG_TI_assign_register
+    1033        .dwattr $C$DW$82, DW_AT_name("R8_b2")
+    1034        .dwattr $C$DW$82, DW_AT_location[DW_OP_regx 0x22]
+    1035
+    1036$C$DW$83        .dwtag  DW_TAG_TI_assign_register
+    1037        .dwattr $C$DW$83, DW_AT_name("R8_b3")
+    1038        .dwattr $C$DW$83, DW_AT_location[DW_OP_regx 0x23]
+    1039
+    1040$C$DW$84        .dwtag  DW_TAG_TI_assign_register
+    1041        .dwattr $C$DW$84, DW_AT_name("R9_b0")
+    1042        .dwattr $C$DW$84, DW_AT_location[DW_OP_regx 0x24]
+    1043
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   20
+
+    1044$C$DW$85        .dwtag  DW_TAG_TI_assign_register
+    1045        .dwattr $C$DW$85, DW_AT_name("R9_b1")
+    1046        .dwattr $C$DW$85, DW_AT_location[DW_OP_regx 0x25]
+    1047
+    1048$C$DW$86        .dwtag  DW_TAG_TI_assign_register
+    1049        .dwattr $C$DW$86, DW_AT_name("R9_b2")
+    1050        .dwattr $C$DW$86, DW_AT_location[DW_OP_regx 0x26]
+    1051
+    1052$C$DW$87        .dwtag  DW_TAG_TI_assign_register
+    1053        .dwattr $C$DW$87, DW_AT_name("R9_b3")
+    1054        .dwattr $C$DW$87, DW_AT_location[DW_OP_regx 0x27]
+    1055
+    1056$C$DW$88        .dwtag  DW_TAG_TI_assign_register
+    1057        .dwattr $C$DW$88, DW_AT_name("R10_b0")
+    1058        .dwattr $C$DW$88, DW_AT_location[DW_OP_regx 0x28]
+    1059
+    1060$C$DW$89        .dwtag  DW_TAG_TI_assign_register
+    1061        .dwattr $C$DW$89, DW_AT_name("R10_b1")
+    1062        .dwattr $C$DW$89, DW_AT_location[DW_OP_regx 0x29]
+    1063
+    1064$C$DW$90        .dwtag  DW_TAG_TI_assign_register
+    1065        .dwattr $C$DW$90, DW_AT_name("R10_b2")
+    1066        .dwattr $C$DW$90, DW_AT_location[DW_OP_regx 0x2a]
+    1067
+    1068$C$DW$91        .dwtag  DW_TAG_TI_assign_register
+    1069        .dwattr $C$DW$91, DW_AT_name("R10_b3")
+    1070        .dwattr $C$DW$91, DW_AT_location[DW_OP_regx 0x2b]
+    1071
+    1072$C$DW$92        .dwtag  DW_TAG_TI_assign_register
+    1073        .dwattr $C$DW$92, DW_AT_name("R11_b0")
+    1074        .dwattr $C$DW$92, DW_AT_location[DW_OP_regx 0x2c]
+    1075
+    1076$C$DW$93        .dwtag  DW_TAG_TI_assign_register
+    1077        .dwattr $C$DW$93, DW_AT_name("R11_b1")
+    1078        .dwattr $C$DW$93, DW_AT_location[DW_OP_regx 0x2d]
+    1079
+    1080$C$DW$94        .dwtag  DW_TAG_TI_assign_register
+    1081        .dwattr $C$DW$94, DW_AT_name("R11_b2")
+    1082        .dwattr $C$DW$94, DW_AT_location[DW_OP_regx 0x2e]
+    1083
+    1084$C$DW$95        .dwtag  DW_TAG_TI_assign_register
+    1085        .dwattr $C$DW$95, DW_AT_name("R11_b3")
+    1086        .dwattr $C$DW$95, DW_AT_location[DW_OP_regx 0x2f]
+    1087
+    1088$C$DW$96        .dwtag  DW_TAG_TI_assign_register
+    1089        .dwattr $C$DW$96, DW_AT_name("R12_b0")
+    1090        .dwattr $C$DW$96, DW_AT_location[DW_OP_regx 0x30]
+    1091
+    1092$C$DW$97        .dwtag  DW_TAG_TI_assign_register
+    1093        .dwattr $C$DW$97, DW_AT_name("R12_b1")
+    1094        .dwattr $C$DW$97, DW_AT_location[DW_OP_regx 0x31]
+    1095
+    1096$C$DW$98        .dwtag  DW_TAG_TI_assign_register
+    1097        .dwattr $C$DW$98, DW_AT_name("R12_b2")
+    1098        .dwattr $C$DW$98, DW_AT_location[DW_OP_regx 0x32]
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   21
+
+    1099
+    1100$C$DW$99        .dwtag  DW_TAG_TI_assign_register
+    1101        .dwattr $C$DW$99, DW_AT_name("R12_b3")
+    1102        .dwattr $C$DW$99, DW_AT_location[DW_OP_regx 0x33]
+    1103
+    1104$C$DW$100       .dwtag  DW_TAG_TI_assign_register
+    1105        .dwattr $C$DW$100, DW_AT_name("R13_b0")
+    1106        .dwattr $C$DW$100, DW_AT_location[DW_OP_regx 0x34]
+    1107
+    1108$C$DW$101       .dwtag  DW_TAG_TI_assign_register
+    1109        .dwattr $C$DW$101, DW_AT_name("R13_b1")
+    1110        .dwattr $C$DW$101, DW_AT_location[DW_OP_regx 0x35]
+    1111
+    1112$C$DW$102       .dwtag  DW_TAG_TI_assign_register
+    1113        .dwattr $C$DW$102, DW_AT_name("R13_b2")
+    1114        .dwattr $C$DW$102, DW_AT_location[DW_OP_regx 0x36]
+    1115
+    1116$C$DW$103       .dwtag  DW_TAG_TI_assign_register
+    1117        .dwattr $C$DW$103, DW_AT_name("R13_b3")
+    1118        .dwattr $C$DW$103, DW_AT_location[DW_OP_regx 0x37]
+    1119
+    1120$C$DW$104       .dwtag  DW_TAG_TI_assign_register
+    1121        .dwattr $C$DW$104, DW_AT_name("R14_b0")
+    1122        .dwattr $C$DW$104, DW_AT_location[DW_OP_regx 0x38]
+    1123
+    1124$C$DW$105       .dwtag  DW_TAG_TI_assign_register
+    1125        .dwattr $C$DW$105, DW_AT_name("R14_b1")
+    1126        .dwattr $C$DW$105, DW_AT_location[DW_OP_regx 0x39]
+    1127
+    1128$C$DW$106       .dwtag  DW_TAG_TI_assign_register
+    1129        .dwattr $C$DW$106, DW_AT_name("R14_b2")
+    1130        .dwattr $C$DW$106, DW_AT_location[DW_OP_regx 0x3a]
+    1131
+    1132$C$DW$107       .dwtag  DW_TAG_TI_assign_register
+    1133        .dwattr $C$DW$107, DW_AT_name("R14_b3")
+    1134        .dwattr $C$DW$107, DW_AT_location[DW_OP_regx 0x3b]
+    1135
+    1136$C$DW$108       .dwtag  DW_TAG_TI_assign_register
+    1137        .dwattr $C$DW$108, DW_AT_name("R15_b0")
+    1138        .dwattr $C$DW$108, DW_AT_location[DW_OP_regx 0x3c]
+    1139
+    1140$C$DW$109       .dwtag  DW_TAG_TI_assign_register
+    1141        .dwattr $C$DW$109, DW_AT_name("R15_b1")
+    1142        .dwattr $C$DW$109, DW_AT_location[DW_OP_regx 0x3d]
+    1143
+    1144$C$DW$110       .dwtag  DW_TAG_TI_assign_register
+    1145        .dwattr $C$DW$110, DW_AT_name("R15_b2")
+    1146        .dwattr $C$DW$110, DW_AT_location[DW_OP_regx 0x3e]
+    1147
+    1148$C$DW$111       .dwtag  DW_TAG_TI_assign_register
+    1149        .dwattr $C$DW$111, DW_AT_name("R15_b3")
+    1150        .dwattr $C$DW$111, DW_AT_location[DW_OP_regx 0x3f]
+    1151
+    1152$C$DW$112       .dwtag  DW_TAG_TI_assign_register
+    1153        .dwattr $C$DW$112, DW_AT_name("R16_b0")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   22
+
+    1154        .dwattr $C$DW$112, DW_AT_location[DW_OP_regx 0x40]
+    1155
+    1156$C$DW$113       .dwtag  DW_TAG_TI_assign_register
+    1157        .dwattr $C$DW$113, DW_AT_name("R16_b1")
+    1158        .dwattr $C$DW$113, DW_AT_location[DW_OP_regx 0x41]
+    1159
+    1160$C$DW$114       .dwtag  DW_TAG_TI_assign_register
+    1161        .dwattr $C$DW$114, DW_AT_name("R16_b2")
+    1162        .dwattr $C$DW$114, DW_AT_location[DW_OP_regx 0x42]
+    1163
+    1164$C$DW$115       .dwtag  DW_TAG_TI_assign_register
+    1165        .dwattr $C$DW$115, DW_AT_name("R16_b3")
+    1166        .dwattr $C$DW$115, DW_AT_location[DW_OP_regx 0x43]
+    1167
+    1168$C$DW$116       .dwtag  DW_TAG_TI_assign_register
+    1169        .dwattr $C$DW$116, DW_AT_name("R17_b0")
+    1170        .dwattr $C$DW$116, DW_AT_location[DW_OP_regx 0x44]
+    1171
+    1172$C$DW$117       .dwtag  DW_TAG_TI_assign_register
+    1173        .dwattr $C$DW$117, DW_AT_name("R17_b1")
+    1174        .dwattr $C$DW$117, DW_AT_location[DW_OP_regx 0x45]
+    1175
+    1176$C$DW$118       .dwtag  DW_TAG_TI_assign_register
+    1177        .dwattr $C$DW$118, DW_AT_name("R17_b2")
+    1178        .dwattr $C$DW$118, DW_AT_location[DW_OP_regx 0x46]
+    1179
+    1180$C$DW$119       .dwtag  DW_TAG_TI_assign_register
+    1181        .dwattr $C$DW$119, DW_AT_name("R17_b3")
+    1182        .dwattr $C$DW$119, DW_AT_location[DW_OP_regx 0x47]
+    1183
+    1184$C$DW$120       .dwtag  DW_TAG_TI_assign_register
+    1185        .dwattr $C$DW$120, DW_AT_name("R18_b0")
+    1186        .dwattr $C$DW$120, DW_AT_location[DW_OP_regx 0x48]
+    1187
+    1188$C$DW$121       .dwtag  DW_TAG_TI_assign_register
+    1189        .dwattr $C$DW$121, DW_AT_name("R18_b1")
+    1190        .dwattr $C$DW$121, DW_AT_location[DW_OP_regx 0x49]
+    1191
+    1192$C$DW$122       .dwtag  DW_TAG_TI_assign_register
+    1193        .dwattr $C$DW$122, DW_AT_name("R18_b2")
+    1194        .dwattr $C$DW$122, DW_AT_location[DW_OP_regx 0x4a]
+    1195
+    1196$C$DW$123       .dwtag  DW_TAG_TI_assign_register
+    1197        .dwattr $C$DW$123, DW_AT_name("R18_b3")
+    1198        .dwattr $C$DW$123, DW_AT_location[DW_OP_regx 0x4b]
+    1199
+    1200$C$DW$124       .dwtag  DW_TAG_TI_assign_register
+    1201        .dwattr $C$DW$124, DW_AT_name("R19_b0")
+    1202        .dwattr $C$DW$124, DW_AT_location[DW_OP_regx 0x4c]
+    1203
+    1204$C$DW$125       .dwtag  DW_TAG_TI_assign_register
+    1205        .dwattr $C$DW$125, DW_AT_name("R19_b1")
+    1206        .dwattr $C$DW$125, DW_AT_location[DW_OP_regx 0x4d]
+    1207
+    1208$C$DW$126       .dwtag  DW_TAG_TI_assign_register
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   23
+
+    1209        .dwattr $C$DW$126, DW_AT_name("R19_b2")
+    1210        .dwattr $C$DW$126, DW_AT_location[DW_OP_regx 0x4e]
+    1211
+    1212$C$DW$127       .dwtag  DW_TAG_TI_assign_register
+    1213        .dwattr $C$DW$127, DW_AT_name("R19_b3")
+    1214        .dwattr $C$DW$127, DW_AT_location[DW_OP_regx 0x4f]
+    1215
+    1216$C$DW$128       .dwtag  DW_TAG_TI_assign_register
+    1217        .dwattr $C$DW$128, DW_AT_name("R20_b0")
+    1218        .dwattr $C$DW$128, DW_AT_location[DW_OP_regx 0x50]
+    1219
+    1220$C$DW$129       .dwtag  DW_TAG_TI_assign_register
+    1221        .dwattr $C$DW$129, DW_AT_name("R20_b1")
+    1222        .dwattr $C$DW$129, DW_AT_location[DW_OP_regx 0x51]
+    1223
+    1224$C$DW$130       .dwtag  DW_TAG_TI_assign_register
+    1225        .dwattr $C$DW$130, DW_AT_name("R20_b2")
+    1226        .dwattr $C$DW$130, DW_AT_location[DW_OP_regx 0x52]
+    1227
+    1228$C$DW$131       .dwtag  DW_TAG_TI_assign_register
+    1229        .dwattr $C$DW$131, DW_AT_name("R20_b3")
+    1230        .dwattr $C$DW$131, DW_AT_location[DW_OP_regx 0x53]
+    1231
+    1232$C$DW$132       .dwtag  DW_TAG_TI_assign_register
+    1233        .dwattr $C$DW$132, DW_AT_name("R21_b0")
+    1234        .dwattr $C$DW$132, DW_AT_location[DW_OP_regx 0x54]
+    1235
+    1236$C$DW$133       .dwtag  DW_TAG_TI_assign_register
+    1237        .dwattr $C$DW$133, DW_AT_name("R21_b1")
+    1238        .dwattr $C$DW$133, DW_AT_location[DW_OP_regx 0x55]
+    1239
+    1240$C$DW$134       .dwtag  DW_TAG_TI_assign_register
+    1241        .dwattr $C$DW$134, DW_AT_name("R21_b2")
+    1242        .dwattr $C$DW$134, DW_AT_location[DW_OP_regx 0x56]
+    1243
+    1244$C$DW$135       .dwtag  DW_TAG_TI_assign_register
+    1245        .dwattr $C$DW$135, DW_AT_name("R21_b3")
+    1246        .dwattr $C$DW$135, DW_AT_location[DW_OP_regx 0x57]
+    1247
+    1248$C$DW$136       .dwtag  DW_TAG_TI_assign_register
+    1249        .dwattr $C$DW$136, DW_AT_name("R22_b0")
+    1250        .dwattr $C$DW$136, DW_AT_location[DW_OP_regx 0x58]
+    1251
+    1252$C$DW$137       .dwtag  DW_TAG_TI_assign_register
+    1253        .dwattr $C$DW$137, DW_AT_name("R22_b1")
+    1254        .dwattr $C$DW$137, DW_AT_location[DW_OP_regx 0x59]
+    1255
+    1256$C$DW$138       .dwtag  DW_TAG_TI_assign_register
+    1257        .dwattr $C$DW$138, DW_AT_name("R22_b2")
+    1258        .dwattr $C$DW$138, DW_AT_location[DW_OP_regx 0x5a]
+    1259
+    1260$C$DW$139       .dwtag  DW_TAG_TI_assign_register
+    1261        .dwattr $C$DW$139, DW_AT_name("R22_b3")
+    1262        .dwattr $C$DW$139, DW_AT_location[DW_OP_regx 0x5b]
+    1263
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   24
+
+    1264$C$DW$140       .dwtag  DW_TAG_TI_assign_register
+    1265        .dwattr $C$DW$140, DW_AT_name("R23_b0")
+    1266        .dwattr $C$DW$140, DW_AT_location[DW_OP_regx 0x5c]
+    1267
+    1268$C$DW$141       .dwtag  DW_TAG_TI_assign_register
+    1269        .dwattr $C$DW$141, DW_AT_name("R23_b1")
+    1270        .dwattr $C$DW$141, DW_AT_location[DW_OP_regx 0x5d]
+    1271
+    1272$C$DW$142       .dwtag  DW_TAG_TI_assign_register
+    1273        .dwattr $C$DW$142, DW_AT_name("R23_b2")
+    1274        .dwattr $C$DW$142, DW_AT_location[DW_OP_regx 0x5e]
+    1275
+    1276$C$DW$143       .dwtag  DW_TAG_TI_assign_register
+    1277        .dwattr $C$DW$143, DW_AT_name("R23_b3")
+    1278        .dwattr $C$DW$143, DW_AT_location[DW_OP_regx 0x5f]
+    1279
+    1280$C$DW$144       .dwtag  DW_TAG_TI_assign_register
+    1281        .dwattr $C$DW$144, DW_AT_name("R24_b0")
+    1282        .dwattr $C$DW$144, DW_AT_location[DW_OP_regx 0x60]
+    1283
+    1284$C$DW$145       .dwtag  DW_TAG_TI_assign_register
+    1285        .dwattr $C$DW$145, DW_AT_name("R24_b1")
+    1286        .dwattr $C$DW$145, DW_AT_location[DW_OP_regx 0x61]
+    1287
+    1288$C$DW$146       .dwtag  DW_TAG_TI_assign_register
+    1289        .dwattr $C$DW$146, DW_AT_name("R24_b2")
+    1290        .dwattr $C$DW$146, DW_AT_location[DW_OP_regx 0x62]
+    1291
+    1292$C$DW$147       .dwtag  DW_TAG_TI_assign_register
+    1293        .dwattr $C$DW$147, DW_AT_name("R24_b3")
+    1294        .dwattr $C$DW$147, DW_AT_location[DW_OP_regx 0x63]
+    1295
+    1296$C$DW$148       .dwtag  DW_TAG_TI_assign_register
+    1297        .dwattr $C$DW$148, DW_AT_name("R25_b0")
+    1298        .dwattr $C$DW$148, DW_AT_location[DW_OP_regx 0x64]
+    1299
+    1300$C$DW$149       .dwtag  DW_TAG_TI_assign_register
+    1301        .dwattr $C$DW$149, DW_AT_name("R25_b1")
+    1302        .dwattr $C$DW$149, DW_AT_location[DW_OP_regx 0x65]
+    1303
+    1304$C$DW$150       .dwtag  DW_TAG_TI_assign_register
+    1305        .dwattr $C$DW$150, DW_AT_name("R25_b2")
+    1306        .dwattr $C$DW$150, DW_AT_location[DW_OP_regx 0x66]
+    1307
+    1308$C$DW$151       .dwtag  DW_TAG_TI_assign_register
+    1309        .dwattr $C$DW$151, DW_AT_name("R25_b3")
+    1310        .dwattr $C$DW$151, DW_AT_location[DW_OP_regx 0x67]
+    1311
+    1312$C$DW$152       .dwtag  DW_TAG_TI_assign_register
+    1313        .dwattr $C$DW$152, DW_AT_name("R26_b0")
+    1314        .dwattr $C$DW$152, DW_AT_location[DW_OP_regx 0x68]
+    1315
+    1316$C$DW$153       .dwtag  DW_TAG_TI_assign_register
+    1317        .dwattr $C$DW$153, DW_AT_name("R26_b1")
+    1318        .dwattr $C$DW$153, DW_AT_location[DW_OP_regx 0x69]
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   25
+
+    1319
+    1320$C$DW$154       .dwtag  DW_TAG_TI_assign_register
+    1321        .dwattr $C$DW$154, DW_AT_name("R26_b2")
+    1322        .dwattr $C$DW$154, DW_AT_location[DW_OP_regx 0x6a]
+    1323
+    1324$C$DW$155       .dwtag  DW_TAG_TI_assign_register
+    1325        .dwattr $C$DW$155, DW_AT_name("R26_b3")
+    1326        .dwattr $C$DW$155, DW_AT_location[DW_OP_regx 0x6b]
+    1327
+    1328$C$DW$156       .dwtag  DW_TAG_TI_assign_register
+    1329        .dwattr $C$DW$156, DW_AT_name("R27_b0")
+    1330        .dwattr $C$DW$156, DW_AT_location[DW_OP_regx 0x6c]
+    1331
+    1332$C$DW$157       .dwtag  DW_TAG_TI_assign_register
+    1333        .dwattr $C$DW$157, DW_AT_name("R27_b1")
+    1334        .dwattr $C$DW$157, DW_AT_location[DW_OP_regx 0x6d]
+    1335
+    1336$C$DW$158       .dwtag  DW_TAG_TI_assign_register
+    1337        .dwattr $C$DW$158, DW_AT_name("R27_b2")
+    1338        .dwattr $C$DW$158, DW_AT_location[DW_OP_regx 0x6e]
+    1339
+    1340$C$DW$159       .dwtag  DW_TAG_TI_assign_register
+    1341        .dwattr $C$DW$159, DW_AT_name("R27_b3")
+    1342        .dwattr $C$DW$159, DW_AT_location[DW_OP_regx 0x6f]
+    1343
+    1344$C$DW$160       .dwtag  DW_TAG_TI_assign_register
+    1345        .dwattr $C$DW$160, DW_AT_name("R28_b0")
+    1346        .dwattr $C$DW$160, DW_AT_location[DW_OP_regx 0x70]
+    1347
+    1348$C$DW$161       .dwtag  DW_TAG_TI_assign_register
+    1349        .dwattr $C$DW$161, DW_AT_name("R28_b1")
+    1350        .dwattr $C$DW$161, DW_AT_location[DW_OP_regx 0x71]
+    1351
+    1352$C$DW$162       .dwtag  DW_TAG_TI_assign_register
+    1353        .dwattr $C$DW$162, DW_AT_name("R28_b2")
+    1354        .dwattr $C$DW$162, DW_AT_location[DW_OP_regx 0x72]
+    1355
+    1356$C$DW$163       .dwtag  DW_TAG_TI_assign_register
+    1357        .dwattr $C$DW$163, DW_AT_name("R28_b3")
+    1358        .dwattr $C$DW$163, DW_AT_location[DW_OP_regx 0x73]
+    1359
+    1360$C$DW$164       .dwtag  DW_TAG_TI_assign_register
+    1361        .dwattr $C$DW$164, DW_AT_name("R29_b0")
+    1362        .dwattr $C$DW$164, DW_AT_location[DW_OP_regx 0x74]
+    1363
+    1364$C$DW$165       .dwtag  DW_TAG_TI_assign_register
+    1365        .dwattr $C$DW$165, DW_AT_name("R29_b1")
+    1366        .dwattr $C$DW$165, DW_AT_location[DW_OP_regx 0x75]
+    1367
+    1368$C$DW$166       .dwtag  DW_TAG_TI_assign_register
+    1369        .dwattr $C$DW$166, DW_AT_name("R29_b2")
+    1370        .dwattr $C$DW$166, DW_AT_location[DW_OP_regx 0x76]
+    1371
+    1372$C$DW$167       .dwtag  DW_TAG_TI_assign_register
+    1373        .dwattr $C$DW$167, DW_AT_name("R29_b3")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:31 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_ddrmem.asm                                                      PAGE   26
+
+    1374        .dwattr $C$DW$167, DW_AT_location[DW_OP_regx 0x77]
+    1375
+    1376$C$DW$168       .dwtag  DW_TAG_TI_assign_register
+    1377        .dwattr $C$DW$168, DW_AT_name("R30_b0")
+    1378        .dwattr $C$DW$168, DW_AT_location[DW_OP_regx 0x78]
+    1379
+    1380$C$DW$169       .dwtag  DW_TAG_TI_assign_register
+    1381        .dwattr $C$DW$169, DW_AT_name("R30_b1")
+    1382        .dwattr $C$DW$169, DW_AT_location[DW_OP_regx 0x79]
+    1383
+    1384$C$DW$170       .dwtag  DW_TAG_TI_assign_register
+    1385        .dwattr $C$DW$170, DW_AT_name("R30_b2")
+    1386        .dwattr $C$DW$170, DW_AT_location[DW_OP_regx 0x7a]
+    1387
+    1388$C$DW$171       .dwtag  DW_TAG_TI_assign_register
+    1389        .dwattr $C$DW$171, DW_AT_name("R30_b3")
+    1390        .dwattr $C$DW$171, DW_AT_location[DW_OP_regx 0x7b]
+    1391
+    1392$C$DW$172       .dwtag  DW_TAG_TI_assign_register
+    1393        .dwattr $C$DW$172, DW_AT_name("R31_b0")
+    1394        .dwattr $C$DW$172, DW_AT_location[DW_OP_regx 0x7c]
+    1395
+    1396$C$DW$173       .dwtag  DW_TAG_TI_assign_register
+    1397        .dwattr $C$DW$173, DW_AT_name("R31_b1")
+    1398        .dwattr $C$DW$173, DW_AT_location[DW_OP_regx 0x7d]
+    1399
+    1400$C$DW$174       .dwtag  DW_TAG_TI_assign_register
+    1401        .dwattr $C$DW$174, DW_AT_name("R31_b2")
+    1402        .dwattr $C$DW$174, DW_AT_location[DW_OP_regx 0x7e]
+    1403
+    1404$C$DW$175       .dwtag  DW_TAG_TI_assign_register
+    1405        .dwattr $C$DW$175, DW_AT_name("R31_b3")
+    1406        .dwattr $C$DW$175, DW_AT_location[DW_OP_regx 0x7f]
+    1407
+    1408        .dwendtag $C$DW$CU
+    1409
+
+No Assembly Errors, No Assembly Warnings

@@ -1,0 +1,58 @@
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:40 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_buslatches_pru0_datout.asmsrc                                   PAGE    1
+
+       1; pru1_buslatches_pru0_datout.asmsrc: transfer R14 to PRU0 over XFR
+       2;
+       3;  Copyright (c) 2018, Joerg Hoppe
+       4;  j_hoppe@t-online.de, www.retrocmp.com
+       5;
+       6;  Permission is hereby granted, free of charge, to any person obtaining a
+       7;  copy of this software and associated documentation files (the "Software"),
+       8;  to deal in the Software without restriction, including without limitation
+       9;  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+      10;  and/or sell copies of the Software, and to permit persons to whom the
+      11;  Software is furnished to do so, subject to the following conditions:
+      12;
+      13;  The above copyright notice and this permission notice shall be included in
+      14;  all copies or substantial portions of the Software.
+      15;
+      16;  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+      17;  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+      18;  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+      19;  JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+      20;  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+      21;  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+      22;
+      23;
+      24;    12-nov-2018  JH      entered beta phase
+      25;
+      26;
+      27; Assembler function, which transfers r14 to PRU0
+      28; PRU0 writes this then to DATAOUT pins
+      29;
+      30; to be declared in C as
+      31; extern "C" {
+      32;    void pru1_pru0_dataout(uint32_t val) ;
+      33; }
+      34; See Compiler 2.2 Guide, Chapter 6.6
+      35
+      36        .global buslatches_pru0_dataout
+      37
+      38        ; a 32bit parameter is received in r14
+      39        ; 10 ns delay
+      40 00000000                 buslatches_pru0_dataout:
+      41        ; do nothing at first
+      42        ; Device ID 14 = "other PRU"
+      43 00000000 0000002F07018E          xout    14,&r14,4
+      44 00000004 00000020C30000          jmp     r3.w2   ; return address
+      45
+      46
+      47; loop on pru0: 15ns
+      48; loop:
+      49;       xin     14,&r14,4
+      50;       mov
+      51;       br      loop
+
+No Assembly Errors, No Assembly Warnings

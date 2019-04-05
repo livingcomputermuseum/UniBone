@@ -1,0 +1,19 @@
+
+
+	; test read/write on actoive register (which is 16bit read/write)
+tstadr	= 160000
+
+	.asect
+	.=1000
+start:
+	mov	#testadr,r3
+	inc	r3
+	mov	r3,r2
+	; r2 = 160000, r3 = 160001
+	clr	(r2)		; 0x0000
+	movb	#377,(r2)       ; 0x0000 -> 0x00ff
+	movb	#377,(r3)       ; 0x00ff -> 0xffff 177777
+	movb	#0,(r2)		; 0xffff -> 0xff00 177400
+	movb	#0,(r3)		; 0xff00 -> 0x0000
+	halt
+	; see logic analyzer trace

@@ -1,0 +1,1943 @@
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE    1
+
+       1;******************************************************************************
+       2;* PRU C/C++ Codegen                                              Unix v2.3.1 *
+       3;* Date/Time created: Sun Mar 31 20:55:39 2019                                *
+       4;******************************************************************************
+       5        .compiler_opts --abi=eabi --endian=little --hll_source=on --object_format=elf --silicon_versio
+       6
+       7$C$DW$CU        .dwtag  DW_TAG_compile_unit
+       8        .dwattr $C$DW$CU, DW_AT_name("pru1_utils.c")
+       9        .dwattr $C$DW$CU, DW_AT_producer("TI PRU C/C++ Codegen Unix v2.3.1 Copyright (c) 2012-2017 Tex
+      10        .dwattr $C$DW$CU, DW_AT_TI_version(0x01)
+      11        .dwattr $C$DW$CU, DW_AT_comp_dir("/home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/pru1")
+      12        .global __PRU_CREG_PRU_CFG
+      13        .weak   ||CT_CFG||
+      14 00000000                 ||CT_CFG||:     .usect  ".creg.PRU_CFG.noload.near",68,1
+      15$C$DW$1 .dwtag  DW_TAG_variable
+      16        .dwattr $C$DW$1, DW_AT_name("CT_CFG")
+      17        .dwattr $C$DW$1, DW_AT_TI_symbol_name("CT_CFG")
+      18        .dwattr $C$DW$1, DW_AT_location[DW_OP_addr ||CT_CFG||]
+      19        .dwattr $C$DW$1, DW_AT_type(*$C$DW$T$64)
+      20        .dwattr $C$DW$1, DW_AT_external
+      21        .dwattr $C$DW$1, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/
+      22        .dwattr $C$DW$1, DW_AT_decl_line(0xf2)
+      23        .dwattr $C$DW$1, DW_AT_decl_column(0x17)
+      24
+      25        .global ||timeout_target||
+      26        .common ||timeout_target||,4,1
+      27$C$DW$2 .dwtag  DW_TAG_variable
+      28        .dwattr $C$DW$2, DW_AT_name("timeout_target")
+      29        .dwattr $C$DW$2, DW_AT_TI_symbol_name("timeout_target")
+      30        .dwattr $C$DW$2, DW_AT_location[DW_OP_addr ||timeout_target||]
+      31        .dwattr $C$DW$2, DW_AT_type(*$C$DW$T$32)
+      32        .dwattr $C$DW$2, DW_AT_external
+      33        .dwattr $C$DW$2, DW_AT_decl_file("pru1_utils.c")
+      34        .dwattr $C$DW$2, DW_AT_decl_line(0x24)
+      35        .dwattr $C$DW$2, DW_AT_decl_column(0x0a)
+      36
+      37;       /home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/ti-cgt-pru_2.3.1//bin/optpru --gen
+      38;       /home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/ti-cgt-pru_2.3.1//bin/acpiapru -@/
+      39
+      40;******************************************************************************
+      41;* TYPE INFORMATION                                                           *
+      42;******************************************************************************
+      43
+      44$C$DW$T$19      .dwtag  DW_TAG_structure_type
+      45        .dwattr $C$DW$T$19, DW_AT_byte_size(0x04)
+      46$C$DW$3 .dwtag  DW_TAG_member
+      47        .dwattr $C$DW$3, DW_AT_type(*$C$DW$T$11)
+      48        .dwattr $C$DW$3, DW_AT_name("REVID")
+      49        .dwattr $C$DW$3, DW_AT_TI_symbol_name("REVID")
+      50        .dwattr $C$DW$3, DW_AT_bit_offset(0x00)
+      51        .dwattr $C$DW$3, DW_AT_bit_size(0x20)
+      52        .dwattr $C$DW$3, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+      53        .dwattr $C$DW$3, DW_AT_accessibility(DW_ACCESS_public)
+      54        .dwattr $C$DW$3, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/
+      55        .dwattr $C$DW$3, DW_AT_decl_line(0x2d)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE    2
+
+      56        .dwattr $C$DW$3, DW_AT_decl_column(0x0d)
+      57
+      58        .dwattr $C$DW$T$19, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+      59        .dwattr $C$DW$T$19, DW_AT_decl_line(0x2c)
+      60        .dwattr $C$DW$T$19, DW_AT_decl_column(0x13)
+      61        .dwendtag $C$DW$T$19
+      62
+      63$C$DW$T$37      .dwtag  DW_TAG_volatile_type
+      64        .dwattr $C$DW$T$37, DW_AT_type(*$C$DW$T$19)
+      65
+      66
+      67$C$DW$T$20      .dwtag  DW_TAG_structure_type
+      68        .dwattr $C$DW$T$20, DW_AT_byte_size(0x04)
+      69$C$DW$4 .dwtag  DW_TAG_member
+      70        .dwattr $C$DW$4, DW_AT_type(*$C$DW$T$11)
+      71        .dwattr $C$DW$4, DW_AT_name("IDLE_MODE")
+      72        .dwattr $C$DW$4, DW_AT_TI_symbol_name("IDLE_MODE")
+      73        .dwattr $C$DW$4, DW_AT_bit_offset(0x1e)
+      74        .dwattr $C$DW$4, DW_AT_bit_size(0x02)
+      75        .dwattr $C$DW$4, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+      76        .dwattr $C$DW$4, DW_AT_accessibility(DW_ACCESS_public)
+      77        .dwattr $C$DW$4, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/
+      78        .dwattr $C$DW$4, DW_AT_decl_line(0x37)
+      79        .dwattr $C$DW$4, DW_AT_decl_column(0x0d)
+      80
+      81$C$DW$5 .dwtag  DW_TAG_member
+      82        .dwattr $C$DW$5, DW_AT_type(*$C$DW$T$11)
+      83        .dwattr $C$DW$5, DW_AT_name("STANDBY_MODE")
+      84        .dwattr $C$DW$5, DW_AT_TI_symbol_name("STANDBY_MODE")
+      85        .dwattr $C$DW$5, DW_AT_bit_offset(0x1c)
+      86        .dwattr $C$DW$5, DW_AT_bit_size(0x02)
+      87        .dwattr $C$DW$5, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+      88        .dwattr $C$DW$5, DW_AT_accessibility(DW_ACCESS_public)
+      89        .dwattr $C$DW$5, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/
+      90        .dwattr $C$DW$5, DW_AT_decl_line(0x38)
+      91        .dwattr $C$DW$5, DW_AT_decl_column(0x0d)
+      92
+      93$C$DW$6 .dwtag  DW_TAG_member
+      94        .dwattr $C$DW$6, DW_AT_type(*$C$DW$T$11)
+      95        .dwattr $C$DW$6, DW_AT_name("STANDBY_INIT")
+      96        .dwattr $C$DW$6, DW_AT_TI_symbol_name("STANDBY_INIT")
+      97        .dwattr $C$DW$6, DW_AT_bit_offset(0x1b)
+      98        .dwattr $C$DW$6, DW_AT_bit_size(0x01)
+      99        .dwattr $C$DW$6, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     100        .dwattr $C$DW$6, DW_AT_accessibility(DW_ACCESS_public)
+     101        .dwattr $C$DW$6, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/
+     102        .dwattr $C$DW$6, DW_AT_decl_line(0x39)
+     103        .dwattr $C$DW$6, DW_AT_decl_column(0x0d)
+     104
+     105$C$DW$7 .dwtag  DW_TAG_member
+     106        .dwattr $C$DW$7, DW_AT_type(*$C$DW$T$11)
+     107        .dwattr $C$DW$7, DW_AT_name("SUB_MWAIT")
+     108        .dwattr $C$DW$7, DW_AT_TI_symbol_name("SUB_MWAIT")
+     109        .dwattr $C$DW$7, DW_AT_bit_offset(0x1a)
+     110        .dwattr $C$DW$7, DW_AT_bit_size(0x01)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE    3
+
+     111        .dwattr $C$DW$7, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     112        .dwattr $C$DW$7, DW_AT_accessibility(DW_ACCESS_public)
+     113        .dwattr $C$DW$7, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/
+     114        .dwattr $C$DW$7, DW_AT_decl_line(0x3a)
+     115        .dwattr $C$DW$7, DW_AT_decl_column(0x0d)
+     116
+     117$C$DW$8 .dwtag  DW_TAG_member
+     118        .dwattr $C$DW$8, DW_AT_type(*$C$DW$T$11)
+     119        .dwattr $C$DW$8, DW_AT_name("rsvd6")
+     120        .dwattr $C$DW$8, DW_AT_TI_symbol_name("rsvd6")
+     121        .dwattr $C$DW$8, DW_AT_bit_offset(0x00)
+     122        .dwattr $C$DW$8, DW_AT_bit_size(0x1a)
+     123        .dwattr $C$DW$8, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     124        .dwattr $C$DW$8, DW_AT_accessibility(DW_ACCESS_public)
+     125        .dwattr $C$DW$8, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/
+     126        .dwattr $C$DW$8, DW_AT_decl_line(0x3b)
+     127        .dwattr $C$DW$8, DW_AT_decl_column(0x0d)
+     128
+     129        .dwattr $C$DW$T$20, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     130        .dwattr $C$DW$T$20, DW_AT_decl_line(0x36)
+     131        .dwattr $C$DW$T$20, DW_AT_decl_column(0x13)
+     132        .dwendtag $C$DW$T$20
+     133
+     134$C$DW$T$39      .dwtag  DW_TAG_volatile_type
+     135        .dwattr $C$DW$T$39, DW_AT_type(*$C$DW$T$20)
+     136
+     137
+     138$C$DW$T$21      .dwtag  DW_TAG_structure_type
+     139        .dwattr $C$DW$T$21, DW_AT_byte_size(0x04)
+     140$C$DW$9 .dwtag  DW_TAG_member
+     141        .dwattr $C$DW$9, DW_AT_type(*$C$DW$T$11)
+     142        .dwattr $C$DW$9, DW_AT_name("PRU0_GPI_MODE")
+     143        .dwattr $C$DW$9, DW_AT_TI_symbol_name("PRU0_GPI_MODE")
+     144        .dwattr $C$DW$9, DW_AT_bit_offset(0x1e)
+     145        .dwattr $C$DW$9, DW_AT_bit_size(0x02)
+     146        .dwattr $C$DW$9, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     147        .dwattr $C$DW$9, DW_AT_accessibility(DW_ACCESS_public)
+     148        .dwattr $C$DW$9, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/
+     149        .dwattr $C$DW$9, DW_AT_decl_line(0x45)
+     150        .dwattr $C$DW$9, DW_AT_decl_column(0x0d)
+     151
+     152$C$DW$10        .dwtag  DW_TAG_member
+     153        .dwattr $C$DW$10, DW_AT_type(*$C$DW$T$11)
+     154        .dwattr $C$DW$10, DW_AT_name("PRU0_GPI_CLK_MODE")
+     155        .dwattr $C$DW$10, DW_AT_TI_symbol_name("PRU0_GPI_CLK_MODE")
+     156        .dwattr $C$DW$10, DW_AT_bit_offset(0x1d)
+     157        .dwattr $C$DW$10, DW_AT_bit_size(0x01)
+     158        .dwattr $C$DW$10, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     159        .dwattr $C$DW$10, DW_AT_accessibility(DW_ACCESS_public)
+     160        .dwattr $C$DW$10, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     161        .dwattr $C$DW$10, DW_AT_decl_line(0x46)
+     162        .dwattr $C$DW$10, DW_AT_decl_column(0x0d)
+     163
+     164$C$DW$11        .dwtag  DW_TAG_member
+     165        .dwattr $C$DW$11, DW_AT_type(*$C$DW$T$11)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE    4
+
+     166        .dwattr $C$DW$11, DW_AT_name("PRU0_GPI_DIV0")
+     167        .dwattr $C$DW$11, DW_AT_TI_symbol_name("PRU0_GPI_DIV0")
+     168        .dwattr $C$DW$11, DW_AT_bit_offset(0x18)
+     169        .dwattr $C$DW$11, DW_AT_bit_size(0x05)
+     170        .dwattr $C$DW$11, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     171        .dwattr $C$DW$11, DW_AT_accessibility(DW_ACCESS_public)
+     172        .dwattr $C$DW$11, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     173        .dwattr $C$DW$11, DW_AT_decl_line(0x47)
+     174        .dwattr $C$DW$11, DW_AT_decl_column(0x0d)
+     175
+     176$C$DW$12        .dwtag  DW_TAG_member
+     177        .dwattr $C$DW$12, DW_AT_type(*$C$DW$T$11)
+     178        .dwattr $C$DW$12, DW_AT_name("PRU0_GPI_DIV1")
+     179        .dwattr $C$DW$12, DW_AT_TI_symbol_name("PRU0_GPI_DIV1")
+     180        .dwattr $C$DW$12, DW_AT_bit_offset(0x13)
+     181        .dwattr $C$DW$12, DW_AT_bit_size(0x05)
+     182        .dwattr $C$DW$12, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     183        .dwattr $C$DW$12, DW_AT_accessibility(DW_ACCESS_public)
+     184        .dwattr $C$DW$12, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     185        .dwattr $C$DW$12, DW_AT_decl_line(0x48)
+     186        .dwattr $C$DW$12, DW_AT_decl_column(0x0d)
+     187
+     188$C$DW$13        .dwtag  DW_TAG_member
+     189        .dwattr $C$DW$13, DW_AT_type(*$C$DW$T$11)
+     190        .dwattr $C$DW$13, DW_AT_name("PRU0_GPI_SB")
+     191        .dwattr $C$DW$13, DW_AT_TI_symbol_name("PRU0_GPI_SB")
+     192        .dwattr $C$DW$13, DW_AT_bit_offset(0x12)
+     193        .dwattr $C$DW$13, DW_AT_bit_size(0x01)
+     194        .dwattr $C$DW$13, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     195        .dwattr $C$DW$13, DW_AT_accessibility(DW_ACCESS_public)
+     196        .dwattr $C$DW$13, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     197        .dwattr $C$DW$13, DW_AT_decl_line(0x49)
+     198        .dwattr $C$DW$13, DW_AT_decl_column(0x0d)
+     199
+     200$C$DW$14        .dwtag  DW_TAG_member
+     201        .dwattr $C$DW$14, DW_AT_type(*$C$DW$T$11)
+     202        .dwattr $C$DW$14, DW_AT_name("PRU0_GPO_MODE")
+     203        .dwattr $C$DW$14, DW_AT_TI_symbol_name("PRU0_GPO_MODE")
+     204        .dwattr $C$DW$14, DW_AT_bit_offset(0x11)
+     205        .dwattr $C$DW$14, DW_AT_bit_size(0x01)
+     206        .dwattr $C$DW$14, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     207        .dwattr $C$DW$14, DW_AT_accessibility(DW_ACCESS_public)
+     208        .dwattr $C$DW$14, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     209        .dwattr $C$DW$14, DW_AT_decl_line(0x4a)
+     210        .dwattr $C$DW$14, DW_AT_decl_column(0x0d)
+     211
+     212$C$DW$15        .dwtag  DW_TAG_member
+     213        .dwattr $C$DW$15, DW_AT_type(*$C$DW$T$11)
+     214        .dwattr $C$DW$15, DW_AT_name("PRU0_GPO_DIV0")
+     215        .dwattr $C$DW$15, DW_AT_TI_symbol_name("PRU0_GPO_DIV0")
+     216        .dwattr $C$DW$15, DW_AT_bit_offset(0x0c)
+     217        .dwattr $C$DW$15, DW_AT_bit_size(0x05)
+     218        .dwattr $C$DW$15, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     219        .dwattr $C$DW$15, DW_AT_accessibility(DW_ACCESS_public)
+     220        .dwattr $C$DW$15, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE    5
+
+     221        .dwattr $C$DW$15, DW_AT_decl_line(0x4b)
+     222        .dwattr $C$DW$15, DW_AT_decl_column(0x0d)
+     223
+     224$C$DW$16        .dwtag  DW_TAG_member
+     225        .dwattr $C$DW$16, DW_AT_type(*$C$DW$T$11)
+     226        .dwattr $C$DW$16, DW_AT_name("PRU0_GPO_DIV1")
+     227        .dwattr $C$DW$16, DW_AT_TI_symbol_name("PRU0_GPO_DIV1")
+     228        .dwattr $C$DW$16, DW_AT_bit_offset(0x07)
+     229        .dwattr $C$DW$16, DW_AT_bit_size(0x05)
+     230        .dwattr $C$DW$16, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     231        .dwattr $C$DW$16, DW_AT_accessibility(DW_ACCESS_public)
+     232        .dwattr $C$DW$16, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     233        .dwattr $C$DW$16, DW_AT_decl_line(0x4c)
+     234        .dwattr $C$DW$16, DW_AT_decl_column(0x0d)
+     235
+     236$C$DW$17        .dwtag  DW_TAG_member
+     237        .dwattr $C$DW$17, DW_AT_type(*$C$DW$T$11)
+     238        .dwattr $C$DW$17, DW_AT_name("PRU0_GPO_SH_SEL")
+     239        .dwattr $C$DW$17, DW_AT_TI_symbol_name("PRU0_GPO_SH_SEL")
+     240        .dwattr $C$DW$17, DW_AT_bit_offset(0x06)
+     241        .dwattr $C$DW$17, DW_AT_bit_size(0x01)
+     242        .dwattr $C$DW$17, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     243        .dwattr $C$DW$17, DW_AT_accessibility(DW_ACCESS_public)
+     244        .dwattr $C$DW$17, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     245        .dwattr $C$DW$17, DW_AT_decl_line(0x4d)
+     246        .dwattr $C$DW$17, DW_AT_decl_column(0x0d)
+     247
+     248$C$DW$18        .dwtag  DW_TAG_member
+     249        .dwattr $C$DW$18, DW_AT_type(*$C$DW$T$11)
+     250        .dwattr $C$DW$18, DW_AT_name("rsvd26")
+     251        .dwattr $C$DW$18, DW_AT_TI_symbol_name("rsvd26")
+     252        .dwattr $C$DW$18, DW_AT_bit_offset(0x00)
+     253        .dwattr $C$DW$18, DW_AT_bit_size(0x06)
+     254        .dwattr $C$DW$18, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     255        .dwattr $C$DW$18, DW_AT_accessibility(DW_ACCESS_public)
+     256        .dwattr $C$DW$18, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     257        .dwattr $C$DW$18, DW_AT_decl_line(0x4e)
+     258        .dwattr $C$DW$18, DW_AT_decl_column(0x0d)
+     259
+     260        .dwattr $C$DW$T$21, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     261        .dwattr $C$DW$T$21, DW_AT_decl_line(0x44)
+     262        .dwattr $C$DW$T$21, DW_AT_decl_column(0x13)
+     263        .dwendtag $C$DW$T$21
+     264
+     265$C$DW$T$41      .dwtag  DW_TAG_volatile_type
+     266        .dwattr $C$DW$T$41, DW_AT_type(*$C$DW$T$21)
+     267
+     268
+     269$C$DW$T$22      .dwtag  DW_TAG_structure_type
+     270        .dwattr $C$DW$T$22, DW_AT_byte_size(0x04)
+     271$C$DW$19        .dwtag  DW_TAG_member
+     272        .dwattr $C$DW$19, DW_AT_type(*$C$DW$T$11)
+     273        .dwattr $C$DW$19, DW_AT_name("PRU1_GPI_MODE")
+     274        .dwattr $C$DW$19, DW_AT_TI_symbol_name("PRU1_GPI_MODE")
+     275        .dwattr $C$DW$19, DW_AT_bit_offset(0x1e)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE    6
+
+     276        .dwattr $C$DW$19, DW_AT_bit_size(0x02)
+     277        .dwattr $C$DW$19, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     278        .dwattr $C$DW$19, DW_AT_accessibility(DW_ACCESS_public)
+     279        .dwattr $C$DW$19, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     280        .dwattr $C$DW$19, DW_AT_decl_line(0x58)
+     281        .dwattr $C$DW$19, DW_AT_decl_column(0x0d)
+     282
+     283$C$DW$20        .dwtag  DW_TAG_member
+     284        .dwattr $C$DW$20, DW_AT_type(*$C$DW$T$11)
+     285        .dwattr $C$DW$20, DW_AT_name("PRU1_GPI_CLK_MODE")
+     286        .dwattr $C$DW$20, DW_AT_TI_symbol_name("PRU1_GPI_CLK_MODE")
+     287        .dwattr $C$DW$20, DW_AT_bit_offset(0x1d)
+     288        .dwattr $C$DW$20, DW_AT_bit_size(0x01)
+     289        .dwattr $C$DW$20, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     290        .dwattr $C$DW$20, DW_AT_accessibility(DW_ACCESS_public)
+     291        .dwattr $C$DW$20, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     292        .dwattr $C$DW$20, DW_AT_decl_line(0x59)
+     293        .dwattr $C$DW$20, DW_AT_decl_column(0x0d)
+     294
+     295$C$DW$21        .dwtag  DW_TAG_member
+     296        .dwattr $C$DW$21, DW_AT_type(*$C$DW$T$11)
+     297        .dwattr $C$DW$21, DW_AT_name("PRU1_GPI_DIV0")
+     298        .dwattr $C$DW$21, DW_AT_TI_symbol_name("PRU1_GPI_DIV0")
+     299        .dwattr $C$DW$21, DW_AT_bit_offset(0x18)
+     300        .dwattr $C$DW$21, DW_AT_bit_size(0x05)
+     301        .dwattr $C$DW$21, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     302        .dwattr $C$DW$21, DW_AT_accessibility(DW_ACCESS_public)
+     303        .dwattr $C$DW$21, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     304        .dwattr $C$DW$21, DW_AT_decl_line(0x5a)
+     305        .dwattr $C$DW$21, DW_AT_decl_column(0x0d)
+     306
+     307$C$DW$22        .dwtag  DW_TAG_member
+     308        .dwattr $C$DW$22, DW_AT_type(*$C$DW$T$11)
+     309        .dwattr $C$DW$22, DW_AT_name("PRU1_GPI_DIV1")
+     310        .dwattr $C$DW$22, DW_AT_TI_symbol_name("PRU1_GPI_DIV1")
+     311        .dwattr $C$DW$22, DW_AT_bit_offset(0x13)
+     312        .dwattr $C$DW$22, DW_AT_bit_size(0x05)
+     313        .dwattr $C$DW$22, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     314        .dwattr $C$DW$22, DW_AT_accessibility(DW_ACCESS_public)
+     315        .dwattr $C$DW$22, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     316        .dwattr $C$DW$22, DW_AT_decl_line(0x5b)
+     317        .dwattr $C$DW$22, DW_AT_decl_column(0x0d)
+     318
+     319$C$DW$23        .dwtag  DW_TAG_member
+     320        .dwattr $C$DW$23, DW_AT_type(*$C$DW$T$11)
+     321        .dwattr $C$DW$23, DW_AT_name("PRU1_GPI_SB")
+     322        .dwattr $C$DW$23, DW_AT_TI_symbol_name("PRU1_GPI_SB")
+     323        .dwattr $C$DW$23, DW_AT_bit_offset(0x12)
+     324        .dwattr $C$DW$23, DW_AT_bit_size(0x01)
+     325        .dwattr $C$DW$23, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     326        .dwattr $C$DW$23, DW_AT_accessibility(DW_ACCESS_public)
+     327        .dwattr $C$DW$23, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     328        .dwattr $C$DW$23, DW_AT_decl_line(0x5c)
+     329        .dwattr $C$DW$23, DW_AT_decl_column(0x0d)
+     330
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE    7
+
+     331$C$DW$24        .dwtag  DW_TAG_member
+     332        .dwattr $C$DW$24, DW_AT_type(*$C$DW$T$11)
+     333        .dwattr $C$DW$24, DW_AT_name("PRU1_GPO_MODE")
+     334        .dwattr $C$DW$24, DW_AT_TI_symbol_name("PRU1_GPO_MODE")
+     335        .dwattr $C$DW$24, DW_AT_bit_offset(0x11)
+     336        .dwattr $C$DW$24, DW_AT_bit_size(0x01)
+     337        .dwattr $C$DW$24, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     338        .dwattr $C$DW$24, DW_AT_accessibility(DW_ACCESS_public)
+     339        .dwattr $C$DW$24, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     340        .dwattr $C$DW$24, DW_AT_decl_line(0x5d)
+     341        .dwattr $C$DW$24, DW_AT_decl_column(0x0d)
+     342
+     343$C$DW$25        .dwtag  DW_TAG_member
+     344        .dwattr $C$DW$25, DW_AT_type(*$C$DW$T$11)
+     345        .dwattr $C$DW$25, DW_AT_name("PRU1_GPO_DIV0")
+     346        .dwattr $C$DW$25, DW_AT_TI_symbol_name("PRU1_GPO_DIV0")
+     347        .dwattr $C$DW$25, DW_AT_bit_offset(0x0c)
+     348        .dwattr $C$DW$25, DW_AT_bit_size(0x05)
+     349        .dwattr $C$DW$25, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     350        .dwattr $C$DW$25, DW_AT_accessibility(DW_ACCESS_public)
+     351        .dwattr $C$DW$25, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     352        .dwattr $C$DW$25, DW_AT_decl_line(0x5e)
+     353        .dwattr $C$DW$25, DW_AT_decl_column(0x0d)
+     354
+     355$C$DW$26        .dwtag  DW_TAG_member
+     356        .dwattr $C$DW$26, DW_AT_type(*$C$DW$T$11)
+     357        .dwattr $C$DW$26, DW_AT_name("PRU1_GPO_DIV1")
+     358        .dwattr $C$DW$26, DW_AT_TI_symbol_name("PRU1_GPO_DIV1")
+     359        .dwattr $C$DW$26, DW_AT_bit_offset(0x07)
+     360        .dwattr $C$DW$26, DW_AT_bit_size(0x05)
+     361        .dwattr $C$DW$26, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     362        .dwattr $C$DW$26, DW_AT_accessibility(DW_ACCESS_public)
+     363        .dwattr $C$DW$26, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     364        .dwattr $C$DW$26, DW_AT_decl_line(0x5f)
+     365        .dwattr $C$DW$26, DW_AT_decl_column(0x0d)
+     366
+     367$C$DW$27        .dwtag  DW_TAG_member
+     368        .dwattr $C$DW$27, DW_AT_type(*$C$DW$T$11)
+     369        .dwattr $C$DW$27, DW_AT_name("PRU1_GPO_SH_SEL")
+     370        .dwattr $C$DW$27, DW_AT_TI_symbol_name("PRU1_GPO_SH_SEL")
+     371        .dwattr $C$DW$27, DW_AT_bit_offset(0x06)
+     372        .dwattr $C$DW$27, DW_AT_bit_size(0x01)
+     373        .dwattr $C$DW$27, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     374        .dwattr $C$DW$27, DW_AT_accessibility(DW_ACCESS_public)
+     375        .dwattr $C$DW$27, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     376        .dwattr $C$DW$27, DW_AT_decl_line(0x60)
+     377        .dwattr $C$DW$27, DW_AT_decl_column(0x0d)
+     378
+     379$C$DW$28        .dwtag  DW_TAG_member
+     380        .dwattr $C$DW$28, DW_AT_type(*$C$DW$T$11)
+     381        .dwattr $C$DW$28, DW_AT_name("rsvd26")
+     382        .dwattr $C$DW$28, DW_AT_TI_symbol_name("rsvd26")
+     383        .dwattr $C$DW$28, DW_AT_bit_offset(0x00)
+     384        .dwattr $C$DW$28, DW_AT_bit_size(0x06)
+     385        .dwattr $C$DW$28, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE    8
+
+     386        .dwattr $C$DW$28, DW_AT_accessibility(DW_ACCESS_public)
+     387        .dwattr $C$DW$28, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     388        .dwattr $C$DW$28, DW_AT_decl_line(0x61)
+     389        .dwattr $C$DW$28, DW_AT_decl_column(0x0d)
+     390
+     391        .dwattr $C$DW$T$22, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     392        .dwattr $C$DW$T$22, DW_AT_decl_line(0x57)
+     393        .dwattr $C$DW$T$22, DW_AT_decl_column(0x13)
+     394        .dwendtag $C$DW$T$22
+     395
+     396$C$DW$T$43      .dwtag  DW_TAG_volatile_type
+     397        .dwattr $C$DW$T$43, DW_AT_type(*$C$DW$T$22)
+     398
+     399
+     400$C$DW$T$23      .dwtag  DW_TAG_structure_type
+     401        .dwattr $C$DW$T$23, DW_AT_byte_size(0x04)
+     402$C$DW$29        .dwtag  DW_TAG_member
+     403        .dwattr $C$DW$29, DW_AT_type(*$C$DW$T$11)
+     404        .dwattr $C$DW$29, DW_AT_name("PRU0_CLK_STOP_REQ")
+     405        .dwattr $C$DW$29, DW_AT_TI_symbol_name("PRU0_CLK_STOP_REQ")
+     406        .dwattr $C$DW$29, DW_AT_bit_offset(0x1f)
+     407        .dwattr $C$DW$29, DW_AT_bit_size(0x01)
+     408        .dwattr $C$DW$29, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     409        .dwattr $C$DW$29, DW_AT_accessibility(DW_ACCESS_public)
+     410        .dwattr $C$DW$29, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     411        .dwattr $C$DW$29, DW_AT_decl_line(0x6b)
+     412        .dwattr $C$DW$29, DW_AT_decl_column(0x0d)
+     413
+     414$C$DW$30        .dwtag  DW_TAG_member
+     415        .dwattr $C$DW$30, DW_AT_type(*$C$DW$T$11)
+     416        .dwattr $C$DW$30, DW_AT_name("PRU0_CLK_STOP_ACK")
+     417        .dwattr $C$DW$30, DW_AT_TI_symbol_name("PRU0_CLK_STOP_ACK")
+     418        .dwattr $C$DW$30, DW_AT_bit_offset(0x1e)
+     419        .dwattr $C$DW$30, DW_AT_bit_size(0x01)
+     420        .dwattr $C$DW$30, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     421        .dwattr $C$DW$30, DW_AT_accessibility(DW_ACCESS_public)
+     422        .dwattr $C$DW$30, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     423        .dwattr $C$DW$30, DW_AT_decl_line(0x6c)
+     424        .dwattr $C$DW$30, DW_AT_decl_column(0x0d)
+     425
+     426$C$DW$31        .dwtag  DW_TAG_member
+     427        .dwattr $C$DW$31, DW_AT_type(*$C$DW$T$11)
+     428        .dwattr $C$DW$31, DW_AT_name("PRU0_CLK_EN")
+     429        .dwattr $C$DW$31, DW_AT_TI_symbol_name("PRU0_CLK_EN")
+     430        .dwattr $C$DW$31, DW_AT_bit_offset(0x1d)
+     431        .dwattr $C$DW$31, DW_AT_bit_size(0x01)
+     432        .dwattr $C$DW$31, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     433        .dwattr $C$DW$31, DW_AT_accessibility(DW_ACCESS_public)
+     434        .dwattr $C$DW$31, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     435        .dwattr $C$DW$31, DW_AT_decl_line(0x6d)
+     436        .dwattr $C$DW$31, DW_AT_decl_column(0x0d)
+     437
+     438$C$DW$32        .dwtag  DW_TAG_member
+     439        .dwattr $C$DW$32, DW_AT_type(*$C$DW$T$11)
+     440        .dwattr $C$DW$32, DW_AT_name("PRU1_CLK_STOP_REQ")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE    9
+
+     441        .dwattr $C$DW$32, DW_AT_TI_symbol_name("PRU1_CLK_STOP_REQ")
+     442        .dwattr $C$DW$32, DW_AT_bit_offset(0x1c)
+     443        .dwattr $C$DW$32, DW_AT_bit_size(0x01)
+     444        .dwattr $C$DW$32, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     445        .dwattr $C$DW$32, DW_AT_accessibility(DW_ACCESS_public)
+     446        .dwattr $C$DW$32, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     447        .dwattr $C$DW$32, DW_AT_decl_line(0x6e)
+     448        .dwattr $C$DW$32, DW_AT_decl_column(0x0d)
+     449
+     450$C$DW$33        .dwtag  DW_TAG_member
+     451        .dwattr $C$DW$33, DW_AT_type(*$C$DW$T$11)
+     452        .dwattr $C$DW$33, DW_AT_name("PRU1_CLK_STOP_ACK")
+     453        .dwattr $C$DW$33, DW_AT_TI_symbol_name("PRU1_CLK_STOP_ACK")
+     454        .dwattr $C$DW$33, DW_AT_bit_offset(0x1b)
+     455        .dwattr $C$DW$33, DW_AT_bit_size(0x01)
+     456        .dwattr $C$DW$33, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     457        .dwattr $C$DW$33, DW_AT_accessibility(DW_ACCESS_public)
+     458        .dwattr $C$DW$33, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     459        .dwattr $C$DW$33, DW_AT_decl_line(0x6f)
+     460        .dwattr $C$DW$33, DW_AT_decl_column(0x0d)
+     461
+     462$C$DW$34        .dwtag  DW_TAG_member
+     463        .dwattr $C$DW$34, DW_AT_type(*$C$DW$T$11)
+     464        .dwattr $C$DW$34, DW_AT_name("PRU1_CLK_EN")
+     465        .dwattr $C$DW$34, DW_AT_TI_symbol_name("PRU1_CLK_EN")
+     466        .dwattr $C$DW$34, DW_AT_bit_offset(0x1a)
+     467        .dwattr $C$DW$34, DW_AT_bit_size(0x01)
+     468        .dwattr $C$DW$34, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     469        .dwattr $C$DW$34, DW_AT_accessibility(DW_ACCESS_public)
+     470        .dwattr $C$DW$34, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     471        .dwattr $C$DW$34, DW_AT_decl_line(0x70)
+     472        .dwattr $C$DW$34, DW_AT_decl_column(0x0d)
+     473
+     474$C$DW$35        .dwtag  DW_TAG_member
+     475        .dwattr $C$DW$35, DW_AT_type(*$C$DW$T$11)
+     476        .dwattr $C$DW$35, DW_AT_name("INTC_CLK_STOP_REQ")
+     477        .dwattr $C$DW$35, DW_AT_TI_symbol_name("INTC_CLK_STOP_REQ")
+     478        .dwattr $C$DW$35, DW_AT_bit_offset(0x19)
+     479        .dwattr $C$DW$35, DW_AT_bit_size(0x01)
+     480        .dwattr $C$DW$35, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     481        .dwattr $C$DW$35, DW_AT_accessibility(DW_ACCESS_public)
+     482        .dwattr $C$DW$35, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     483        .dwattr $C$DW$35, DW_AT_decl_line(0x71)
+     484        .dwattr $C$DW$35, DW_AT_decl_column(0x0d)
+     485
+     486$C$DW$36        .dwtag  DW_TAG_member
+     487        .dwattr $C$DW$36, DW_AT_type(*$C$DW$T$11)
+     488        .dwattr $C$DW$36, DW_AT_name("INTC_CLK_STOP_ACK")
+     489        .dwattr $C$DW$36, DW_AT_TI_symbol_name("INTC_CLK_STOP_ACK")
+     490        .dwattr $C$DW$36, DW_AT_bit_offset(0x18)
+     491        .dwattr $C$DW$36, DW_AT_bit_size(0x01)
+     492        .dwattr $C$DW$36, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     493        .dwattr $C$DW$36, DW_AT_accessibility(DW_ACCESS_public)
+     494        .dwattr $C$DW$36, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     495        .dwattr $C$DW$36, DW_AT_decl_line(0x72)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   10
+
+     496        .dwattr $C$DW$36, DW_AT_decl_column(0x0d)
+     497
+     498$C$DW$37        .dwtag  DW_TAG_member
+     499        .dwattr $C$DW$37, DW_AT_type(*$C$DW$T$11)
+     500        .dwattr $C$DW$37, DW_AT_name("INTC_CLK_EN")
+     501        .dwattr $C$DW$37, DW_AT_TI_symbol_name("INTC_CLK_EN")
+     502        .dwattr $C$DW$37, DW_AT_bit_offset(0x17)
+     503        .dwattr $C$DW$37, DW_AT_bit_size(0x01)
+     504        .dwattr $C$DW$37, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     505        .dwattr $C$DW$37, DW_AT_accessibility(DW_ACCESS_public)
+     506        .dwattr $C$DW$37, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     507        .dwattr $C$DW$37, DW_AT_decl_line(0x73)
+     508        .dwattr $C$DW$37, DW_AT_decl_column(0x0d)
+     509
+     510$C$DW$38        .dwtag  DW_TAG_member
+     511        .dwattr $C$DW$38, DW_AT_type(*$C$DW$T$11)
+     512        .dwattr $C$DW$38, DW_AT_name("UART_CLK_STOP_REQ")
+     513        .dwattr $C$DW$38, DW_AT_TI_symbol_name("UART_CLK_STOP_REQ")
+     514        .dwattr $C$DW$38, DW_AT_bit_offset(0x16)
+     515        .dwattr $C$DW$38, DW_AT_bit_size(0x01)
+     516        .dwattr $C$DW$38, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     517        .dwattr $C$DW$38, DW_AT_accessibility(DW_ACCESS_public)
+     518        .dwattr $C$DW$38, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     519        .dwattr $C$DW$38, DW_AT_decl_line(0x74)
+     520        .dwattr $C$DW$38, DW_AT_decl_column(0x0d)
+     521
+     522$C$DW$39        .dwtag  DW_TAG_member
+     523        .dwattr $C$DW$39, DW_AT_type(*$C$DW$T$11)
+     524        .dwattr $C$DW$39, DW_AT_name("UART_CLK_STOP_ACK")
+     525        .dwattr $C$DW$39, DW_AT_TI_symbol_name("UART_CLK_STOP_ACK")
+     526        .dwattr $C$DW$39, DW_AT_bit_offset(0x15)
+     527        .dwattr $C$DW$39, DW_AT_bit_size(0x01)
+     528        .dwattr $C$DW$39, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     529        .dwattr $C$DW$39, DW_AT_accessibility(DW_ACCESS_public)
+     530        .dwattr $C$DW$39, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     531        .dwattr $C$DW$39, DW_AT_decl_line(0x75)
+     532        .dwattr $C$DW$39, DW_AT_decl_column(0x0d)
+     533
+     534$C$DW$40        .dwtag  DW_TAG_member
+     535        .dwattr $C$DW$40, DW_AT_type(*$C$DW$T$11)
+     536        .dwattr $C$DW$40, DW_AT_name("UART_CLK_EN")
+     537        .dwattr $C$DW$40, DW_AT_TI_symbol_name("UART_CLK_EN")
+     538        .dwattr $C$DW$40, DW_AT_bit_offset(0x14)
+     539        .dwattr $C$DW$40, DW_AT_bit_size(0x01)
+     540        .dwattr $C$DW$40, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     541        .dwattr $C$DW$40, DW_AT_accessibility(DW_ACCESS_public)
+     542        .dwattr $C$DW$40, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     543        .dwattr $C$DW$40, DW_AT_decl_line(0x76)
+     544        .dwattr $C$DW$40, DW_AT_decl_column(0x0d)
+     545
+     546$C$DW$41        .dwtag  DW_TAG_member
+     547        .dwattr $C$DW$41, DW_AT_type(*$C$DW$T$11)
+     548        .dwattr $C$DW$41, DW_AT_name("ECAP_CLK_STOP_REQ")
+     549        .dwattr $C$DW$41, DW_AT_TI_symbol_name("ECAP_CLK_STOP_REQ")
+     550        .dwattr $C$DW$41, DW_AT_bit_offset(0x13)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   11
+
+     551        .dwattr $C$DW$41, DW_AT_bit_size(0x01)
+     552        .dwattr $C$DW$41, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     553        .dwattr $C$DW$41, DW_AT_accessibility(DW_ACCESS_public)
+     554        .dwattr $C$DW$41, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     555        .dwattr $C$DW$41, DW_AT_decl_line(0x77)
+     556        .dwattr $C$DW$41, DW_AT_decl_column(0x0d)
+     557
+     558$C$DW$42        .dwtag  DW_TAG_member
+     559        .dwattr $C$DW$42, DW_AT_type(*$C$DW$T$11)
+     560        .dwattr $C$DW$42, DW_AT_name("ECAP_CLK_STOP_ACK")
+     561        .dwattr $C$DW$42, DW_AT_TI_symbol_name("ECAP_CLK_STOP_ACK")
+     562        .dwattr $C$DW$42, DW_AT_bit_offset(0x12)
+     563        .dwattr $C$DW$42, DW_AT_bit_size(0x01)
+     564        .dwattr $C$DW$42, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     565        .dwattr $C$DW$42, DW_AT_accessibility(DW_ACCESS_public)
+     566        .dwattr $C$DW$42, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     567        .dwattr $C$DW$42, DW_AT_decl_line(0x78)
+     568        .dwattr $C$DW$42, DW_AT_decl_column(0x0d)
+     569
+     570$C$DW$43        .dwtag  DW_TAG_member
+     571        .dwattr $C$DW$43, DW_AT_type(*$C$DW$T$11)
+     572        .dwattr $C$DW$43, DW_AT_name("ECAP_CLK_EN")
+     573        .dwattr $C$DW$43, DW_AT_TI_symbol_name("ECAP_CLK_EN")
+     574        .dwattr $C$DW$43, DW_AT_bit_offset(0x11)
+     575        .dwattr $C$DW$43, DW_AT_bit_size(0x01)
+     576        .dwattr $C$DW$43, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     577        .dwattr $C$DW$43, DW_AT_accessibility(DW_ACCESS_public)
+     578        .dwattr $C$DW$43, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     579        .dwattr $C$DW$43, DW_AT_decl_line(0x79)
+     580        .dwattr $C$DW$43, DW_AT_decl_column(0x0d)
+     581
+     582$C$DW$44        .dwtag  DW_TAG_member
+     583        .dwattr $C$DW$44, DW_AT_type(*$C$DW$T$11)
+     584        .dwattr $C$DW$44, DW_AT_name("IEP_CLK_STOP_REQ")
+     585        .dwattr $C$DW$44, DW_AT_TI_symbol_name("IEP_CLK_STOP_REQ")
+     586        .dwattr $C$DW$44, DW_AT_bit_offset(0x10)
+     587        .dwattr $C$DW$44, DW_AT_bit_size(0x01)
+     588        .dwattr $C$DW$44, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     589        .dwattr $C$DW$44, DW_AT_accessibility(DW_ACCESS_public)
+     590        .dwattr $C$DW$44, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     591        .dwattr $C$DW$44, DW_AT_decl_line(0x7a)
+     592        .dwattr $C$DW$44, DW_AT_decl_column(0x0d)
+     593
+     594$C$DW$45        .dwtag  DW_TAG_member
+     595        .dwattr $C$DW$45, DW_AT_type(*$C$DW$T$11)
+     596        .dwattr $C$DW$45, DW_AT_name("IEP_CLK_STOP_ACK")
+     597        .dwattr $C$DW$45, DW_AT_TI_symbol_name("IEP_CLK_STOP_ACK")
+     598        .dwattr $C$DW$45, DW_AT_bit_offset(0x0f)
+     599        .dwattr $C$DW$45, DW_AT_bit_size(0x01)
+     600        .dwattr $C$DW$45, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     601        .dwattr $C$DW$45, DW_AT_accessibility(DW_ACCESS_public)
+     602        .dwattr $C$DW$45, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     603        .dwattr $C$DW$45, DW_AT_decl_line(0x7b)
+     604        .dwattr $C$DW$45, DW_AT_decl_column(0x0d)
+     605
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   12
+
+     606$C$DW$46        .dwtag  DW_TAG_member
+     607        .dwattr $C$DW$46, DW_AT_type(*$C$DW$T$11)
+     608        .dwattr $C$DW$46, DW_AT_name("IEP_CLK_EN")
+     609        .dwattr $C$DW$46, DW_AT_TI_symbol_name("IEP_CLK_EN")
+     610        .dwattr $C$DW$46, DW_AT_bit_offset(0x0e)
+     611        .dwattr $C$DW$46, DW_AT_bit_size(0x01)
+     612        .dwattr $C$DW$46, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     613        .dwattr $C$DW$46, DW_AT_accessibility(DW_ACCESS_public)
+     614        .dwattr $C$DW$46, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     615        .dwattr $C$DW$46, DW_AT_decl_line(0x7c)
+     616        .dwattr $C$DW$46, DW_AT_decl_column(0x0d)
+     617
+     618$C$DW$47        .dwtag  DW_TAG_member
+     619        .dwattr $C$DW$47, DW_AT_type(*$C$DW$T$11)
+     620        .dwattr $C$DW$47, DW_AT_name("rsvd18")
+     621        .dwattr $C$DW$47, DW_AT_TI_symbol_name("rsvd18")
+     622        .dwattr $C$DW$47, DW_AT_bit_offset(0x00)
+     623        .dwattr $C$DW$47, DW_AT_bit_size(0x0e)
+     624        .dwattr $C$DW$47, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     625        .dwattr $C$DW$47, DW_AT_accessibility(DW_ACCESS_public)
+     626        .dwattr $C$DW$47, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     627        .dwattr $C$DW$47, DW_AT_decl_line(0x7d)
+     628        .dwattr $C$DW$47, DW_AT_decl_column(0x0d)
+     629
+     630        .dwattr $C$DW$T$23, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     631        .dwattr $C$DW$T$23, DW_AT_decl_line(0x6a)
+     632        .dwattr $C$DW$T$23, DW_AT_decl_column(0x13)
+     633        .dwendtag $C$DW$T$23
+     634
+     635$C$DW$T$45      .dwtag  DW_TAG_volatile_type
+     636        .dwattr $C$DW$T$45, DW_AT_type(*$C$DW$T$23)
+     637
+     638
+     639$C$DW$T$24      .dwtag  DW_TAG_structure_type
+     640        .dwattr $C$DW$T$24, DW_AT_byte_size(0x04)
+     641$C$DW$48        .dwtag  DW_TAG_member
+     642        .dwattr $C$DW$48, DW_AT_type(*$C$DW$T$11)
+     643        .dwattr $C$DW$48, DW_AT_name("PRU0_IMEM_PE_RAW")
+     644        .dwattr $C$DW$48, DW_AT_TI_symbol_name("PRU0_IMEM_PE_RAW")
+     645        .dwattr $C$DW$48, DW_AT_bit_offset(0x1c)
+     646        .dwattr $C$DW$48, DW_AT_bit_size(0x04)
+     647        .dwattr $C$DW$48, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     648        .dwattr $C$DW$48, DW_AT_accessibility(DW_ACCESS_public)
+     649        .dwattr $C$DW$48, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     650        .dwattr $C$DW$48, DW_AT_decl_line(0x87)
+     651        .dwattr $C$DW$48, DW_AT_decl_column(0x0d)
+     652
+     653$C$DW$49        .dwtag  DW_TAG_member
+     654        .dwattr $C$DW$49, DW_AT_type(*$C$DW$T$11)
+     655        .dwattr $C$DW$49, DW_AT_name("PRU0_DMEM_PE_RAW")
+     656        .dwattr $C$DW$49, DW_AT_TI_symbol_name("PRU0_DMEM_PE_RAW")
+     657        .dwattr $C$DW$49, DW_AT_bit_offset(0x18)
+     658        .dwattr $C$DW$49, DW_AT_bit_size(0x04)
+     659        .dwattr $C$DW$49, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     660        .dwattr $C$DW$49, DW_AT_accessibility(DW_ACCESS_public)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   13
+
+     661        .dwattr $C$DW$49, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     662        .dwattr $C$DW$49, DW_AT_decl_line(0x88)
+     663        .dwattr $C$DW$49, DW_AT_decl_column(0x0d)
+     664
+     665$C$DW$50        .dwtag  DW_TAG_member
+     666        .dwattr $C$DW$50, DW_AT_type(*$C$DW$T$11)
+     667        .dwattr $C$DW$50, DW_AT_name("PRU1_IMEM_PE_RAW")
+     668        .dwattr $C$DW$50, DW_AT_TI_symbol_name("PRU1_IMEM_PE_RAW")
+     669        .dwattr $C$DW$50, DW_AT_bit_offset(0x14)
+     670        .dwattr $C$DW$50, DW_AT_bit_size(0x04)
+     671        .dwattr $C$DW$50, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     672        .dwattr $C$DW$50, DW_AT_accessibility(DW_ACCESS_public)
+     673        .dwattr $C$DW$50, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     674        .dwattr $C$DW$50, DW_AT_decl_line(0x89)
+     675        .dwattr $C$DW$50, DW_AT_decl_column(0x0d)
+     676
+     677$C$DW$51        .dwtag  DW_TAG_member
+     678        .dwattr $C$DW$51, DW_AT_type(*$C$DW$T$11)
+     679        .dwattr $C$DW$51, DW_AT_name("PRU1_DMEM_PE_RAW")
+     680        .dwattr $C$DW$51, DW_AT_TI_symbol_name("PRU1_DMEM_PE_RAW")
+     681        .dwattr $C$DW$51, DW_AT_bit_offset(0x10)
+     682        .dwattr $C$DW$51, DW_AT_bit_size(0x04)
+     683        .dwattr $C$DW$51, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     684        .dwattr $C$DW$51, DW_AT_accessibility(DW_ACCESS_public)
+     685        .dwattr $C$DW$51, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     686        .dwattr $C$DW$51, DW_AT_decl_line(0x8a)
+     687        .dwattr $C$DW$51, DW_AT_decl_column(0x0d)
+     688
+     689$C$DW$52        .dwtag  DW_TAG_member
+     690        .dwattr $C$DW$52, DW_AT_type(*$C$DW$T$11)
+     691        .dwattr $C$DW$52, DW_AT_name("RAM_PE_RAW")
+     692        .dwattr $C$DW$52, DW_AT_TI_symbol_name("RAM_PE_RAW")
+     693        .dwattr $C$DW$52, DW_AT_bit_offset(0x0c)
+     694        .dwattr $C$DW$52, DW_AT_bit_size(0x04)
+     695        .dwattr $C$DW$52, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     696        .dwattr $C$DW$52, DW_AT_accessibility(DW_ACCESS_public)
+     697        .dwattr $C$DW$52, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     698        .dwattr $C$DW$52, DW_AT_decl_line(0x8b)
+     699        .dwattr $C$DW$52, DW_AT_decl_column(0x0d)
+     700
+     701$C$DW$53        .dwtag  DW_TAG_member
+     702        .dwattr $C$DW$53, DW_AT_type(*$C$DW$T$11)
+     703        .dwattr $C$DW$53, DW_AT_name("rsvd20")
+     704        .dwattr $C$DW$53, DW_AT_TI_symbol_name("rsvd20")
+     705        .dwattr $C$DW$53, DW_AT_bit_offset(0x00)
+     706        .dwattr $C$DW$53, DW_AT_bit_size(0x0c)
+     707        .dwattr $C$DW$53, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     708        .dwattr $C$DW$53, DW_AT_accessibility(DW_ACCESS_public)
+     709        .dwattr $C$DW$53, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     710        .dwattr $C$DW$53, DW_AT_decl_line(0x8c)
+     711        .dwattr $C$DW$53, DW_AT_decl_column(0x0d)
+     712
+     713        .dwattr $C$DW$T$24, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     714        .dwattr $C$DW$T$24, DW_AT_decl_line(0x86)
+     715        .dwattr $C$DW$T$24, DW_AT_decl_column(0x14)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   14
+
+     716        .dwendtag $C$DW$T$24
+     717
+     718$C$DW$T$47      .dwtag  DW_TAG_volatile_type
+     719        .dwattr $C$DW$T$47, DW_AT_type(*$C$DW$T$24)
+     720
+     721
+     722$C$DW$T$25      .dwtag  DW_TAG_structure_type
+     723        .dwattr $C$DW$T$25, DW_AT_byte_size(0x04)
+     724$C$DW$54        .dwtag  DW_TAG_member
+     725        .dwattr $C$DW$54, DW_AT_type(*$C$DW$T$11)
+     726        .dwattr $C$DW$54, DW_AT_name("PRU0_IMEM_PE")
+     727        .dwattr $C$DW$54, DW_AT_TI_symbol_name("PRU0_IMEM_PE")
+     728        .dwattr $C$DW$54, DW_AT_bit_offset(0x1c)
+     729        .dwattr $C$DW$54, DW_AT_bit_size(0x04)
+     730        .dwattr $C$DW$54, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     731        .dwattr $C$DW$54, DW_AT_accessibility(DW_ACCESS_public)
+     732        .dwattr $C$DW$54, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     733        .dwattr $C$DW$54, DW_AT_decl_line(0x96)
+     734        .dwattr $C$DW$54, DW_AT_decl_column(0x0d)
+     735
+     736$C$DW$55        .dwtag  DW_TAG_member
+     737        .dwattr $C$DW$55, DW_AT_type(*$C$DW$T$11)
+     738        .dwattr $C$DW$55, DW_AT_name("PRU0_DMEM_PE")
+     739        .dwattr $C$DW$55, DW_AT_TI_symbol_name("PRU0_DMEM_PE")
+     740        .dwattr $C$DW$55, DW_AT_bit_offset(0x18)
+     741        .dwattr $C$DW$55, DW_AT_bit_size(0x04)
+     742        .dwattr $C$DW$55, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     743        .dwattr $C$DW$55, DW_AT_accessibility(DW_ACCESS_public)
+     744        .dwattr $C$DW$55, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     745        .dwattr $C$DW$55, DW_AT_decl_line(0x97)
+     746        .dwattr $C$DW$55, DW_AT_decl_column(0x0d)
+     747
+     748$C$DW$56        .dwtag  DW_TAG_member
+     749        .dwattr $C$DW$56, DW_AT_type(*$C$DW$T$11)
+     750        .dwattr $C$DW$56, DW_AT_name("PRU1_IMEM_PE")
+     751        .dwattr $C$DW$56, DW_AT_TI_symbol_name("PRU1_IMEM_PE")
+     752        .dwattr $C$DW$56, DW_AT_bit_offset(0x14)
+     753        .dwattr $C$DW$56, DW_AT_bit_size(0x04)
+     754        .dwattr $C$DW$56, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     755        .dwattr $C$DW$56, DW_AT_accessibility(DW_ACCESS_public)
+     756        .dwattr $C$DW$56, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     757        .dwattr $C$DW$56, DW_AT_decl_line(0x98)
+     758        .dwattr $C$DW$56, DW_AT_decl_column(0x0d)
+     759
+     760$C$DW$57        .dwtag  DW_TAG_member
+     761        .dwattr $C$DW$57, DW_AT_type(*$C$DW$T$11)
+     762        .dwattr $C$DW$57, DW_AT_name("PRU1_DMEM_PE")
+     763        .dwattr $C$DW$57, DW_AT_TI_symbol_name("PRU1_DMEM_PE")
+     764        .dwattr $C$DW$57, DW_AT_bit_offset(0x10)
+     765        .dwattr $C$DW$57, DW_AT_bit_size(0x04)
+     766        .dwattr $C$DW$57, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     767        .dwattr $C$DW$57, DW_AT_accessibility(DW_ACCESS_public)
+     768        .dwattr $C$DW$57, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     769        .dwattr $C$DW$57, DW_AT_decl_line(0x99)
+     770        .dwattr $C$DW$57, DW_AT_decl_column(0x0d)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   15
+
+     771
+     772$C$DW$58        .dwtag  DW_TAG_member
+     773        .dwattr $C$DW$58, DW_AT_type(*$C$DW$T$11)
+     774        .dwattr $C$DW$58, DW_AT_name("RAM_PE")
+     775        .dwattr $C$DW$58, DW_AT_TI_symbol_name("RAM_PE")
+     776        .dwattr $C$DW$58, DW_AT_bit_offset(0x0c)
+     777        .dwattr $C$DW$58, DW_AT_bit_size(0x04)
+     778        .dwattr $C$DW$58, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     779        .dwattr $C$DW$58, DW_AT_accessibility(DW_ACCESS_public)
+     780        .dwattr $C$DW$58, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     781        .dwattr $C$DW$58, DW_AT_decl_line(0x9a)
+     782        .dwattr $C$DW$58, DW_AT_decl_column(0x0d)
+     783
+     784$C$DW$59        .dwtag  DW_TAG_member
+     785        .dwattr $C$DW$59, DW_AT_type(*$C$DW$T$11)
+     786        .dwattr $C$DW$59, DW_AT_name("rsvd20")
+     787        .dwattr $C$DW$59, DW_AT_TI_symbol_name("rsvd20")
+     788        .dwattr $C$DW$59, DW_AT_bit_offset(0x00)
+     789        .dwattr $C$DW$59, DW_AT_bit_size(0x0c)
+     790        .dwattr $C$DW$59, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     791        .dwattr $C$DW$59, DW_AT_accessibility(DW_ACCESS_public)
+     792        .dwattr $C$DW$59, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     793        .dwattr $C$DW$59, DW_AT_decl_line(0x9b)
+     794        .dwattr $C$DW$59, DW_AT_decl_column(0x0d)
+     795
+     796        .dwattr $C$DW$T$25, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     797        .dwattr $C$DW$T$25, DW_AT_decl_line(0x95)
+     798        .dwattr $C$DW$T$25, DW_AT_decl_column(0x14)
+     799        .dwendtag $C$DW$T$25
+     800
+     801$C$DW$T$49      .dwtag  DW_TAG_volatile_type
+     802        .dwattr $C$DW$T$49, DW_AT_type(*$C$DW$T$25)
+     803
+     804
+     805$C$DW$T$26      .dwtag  DW_TAG_structure_type
+     806        .dwattr $C$DW$T$26, DW_AT_byte_size(0x04)
+     807$C$DW$60        .dwtag  DW_TAG_member
+     808        .dwattr $C$DW$60, DW_AT_type(*$C$DW$T$11)
+     809        .dwattr $C$DW$60, DW_AT_name("PRU0_IMEM_PE_SET")
+     810        .dwattr $C$DW$60, DW_AT_TI_symbol_name("PRU0_IMEM_PE_SET")
+     811        .dwattr $C$DW$60, DW_AT_bit_offset(0x1c)
+     812        .dwattr $C$DW$60, DW_AT_bit_size(0x04)
+     813        .dwattr $C$DW$60, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     814        .dwattr $C$DW$60, DW_AT_accessibility(DW_ACCESS_public)
+     815        .dwattr $C$DW$60, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     816        .dwattr $C$DW$60, DW_AT_decl_line(0xa4)
+     817        .dwattr $C$DW$60, DW_AT_decl_column(0x0d)
+     818
+     819$C$DW$61        .dwtag  DW_TAG_member
+     820        .dwattr $C$DW$61, DW_AT_type(*$C$DW$T$11)
+     821        .dwattr $C$DW$61, DW_AT_name("PRU0_DMEM_PE_SET")
+     822        .dwattr $C$DW$61, DW_AT_TI_symbol_name("PRU0_DMEM_PE_SET")
+     823        .dwattr $C$DW$61, DW_AT_bit_offset(0x18)
+     824        .dwattr $C$DW$61, DW_AT_bit_size(0x04)
+     825        .dwattr $C$DW$61, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   16
+
+     826        .dwattr $C$DW$61, DW_AT_accessibility(DW_ACCESS_public)
+     827        .dwattr $C$DW$61, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     828        .dwattr $C$DW$61, DW_AT_decl_line(0xa5)
+     829        .dwattr $C$DW$61, DW_AT_decl_column(0x0d)
+     830
+     831$C$DW$62        .dwtag  DW_TAG_member
+     832        .dwattr $C$DW$62, DW_AT_type(*$C$DW$T$11)
+     833        .dwattr $C$DW$62, DW_AT_name("PRU1_IMEM_PE_SET")
+     834        .dwattr $C$DW$62, DW_AT_TI_symbol_name("PRU1_IMEM_PE_SET")
+     835        .dwattr $C$DW$62, DW_AT_bit_offset(0x14)
+     836        .dwattr $C$DW$62, DW_AT_bit_size(0x04)
+     837        .dwattr $C$DW$62, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     838        .dwattr $C$DW$62, DW_AT_accessibility(DW_ACCESS_public)
+     839        .dwattr $C$DW$62, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     840        .dwattr $C$DW$62, DW_AT_decl_line(0xa6)
+     841        .dwattr $C$DW$62, DW_AT_decl_column(0x0d)
+     842
+     843$C$DW$63        .dwtag  DW_TAG_member
+     844        .dwattr $C$DW$63, DW_AT_type(*$C$DW$T$11)
+     845        .dwattr $C$DW$63, DW_AT_name("PRU1_DMEM_PE_SET")
+     846        .dwattr $C$DW$63, DW_AT_TI_symbol_name("PRU1_DMEM_PE_SET")
+     847        .dwattr $C$DW$63, DW_AT_bit_offset(0x10)
+     848        .dwattr $C$DW$63, DW_AT_bit_size(0x04)
+     849        .dwattr $C$DW$63, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     850        .dwattr $C$DW$63, DW_AT_accessibility(DW_ACCESS_public)
+     851        .dwattr $C$DW$63, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     852        .dwattr $C$DW$63, DW_AT_decl_line(0xa7)
+     853        .dwattr $C$DW$63, DW_AT_decl_column(0x0d)
+     854
+     855$C$DW$64        .dwtag  DW_TAG_member
+     856        .dwattr $C$DW$64, DW_AT_type(*$C$DW$T$11)
+     857        .dwattr $C$DW$64, DW_AT_name("RAM_PE_SET")
+     858        .dwattr $C$DW$64, DW_AT_TI_symbol_name("RAM_PE_SET")
+     859        .dwattr $C$DW$64, DW_AT_bit_offset(0x0c)
+     860        .dwattr $C$DW$64, DW_AT_bit_size(0x04)
+     861        .dwattr $C$DW$64, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     862        .dwattr $C$DW$64, DW_AT_accessibility(DW_ACCESS_public)
+     863        .dwattr $C$DW$64, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     864        .dwattr $C$DW$64, DW_AT_decl_line(0xa8)
+     865        .dwattr $C$DW$64, DW_AT_decl_column(0x0d)
+     866
+     867$C$DW$65        .dwtag  DW_TAG_member
+     868        .dwattr $C$DW$65, DW_AT_type(*$C$DW$T$11)
+     869        .dwattr $C$DW$65, DW_AT_name("rsvd20")
+     870        .dwattr $C$DW$65, DW_AT_TI_symbol_name("rsvd20")
+     871        .dwattr $C$DW$65, DW_AT_bit_offset(0x00)
+     872        .dwattr $C$DW$65, DW_AT_bit_size(0x0c)
+     873        .dwattr $C$DW$65, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     874        .dwattr $C$DW$65, DW_AT_accessibility(DW_ACCESS_public)
+     875        .dwattr $C$DW$65, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     876        .dwattr $C$DW$65, DW_AT_decl_line(0xa9)
+     877        .dwattr $C$DW$65, DW_AT_decl_column(0x0d)
+     878
+     879        .dwattr $C$DW$T$26, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     880        .dwattr $C$DW$T$26, DW_AT_decl_line(0xa3)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   17
+
+     881        .dwattr $C$DW$T$26, DW_AT_decl_column(0x13)
+     882        .dwendtag $C$DW$T$26
+     883
+     884$C$DW$T$51      .dwtag  DW_TAG_volatile_type
+     885        .dwattr $C$DW$T$51, DW_AT_type(*$C$DW$T$26)
+     886
+     887
+     888$C$DW$T$27      .dwtag  DW_TAG_structure_type
+     889        .dwattr $C$DW$T$27, DW_AT_byte_size(0x04)
+     890$C$DW$66        .dwtag  DW_TAG_member
+     891        .dwattr $C$DW$66, DW_AT_type(*$C$DW$T$11)
+     892        .dwattr $C$DW$66, DW_AT_name("PRU0_IMEM_PE_CLR")
+     893        .dwattr $C$DW$66, DW_AT_TI_symbol_name("PRU0_IMEM_PE_CLR")
+     894        .dwattr $C$DW$66, DW_AT_bit_offset(0x1c)
+     895        .dwattr $C$DW$66, DW_AT_bit_size(0x04)
+     896        .dwattr $C$DW$66, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     897        .dwattr $C$DW$66, DW_AT_accessibility(DW_ACCESS_public)
+     898        .dwattr $C$DW$66, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     899        .dwattr $C$DW$66, DW_AT_decl_line(0xb3)
+     900        .dwattr $C$DW$66, DW_AT_decl_column(0x0d)
+     901
+     902$C$DW$67        .dwtag  DW_TAG_member
+     903        .dwattr $C$DW$67, DW_AT_type(*$C$DW$T$11)
+     904        .dwattr $C$DW$67, DW_AT_name("PRU0_DMEM_PE_CLR")
+     905        .dwattr $C$DW$67, DW_AT_TI_symbol_name("PRU0_DMEM_PE_CLR")
+     906        .dwattr $C$DW$67, DW_AT_bit_offset(0x18)
+     907        .dwattr $C$DW$67, DW_AT_bit_size(0x04)
+     908        .dwattr $C$DW$67, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     909        .dwattr $C$DW$67, DW_AT_accessibility(DW_ACCESS_public)
+     910        .dwattr $C$DW$67, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     911        .dwattr $C$DW$67, DW_AT_decl_line(0xb4)
+     912        .dwattr $C$DW$67, DW_AT_decl_column(0x0d)
+     913
+     914$C$DW$68        .dwtag  DW_TAG_member
+     915        .dwattr $C$DW$68, DW_AT_type(*$C$DW$T$11)
+     916        .dwattr $C$DW$68, DW_AT_name("PRU1_IMEM_PE_CLR")
+     917        .dwattr $C$DW$68, DW_AT_TI_symbol_name("PRU1_IMEM_PE_CLR")
+     918        .dwattr $C$DW$68, DW_AT_bit_offset(0x14)
+     919        .dwattr $C$DW$68, DW_AT_bit_size(0x04)
+     920        .dwattr $C$DW$68, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     921        .dwattr $C$DW$68, DW_AT_accessibility(DW_ACCESS_public)
+     922        .dwattr $C$DW$68, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     923        .dwattr $C$DW$68, DW_AT_decl_line(0xb5)
+     924        .dwattr $C$DW$68, DW_AT_decl_column(0x0d)
+     925
+     926$C$DW$69        .dwtag  DW_TAG_member
+     927        .dwattr $C$DW$69, DW_AT_type(*$C$DW$T$11)
+     928        .dwattr $C$DW$69, DW_AT_name("PRU1_DMEM_PE_CLR")
+     929        .dwattr $C$DW$69, DW_AT_TI_symbol_name("PRU1_DMEM_PE_CLR")
+     930        .dwattr $C$DW$69, DW_AT_bit_offset(0x10)
+     931        .dwattr $C$DW$69, DW_AT_bit_size(0x04)
+     932        .dwattr $C$DW$69, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     933        .dwattr $C$DW$69, DW_AT_accessibility(DW_ACCESS_public)
+     934        .dwattr $C$DW$69, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     935        .dwattr $C$DW$69, DW_AT_decl_line(0xb6)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   18
+
+     936        .dwattr $C$DW$69, DW_AT_decl_column(0x0d)
+     937
+     938$C$DW$70        .dwtag  DW_TAG_member
+     939        .dwattr $C$DW$70, DW_AT_type(*$C$DW$T$11)
+     940        .dwattr $C$DW$70, DW_AT_name("rsvd16")
+     941        .dwattr $C$DW$70, DW_AT_TI_symbol_name("rsvd16")
+     942        .dwattr $C$DW$70, DW_AT_bit_offset(0x00)
+     943        .dwattr $C$DW$70, DW_AT_bit_size(0x10)
+     944        .dwattr $C$DW$70, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     945        .dwattr $C$DW$70, DW_AT_accessibility(DW_ACCESS_public)
+     946        .dwattr $C$DW$70, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     947        .dwattr $C$DW$70, DW_AT_decl_line(0xb7)
+     948        .dwattr $C$DW$70, DW_AT_decl_column(0x0d)
+     949
+     950        .dwattr $C$DW$T$27, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     951        .dwattr $C$DW$T$27, DW_AT_decl_line(0xb2)
+     952        .dwattr $C$DW$T$27, DW_AT_decl_column(0x13)
+     953        .dwendtag $C$DW$T$27
+     954
+     955$C$DW$T$53      .dwtag  DW_TAG_volatile_type
+     956        .dwattr $C$DW$T$53, DW_AT_type(*$C$DW$T$27)
+     957
+     958
+     959$C$DW$T$28      .dwtag  DW_TAG_structure_type
+     960        .dwattr $C$DW$T$28, DW_AT_byte_size(0x04)
+     961$C$DW$71        .dwtag  DW_TAG_member
+     962        .dwattr $C$DW$71, DW_AT_type(*$C$DW$T$11)
+     963        .dwattr $C$DW$71, DW_AT_name("PMAO_PRU0")
+     964        .dwattr $C$DW$71, DW_AT_TI_symbol_name("PMAO_PRU0")
+     965        .dwattr $C$DW$71, DW_AT_bit_offset(0x1f)
+     966        .dwattr $C$DW$71, DW_AT_bit_size(0x01)
+     967        .dwattr $C$DW$71, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     968        .dwattr $C$DW$71, DW_AT_accessibility(DW_ACCESS_public)
+     969        .dwattr $C$DW$71, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     970        .dwattr $C$DW$71, DW_AT_decl_line(0xc4)
+     971        .dwattr $C$DW$71, DW_AT_decl_column(0x0d)
+     972
+     973$C$DW$72        .dwtag  DW_TAG_member
+     974        .dwattr $C$DW$72, DW_AT_type(*$C$DW$T$11)
+     975        .dwattr $C$DW$72, DW_AT_name("PMAO_PRU1")
+     976        .dwattr $C$DW$72, DW_AT_TI_symbol_name("PMAO_PRU1")
+     977        .dwattr $C$DW$72, DW_AT_bit_offset(0x1e)
+     978        .dwattr $C$DW$72, DW_AT_bit_size(0x01)
+     979        .dwattr $C$DW$72, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     980        .dwattr $C$DW$72, DW_AT_accessibility(DW_ACCESS_public)
+     981        .dwattr $C$DW$72, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     982        .dwattr $C$DW$72, DW_AT_decl_line(0xc5)
+     983        .dwattr $C$DW$72, DW_AT_decl_column(0x0d)
+     984
+     985$C$DW$73        .dwtag  DW_TAG_member
+     986        .dwattr $C$DW$73, DW_AT_type(*$C$DW$T$11)
+     987        .dwattr $C$DW$73, DW_AT_name("rsvd2")
+     988        .dwattr $C$DW$73, DW_AT_TI_symbol_name("rsvd2")
+     989        .dwattr $C$DW$73, DW_AT_bit_offset(0x00)
+     990        .dwattr $C$DW$73, DW_AT_bit_size(0x1e)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   19
+
+     991        .dwattr $C$DW$73, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+     992        .dwattr $C$DW$73, DW_AT_accessibility(DW_ACCESS_public)
+     993        .dwattr $C$DW$73, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+     994        .dwattr $C$DW$73, DW_AT_decl_line(0xc6)
+     995        .dwattr $C$DW$73, DW_AT_decl_column(0x0d)
+     996
+     997        .dwattr $C$DW$T$28, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+     998        .dwattr $C$DW$T$28, DW_AT_decl_line(0xc3)
+     999        .dwattr $C$DW$T$28, DW_AT_decl_column(0x13)
+    1000        .dwendtag $C$DW$T$28
+    1001
+    1002$C$DW$T$55      .dwtag  DW_TAG_volatile_type
+    1003        .dwattr $C$DW$T$55, DW_AT_type(*$C$DW$T$28)
+    1004
+    1005
+    1006$C$DW$T$29      .dwtag  DW_TAG_structure_type
+    1007        .dwattr $C$DW$T$29, DW_AT_byte_size(0x04)
+    1008$C$DW$74        .dwtag  DW_TAG_member
+    1009        .dwattr $C$DW$74, DW_AT_type(*$C$DW$T$11)
+    1010        .dwattr $C$DW$74, DW_AT_name("OCP_EN")
+    1011        .dwattr $C$DW$74, DW_AT_TI_symbol_name("OCP_EN")
+    1012        .dwattr $C$DW$74, DW_AT_bit_offset(0x1f)
+    1013        .dwattr $C$DW$74, DW_AT_bit_size(0x01)
+    1014        .dwattr $C$DW$74, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1015        .dwattr $C$DW$74, DW_AT_accessibility(DW_ACCESS_public)
+    1016        .dwattr $C$DW$74, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1017        .dwattr $C$DW$74, DW_AT_decl_line(0xd3)
+    1018        .dwattr $C$DW$74, DW_AT_decl_column(0x0d)
+    1019
+    1020$C$DW$75        .dwtag  DW_TAG_member
+    1021        .dwattr $C$DW$75, DW_AT_type(*$C$DW$T$11)
+    1022        .dwattr $C$DW$75, DW_AT_name("rsvd1")
+    1023        .dwattr $C$DW$75, DW_AT_TI_symbol_name("rsvd1")
+    1024        .dwattr $C$DW$75, DW_AT_bit_offset(0x00)
+    1025        .dwattr $C$DW$75, DW_AT_bit_size(0x1f)
+    1026        .dwattr $C$DW$75, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1027        .dwattr $C$DW$75, DW_AT_accessibility(DW_ACCESS_public)
+    1028        .dwattr $C$DW$75, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1029        .dwattr $C$DW$75, DW_AT_decl_line(0xd4)
+    1030        .dwattr $C$DW$75, DW_AT_decl_column(0x0d)
+    1031
+    1032        .dwattr $C$DW$T$29, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1033        .dwattr $C$DW$T$29, DW_AT_decl_line(0xd2)
+    1034        .dwattr $C$DW$T$29, DW_AT_decl_column(0x13)
+    1035        .dwendtag $C$DW$T$29
+    1036
+    1037$C$DW$T$57      .dwtag  DW_TAG_volatile_type
+    1038        .dwattr $C$DW$T$57, DW_AT_type(*$C$DW$T$29)
+    1039
+    1040
+    1041$C$DW$T$30      .dwtag  DW_TAG_structure_type
+    1042        .dwattr $C$DW$T$30, DW_AT_byte_size(0x04)
+    1043$C$DW$76        .dwtag  DW_TAG_member
+    1044        .dwattr $C$DW$76, DW_AT_type(*$C$DW$T$11)
+    1045        .dwattr $C$DW$76, DW_AT_name("PRU1_PAD_HP_EN")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   20
+
+    1046        .dwattr $C$DW$76, DW_AT_TI_symbol_name("PRU1_PAD_HP_EN")
+    1047        .dwattr $C$DW$76, DW_AT_bit_offset(0x1f)
+    1048        .dwattr $C$DW$76, DW_AT_bit_size(0x01)
+    1049        .dwattr $C$DW$76, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1050        .dwattr $C$DW$76, DW_AT_accessibility(DW_ACCESS_public)
+    1051        .dwattr $C$DW$76, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1052        .dwattr $C$DW$76, DW_AT_decl_line(0xde)
+    1053        .dwattr $C$DW$76, DW_AT_decl_column(0x0d)
+    1054
+    1055$C$DW$77        .dwtag  DW_TAG_member
+    1056        .dwattr $C$DW$77, DW_AT_type(*$C$DW$T$11)
+    1057        .dwattr $C$DW$77, DW_AT_name("XFR_SHIFT_EN")
+    1058        .dwattr $C$DW$77, DW_AT_TI_symbol_name("XFR_SHIFT_EN")
+    1059        .dwattr $C$DW$77, DW_AT_bit_offset(0x1e)
+    1060        .dwattr $C$DW$77, DW_AT_bit_size(0x01)
+    1061        .dwattr $C$DW$77, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1062        .dwattr $C$DW$77, DW_AT_accessibility(DW_ACCESS_public)
+    1063        .dwattr $C$DW$77, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1064        .dwattr $C$DW$77, DW_AT_decl_line(0xdf)
+    1065        .dwattr $C$DW$77, DW_AT_decl_column(0x0d)
+    1066
+    1067$C$DW$78        .dwtag  DW_TAG_member
+    1068        .dwattr $C$DW$78, DW_AT_type(*$C$DW$T$11)
+    1069        .dwattr $C$DW$78, DW_AT_name("rsvd2")
+    1070        .dwattr $C$DW$78, DW_AT_TI_symbol_name("rsvd2")
+    1071        .dwattr $C$DW$78, DW_AT_bit_offset(0x00)
+    1072        .dwattr $C$DW$78, DW_AT_bit_size(0x1e)
+    1073        .dwattr $C$DW$78, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1074        .dwattr $C$DW$78, DW_AT_accessibility(DW_ACCESS_public)
+    1075        .dwattr $C$DW$78, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1076        .dwattr $C$DW$78, DW_AT_decl_line(0xe0)
+    1077        .dwattr $C$DW$78, DW_AT_decl_column(0x0d)
+    1078
+    1079        .dwattr $C$DW$T$30, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1080        .dwattr $C$DW$T$30, DW_AT_decl_line(0xdd)
+    1081        .dwattr $C$DW$T$30, DW_AT_decl_column(0x13)
+    1082        .dwendtag $C$DW$T$30
+    1083
+    1084$C$DW$T$59      .dwtag  DW_TAG_volatile_type
+    1085        .dwattr $C$DW$T$59, DW_AT_type(*$C$DW$T$30)
+    1086
+    1087
+    1088$C$DW$T$31      .dwtag  DW_TAG_structure_type
+    1089        .dwattr $C$DW$T$31, DW_AT_byte_size(0x04)
+    1090$C$DW$79        .dwtag  DW_TAG_member
+    1091        .dwattr $C$DW$79, DW_AT_type(*$C$DW$T$11)
+    1092        .dwattr $C$DW$79, DW_AT_name("PIN_MUX_SEL")
+    1093        .dwattr $C$DW$79, DW_AT_TI_symbol_name("PIN_MUX_SEL")
+    1094        .dwattr $C$DW$79, DW_AT_bit_offset(0x18)
+    1095        .dwattr $C$DW$79, DW_AT_bit_size(0x08)
+    1096        .dwattr $C$DW$79, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1097        .dwattr $C$DW$79, DW_AT_accessibility(DW_ACCESS_public)
+    1098        .dwattr $C$DW$79, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1099        .dwattr $C$DW$79, DW_AT_decl_line(0xec)
+    1100        .dwattr $C$DW$79, DW_AT_decl_column(0x0d)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   21
+
+    1101
+    1102$C$DW$80        .dwtag  DW_TAG_member
+    1103        .dwattr $C$DW$80, DW_AT_type(*$C$DW$T$11)
+    1104        .dwattr $C$DW$80, DW_AT_name("rsvd2")
+    1105        .dwattr $C$DW$80, DW_AT_TI_symbol_name("rsvd2")
+    1106        .dwattr $C$DW$80, DW_AT_bit_offset(0x00)
+    1107        .dwattr $C$DW$80, DW_AT_bit_size(0x18)
+    1108        .dwattr $C$DW$80, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1109        .dwattr $C$DW$80, DW_AT_accessibility(DW_ACCESS_public)
+    1110        .dwattr $C$DW$80, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1111        .dwattr $C$DW$80, DW_AT_decl_line(0xed)
+    1112        .dwattr $C$DW$80, DW_AT_decl_column(0x0d)
+    1113
+    1114        .dwattr $C$DW$T$31, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1115        .dwattr $C$DW$T$31, DW_AT_decl_line(0xeb)
+    1116        .dwattr $C$DW$T$31, DW_AT_decl_column(0x13)
+    1117        .dwendtag $C$DW$T$31
+    1118
+    1119$C$DW$T$61      .dwtag  DW_TAG_volatile_type
+    1120        .dwattr $C$DW$T$61, DW_AT_type(*$C$DW$T$31)
+    1121
+    1122
+    1123$C$DW$T$35      .dwtag  DW_TAG_structure_type
+    1124        .dwattr $C$DW$T$35, DW_AT_byte_size(0x44)
+    1125$C$DW$81        .dwtag  DW_TAG_member
+    1126        .dwattr $C$DW$81, DW_AT_type(*$C$DW$T$38)
+    1127        .dwattr $C$DW$81, DW_AT_name("$P$T0")
+    1128        .dwattr $C$DW$81, DW_AT_TI_symbol_name("$P$T0")
+    1129        .dwattr $C$DW$81, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1130        .dwattr $C$DW$81, DW_AT_accessibility(DW_ACCESS_public)
+    1131        .dwattr $C$DW$81, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1132        .dwattr $C$DW$81, DW_AT_decl_line(0x29)
+    1133        .dwattr $C$DW$81, DW_AT_decl_column(0x02)
+    1134
+    1135$C$DW$82        .dwtag  DW_TAG_member
+    1136        .dwattr $C$DW$82, DW_AT_type(*$C$DW$T$40)
+    1137        .dwattr $C$DW$82, DW_AT_name("$P$T1")
+    1138        .dwattr $C$DW$82, DW_AT_TI_symbol_name("$P$T1")
+    1139        .dwattr $C$DW$82, DW_AT_data_member_location[DW_OP_plus_uconst 0x4]
+    1140        .dwattr $C$DW$82, DW_AT_accessibility(DW_ACCESS_public)
+    1141        .dwattr $C$DW$82, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1142        .dwattr $C$DW$82, DW_AT_decl_line(0x33)
+    1143        .dwattr $C$DW$82, DW_AT_decl_column(0x02)
+    1144
+    1145$C$DW$83        .dwtag  DW_TAG_member
+    1146        .dwattr $C$DW$83, DW_AT_type(*$C$DW$T$42)
+    1147        .dwattr $C$DW$83, DW_AT_name("$P$T2")
+    1148        .dwattr $C$DW$83, DW_AT_TI_symbol_name("$P$T2")
+    1149        .dwattr $C$DW$83, DW_AT_data_member_location[DW_OP_plus_uconst 0x8]
+    1150        .dwattr $C$DW$83, DW_AT_accessibility(DW_ACCESS_public)
+    1151        .dwattr $C$DW$83, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1152        .dwattr $C$DW$83, DW_AT_decl_line(0x41)
+    1153        .dwattr $C$DW$83, DW_AT_decl_column(0x02)
+    1154
+    1155$C$DW$84        .dwtag  DW_TAG_member
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   22
+
+    1156        .dwattr $C$DW$84, DW_AT_type(*$C$DW$T$44)
+    1157        .dwattr $C$DW$84, DW_AT_name("$P$T3")
+    1158        .dwattr $C$DW$84, DW_AT_TI_symbol_name("$P$T3")
+    1159        .dwattr $C$DW$84, DW_AT_data_member_location[DW_OP_plus_uconst 0xc]
+    1160        .dwattr $C$DW$84, DW_AT_accessibility(DW_ACCESS_public)
+    1161        .dwattr $C$DW$84, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1162        .dwattr $C$DW$84, DW_AT_decl_line(0x54)
+    1163        .dwattr $C$DW$84, DW_AT_decl_column(0x02)
+    1164
+    1165$C$DW$85        .dwtag  DW_TAG_member
+    1166        .dwattr $C$DW$85, DW_AT_type(*$C$DW$T$46)
+    1167        .dwattr $C$DW$85, DW_AT_name("$P$T4")
+    1168        .dwattr $C$DW$85, DW_AT_TI_symbol_name("$P$T4")
+    1169        .dwattr $C$DW$85, DW_AT_data_member_location[DW_OP_plus_uconst 0x10]
+    1170        .dwattr $C$DW$85, DW_AT_accessibility(DW_ACCESS_public)
+    1171        .dwattr $C$DW$85, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1172        .dwattr $C$DW$85, DW_AT_decl_line(0x67)
+    1173        .dwattr $C$DW$85, DW_AT_decl_column(0x02)
+    1174
+    1175$C$DW$86        .dwtag  DW_TAG_member
+    1176        .dwattr $C$DW$86, DW_AT_type(*$C$DW$T$48)
+    1177        .dwattr $C$DW$86, DW_AT_name("$P$T5")
+    1178        .dwattr $C$DW$86, DW_AT_TI_symbol_name("$P$T5")
+    1179        .dwattr $C$DW$86, DW_AT_data_member_location[DW_OP_plus_uconst 0x14]
+    1180        .dwattr $C$DW$86, DW_AT_accessibility(DW_ACCESS_public)
+    1181        .dwattr $C$DW$86, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1182        .dwattr $C$DW$86, DW_AT_decl_line(0x83)
+    1183        .dwattr $C$DW$86, DW_AT_decl_column(0x02)
+    1184
+    1185$C$DW$87        .dwtag  DW_TAG_member
+    1186        .dwattr $C$DW$87, DW_AT_type(*$C$DW$T$50)
+    1187        .dwattr $C$DW$87, DW_AT_name("$P$T6")
+    1188        .dwattr $C$DW$87, DW_AT_TI_symbol_name("$P$T6")
+    1189        .dwattr $C$DW$87, DW_AT_data_member_location[DW_OP_plus_uconst 0x18]
+    1190        .dwattr $C$DW$87, DW_AT_accessibility(DW_ACCESS_public)
+    1191        .dwattr $C$DW$87, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1192        .dwattr $C$DW$87, DW_AT_decl_line(0x92)
+    1193        .dwattr $C$DW$87, DW_AT_decl_column(0x02)
+    1194
+    1195$C$DW$88        .dwtag  DW_TAG_member
+    1196        .dwattr $C$DW$88, DW_AT_type(*$C$DW$T$52)
+    1197        .dwattr $C$DW$88, DW_AT_name("$P$T7")
+    1198        .dwattr $C$DW$88, DW_AT_TI_symbol_name("$P$T7")
+    1199        .dwattr $C$DW$88, DW_AT_data_member_location[DW_OP_plus_uconst 0x1c]
+    1200        .dwattr $C$DW$88, DW_AT_accessibility(DW_ACCESS_public)
+    1201        .dwattr $C$DW$88, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1202        .dwattr $C$DW$88, DW_AT_decl_line(0xa0)
+    1203        .dwattr $C$DW$88, DW_AT_decl_column(0x02)
+    1204
+    1205$C$DW$89        .dwtag  DW_TAG_member
+    1206        .dwattr $C$DW$89, DW_AT_type(*$C$DW$T$54)
+    1207        .dwattr $C$DW$89, DW_AT_name("$P$T8")
+    1208        .dwattr $C$DW$89, DW_AT_TI_symbol_name("$P$T8")
+    1209        .dwattr $C$DW$89, DW_AT_data_member_location[DW_OP_plus_uconst 0x20]
+    1210        .dwattr $C$DW$89, DW_AT_accessibility(DW_ACCESS_public)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   23
+
+    1211        .dwattr $C$DW$89, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1212        .dwattr $C$DW$89, DW_AT_decl_line(0xaf)
+    1213        .dwattr $C$DW$89, DW_AT_decl_column(0x02)
+    1214
+    1215$C$DW$90        .dwtag  DW_TAG_member
+    1216        .dwattr $C$DW$90, DW_AT_type(*$C$DW$T$32)
+    1217        .dwattr $C$DW$90, DW_AT_name("rsvd24")
+    1218        .dwattr $C$DW$90, DW_AT_TI_symbol_name("rsvd24")
+    1219        .dwattr $C$DW$90, DW_AT_data_member_location[DW_OP_plus_uconst 0x24]
+    1220        .dwattr $C$DW$90, DW_AT_accessibility(DW_ACCESS_public)
+    1221        .dwattr $C$DW$90, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1222        .dwattr $C$DW$90, DW_AT_decl_line(0xbc)
+    1223        .dwattr $C$DW$90, DW_AT_decl_column(0x0b)
+    1224
+    1225$C$DW$91        .dwtag  DW_TAG_member
+    1226        .dwattr $C$DW$91, DW_AT_type(*$C$DW$T$56)
+    1227        .dwattr $C$DW$91, DW_AT_name("$P$T9")
+    1228        .dwattr $C$DW$91, DW_AT_TI_symbol_name("$P$T9")
+    1229        .dwattr $C$DW$91, DW_AT_data_member_location[DW_OP_plus_uconst 0x28]
+    1230        .dwattr $C$DW$91, DW_AT_accessibility(DW_ACCESS_public)
+    1231        .dwattr $C$DW$91, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1232        .dwattr $C$DW$91, DW_AT_decl_line(0xc0)
+    1233        .dwattr $C$DW$91, DW_AT_decl_column(0x02)
+    1234
+    1235$C$DW$92        .dwtag  DW_TAG_member
+    1236        .dwattr $C$DW$92, DW_AT_type(*$C$DW$T$33)
+    1237        .dwattr $C$DW$92, DW_AT_name("rsvd2c")
+    1238        .dwattr $C$DW$92, DW_AT_TI_symbol_name("rsvd2c")
+    1239        .dwattr $C$DW$92, DW_AT_data_member_location[DW_OP_plus_uconst 0x2c]
+    1240        .dwattr $C$DW$92, DW_AT_accessibility(DW_ACCESS_public)
+    1241        .dwattr $C$DW$92, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1242        .dwattr $C$DW$92, DW_AT_decl_line(0xcb)
+    1243        .dwattr $C$DW$92, DW_AT_decl_column(0x0b)
+    1244
+    1245$C$DW$93        .dwtag  DW_TAG_member
+    1246        .dwattr $C$DW$93, DW_AT_type(*$C$DW$T$58)
+    1247        .dwattr $C$DW$93, DW_AT_name("$P$T10")
+    1248        .dwattr $C$DW$93, DW_AT_TI_symbol_name("$P$T10")
+    1249        .dwattr $C$DW$93, DW_AT_data_member_location[DW_OP_plus_uconst 0x30]
+    1250        .dwattr $C$DW$93, DW_AT_accessibility(DW_ACCESS_public)
+    1251        .dwattr $C$DW$93, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1252        .dwattr $C$DW$93, DW_AT_decl_line(0xcf)
+    1253        .dwattr $C$DW$93, DW_AT_decl_column(0x02)
+    1254
+    1255$C$DW$94        .dwtag  DW_TAG_member
+    1256        .dwattr $C$DW$94, DW_AT_type(*$C$DW$T$60)
+    1257        .dwattr $C$DW$94, DW_AT_name("$P$T11")
+    1258        .dwattr $C$DW$94, DW_AT_TI_symbol_name("$P$T11")
+    1259        .dwattr $C$DW$94, DW_AT_data_member_location[DW_OP_plus_uconst 0x34]
+    1260        .dwattr $C$DW$94, DW_AT_accessibility(DW_ACCESS_public)
+    1261        .dwattr $C$DW$94, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1262        .dwattr $C$DW$94, DW_AT_decl_line(0xda)
+    1263        .dwattr $C$DW$94, DW_AT_decl_column(0x02)
+    1264
+    1265$C$DW$95        .dwtag  DW_TAG_member
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   24
+
+    1266        .dwattr $C$DW$95, DW_AT_type(*$C$DW$T$34)
+    1267        .dwattr $C$DW$95, DW_AT_name("rsvd38")
+    1268        .dwattr $C$DW$95, DW_AT_TI_symbol_name("rsvd38")
+    1269        .dwattr $C$DW$95, DW_AT_data_member_location[DW_OP_plus_uconst 0x38]
+    1270        .dwattr $C$DW$95, DW_AT_accessibility(DW_ACCESS_public)
+    1271        .dwattr $C$DW$95, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1272        .dwattr $C$DW$95, DW_AT_decl_line(0xe5)
+    1273        .dwattr $C$DW$95, DW_AT_decl_column(0x0b)
+    1274
+    1275$C$DW$96        .dwtag  DW_TAG_member
+    1276        .dwattr $C$DW$96, DW_AT_type(*$C$DW$T$62)
+    1277        .dwattr $C$DW$96, DW_AT_name("$P$T12")
+    1278        .dwattr $C$DW$96, DW_AT_TI_symbol_name("$P$T12")
+    1279        .dwattr $C$DW$96, DW_AT_data_member_location[DW_OP_plus_uconst 0x40]
+    1280        .dwattr $C$DW$96, DW_AT_accessibility(DW_ACCESS_public)
+    1281        .dwattr $C$DW$96, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1282        .dwattr $C$DW$96, DW_AT_decl_line(0xe8)
+    1283        .dwattr $C$DW$96, DW_AT_decl_column(0x02)
+    1284
+    1285        .dwattr $C$DW$T$35, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1286        .dwattr $C$DW$T$35, DW_AT_decl_line(0x26)
+    1287        .dwattr $C$DW$T$35, DW_AT_decl_column(0x10)
+    1288        .dwendtag $C$DW$T$35
+    1289
+    1290$C$DW$T$63      .dwtag  DW_TAG_typedef
+    1291        .dwattr $C$DW$T$63, DW_AT_name("pruCfg")
+    1292        .dwattr $C$DW$T$63, DW_AT_type(*$C$DW$T$35)
+    1293        .dwattr $C$DW$T$63, DW_AT_language(DW_LANG_C)
+    1294        .dwattr $C$DW$T$63, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1295        .dwattr $C$DW$T$63, DW_AT_decl_line(0xf0)
+    1296        .dwattr $C$DW$T$63, DW_AT_decl_column(0x03)
+    1297
+    1298$C$DW$T$64      .dwtag  DW_TAG_volatile_type
+    1299        .dwattr $C$DW$T$64, DW_AT_type(*$C$DW$T$63)
+    1300
+    1301
+    1302$C$DW$T$38      .dwtag  DW_TAG_union_type
+    1303        .dwattr $C$DW$T$38, DW_AT_byte_size(0x04)
+    1304$C$DW$97        .dwtag  DW_TAG_member
+    1305        .dwattr $C$DW$97, DW_AT_type(*$C$DW$T$36)
+    1306        .dwattr $C$DW$97, DW_AT_name("REVID")
+    1307        .dwattr $C$DW$97, DW_AT_TI_symbol_name("REVID")
+    1308        .dwattr $C$DW$97, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1309        .dwattr $C$DW$97, DW_AT_accessibility(DW_ACCESS_public)
+    1310        .dwattr $C$DW$97, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1311        .dwattr $C$DW$97, DW_AT_decl_line(0x2a)
+    1312        .dwattr $C$DW$97, DW_AT_decl_column(0x15)
+    1313
+    1314$C$DW$98        .dwtag  DW_TAG_member
+    1315        .dwattr $C$DW$98, DW_AT_type(*$C$DW$T$37)
+    1316        .dwattr $C$DW$98, DW_AT_name("REVID_bit")
+    1317        .dwattr $C$DW$98, DW_AT_TI_symbol_name("REVID_bit")
+    1318        .dwattr $C$DW$98, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1319        .dwattr $C$DW$98, DW_AT_accessibility(DW_ACCESS_public)
+    1320        .dwattr $C$DW$98, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   25
+
+    1321        .dwattr $C$DW$98, DW_AT_decl_line(0x2e)
+    1322        .dwattr $C$DW$98, DW_AT_decl_column(0x05)
+    1323
+    1324        .dwattr $C$DW$T$38, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1325        .dwattr $C$DW$T$38, DW_AT_decl_line(0x29)
+    1326        .dwattr $C$DW$T$38, DW_AT_decl_column(0x08)
+    1327        .dwendtag $C$DW$T$38
+    1328
+    1329
+    1330$C$DW$T$40      .dwtag  DW_TAG_union_type
+    1331        .dwattr $C$DW$T$40, DW_AT_byte_size(0x04)
+    1332$C$DW$99        .dwtag  DW_TAG_member
+    1333        .dwattr $C$DW$99, DW_AT_type(*$C$DW$T$36)
+    1334        .dwattr $C$DW$99, DW_AT_name("SYSCFG")
+    1335        .dwattr $C$DW$99, DW_AT_TI_symbol_name("SYSCFG")
+    1336        .dwattr $C$DW$99, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1337        .dwattr $C$DW$99, DW_AT_accessibility(DW_ACCESS_public)
+    1338        .dwattr $C$DW$99, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile
+    1339        .dwattr $C$DW$99, DW_AT_decl_line(0x34)
+    1340        .dwattr $C$DW$99, DW_AT_decl_column(0x15)
+    1341
+    1342$C$DW$100       .dwtag  DW_TAG_member
+    1343        .dwattr $C$DW$100, DW_AT_type(*$C$DW$T$39)
+    1344        .dwattr $C$DW$100, DW_AT_name("SYSCFG_bit")
+    1345        .dwattr $C$DW$100, DW_AT_TI_symbol_name("SYSCFG_bit")
+    1346        .dwattr $C$DW$100, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1347        .dwattr $C$DW$100, DW_AT_accessibility(DW_ACCESS_public)
+    1348        .dwattr $C$DW$100, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1349        .dwattr $C$DW$100, DW_AT_decl_line(0x3c)
+    1350        .dwattr $C$DW$100, DW_AT_decl_column(0x05)
+    1351
+    1352        .dwattr $C$DW$T$40, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1353        .dwattr $C$DW$T$40, DW_AT_decl_line(0x33)
+    1354        .dwattr $C$DW$T$40, DW_AT_decl_column(0x08)
+    1355        .dwendtag $C$DW$T$40
+    1356
+    1357
+    1358$C$DW$T$42      .dwtag  DW_TAG_union_type
+    1359        .dwattr $C$DW$T$42, DW_AT_byte_size(0x04)
+    1360$C$DW$101       .dwtag  DW_TAG_member
+    1361        .dwattr $C$DW$101, DW_AT_type(*$C$DW$T$36)
+    1362        .dwattr $C$DW$101, DW_AT_name("GPCFG0")
+    1363        .dwattr $C$DW$101, DW_AT_TI_symbol_name("GPCFG0")
+    1364        .dwattr $C$DW$101, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1365        .dwattr $C$DW$101, DW_AT_accessibility(DW_ACCESS_public)
+    1366        .dwattr $C$DW$101, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1367        .dwattr $C$DW$101, DW_AT_decl_line(0x42)
+    1368        .dwattr $C$DW$101, DW_AT_decl_column(0x15)
+    1369
+    1370$C$DW$102       .dwtag  DW_TAG_member
+    1371        .dwattr $C$DW$102, DW_AT_type(*$C$DW$T$41)
+    1372        .dwattr $C$DW$102, DW_AT_name("GPCFG0_bit")
+    1373        .dwattr $C$DW$102, DW_AT_TI_symbol_name("GPCFG0_bit")
+    1374        .dwattr $C$DW$102, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1375        .dwattr $C$DW$102, DW_AT_accessibility(DW_ACCESS_public)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   26
+
+    1376        .dwattr $C$DW$102, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1377        .dwattr $C$DW$102, DW_AT_decl_line(0x4f)
+    1378        .dwattr $C$DW$102, DW_AT_decl_column(0x05)
+    1379
+    1380        .dwattr $C$DW$T$42, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1381        .dwattr $C$DW$T$42, DW_AT_decl_line(0x41)
+    1382        .dwattr $C$DW$T$42, DW_AT_decl_column(0x08)
+    1383        .dwendtag $C$DW$T$42
+    1384
+    1385
+    1386$C$DW$T$44      .dwtag  DW_TAG_union_type
+    1387        .dwattr $C$DW$T$44, DW_AT_byte_size(0x04)
+    1388$C$DW$103       .dwtag  DW_TAG_member
+    1389        .dwattr $C$DW$103, DW_AT_type(*$C$DW$T$36)
+    1390        .dwattr $C$DW$103, DW_AT_name("GPCFG1")
+    1391        .dwattr $C$DW$103, DW_AT_TI_symbol_name("GPCFG1")
+    1392        .dwattr $C$DW$103, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1393        .dwattr $C$DW$103, DW_AT_accessibility(DW_ACCESS_public)
+    1394        .dwattr $C$DW$103, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1395        .dwattr $C$DW$103, DW_AT_decl_line(0x55)
+    1396        .dwattr $C$DW$103, DW_AT_decl_column(0x15)
+    1397
+    1398$C$DW$104       .dwtag  DW_TAG_member
+    1399        .dwattr $C$DW$104, DW_AT_type(*$C$DW$T$43)
+    1400        .dwattr $C$DW$104, DW_AT_name("GPCFG1_bit")
+    1401        .dwattr $C$DW$104, DW_AT_TI_symbol_name("GPCFG1_bit")
+    1402        .dwattr $C$DW$104, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1403        .dwattr $C$DW$104, DW_AT_accessibility(DW_ACCESS_public)
+    1404        .dwattr $C$DW$104, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1405        .dwattr $C$DW$104, DW_AT_decl_line(0x62)
+    1406        .dwattr $C$DW$104, DW_AT_decl_column(0x05)
+    1407
+    1408        .dwattr $C$DW$T$44, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1409        .dwattr $C$DW$T$44, DW_AT_decl_line(0x54)
+    1410        .dwattr $C$DW$T$44, DW_AT_decl_column(0x08)
+    1411        .dwendtag $C$DW$T$44
+    1412
+    1413
+    1414$C$DW$T$46      .dwtag  DW_TAG_union_type
+    1415        .dwattr $C$DW$T$46, DW_AT_byte_size(0x04)
+    1416$C$DW$105       .dwtag  DW_TAG_member
+    1417        .dwattr $C$DW$105, DW_AT_type(*$C$DW$T$36)
+    1418        .dwattr $C$DW$105, DW_AT_name("CGR")
+    1419        .dwattr $C$DW$105, DW_AT_TI_symbol_name("CGR")
+    1420        .dwattr $C$DW$105, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1421        .dwattr $C$DW$105, DW_AT_accessibility(DW_ACCESS_public)
+    1422        .dwattr $C$DW$105, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1423        .dwattr $C$DW$105, DW_AT_decl_line(0x68)
+    1424        .dwattr $C$DW$105, DW_AT_decl_column(0x15)
+    1425
+    1426$C$DW$106       .dwtag  DW_TAG_member
+    1427        .dwattr $C$DW$106, DW_AT_type(*$C$DW$T$45)
+    1428        .dwattr $C$DW$106, DW_AT_name("CGR_bit")
+    1429        .dwattr $C$DW$106, DW_AT_TI_symbol_name("CGR_bit")
+    1430        .dwattr $C$DW$106, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   27
+
+    1431        .dwattr $C$DW$106, DW_AT_accessibility(DW_ACCESS_public)
+    1432        .dwattr $C$DW$106, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1433        .dwattr $C$DW$106, DW_AT_decl_line(0x7e)
+    1434        .dwattr $C$DW$106, DW_AT_decl_column(0x05)
+    1435
+    1436        .dwattr $C$DW$T$46, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1437        .dwattr $C$DW$T$46, DW_AT_decl_line(0x67)
+    1438        .dwattr $C$DW$T$46, DW_AT_decl_column(0x08)
+    1439        .dwendtag $C$DW$T$46
+    1440
+    1441
+    1442$C$DW$T$48      .dwtag  DW_TAG_union_type
+    1443        .dwattr $C$DW$T$48, DW_AT_byte_size(0x04)
+    1444$C$DW$107       .dwtag  DW_TAG_member
+    1445        .dwattr $C$DW$107, DW_AT_type(*$C$DW$T$36)
+    1446        .dwattr $C$DW$107, DW_AT_name("ISRP")
+    1447        .dwattr $C$DW$107, DW_AT_TI_symbol_name("ISRP")
+    1448        .dwattr $C$DW$107, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1449        .dwattr $C$DW$107, DW_AT_accessibility(DW_ACCESS_public)
+    1450        .dwattr $C$DW$107, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1451        .dwattr $C$DW$107, DW_AT_decl_line(0x84)
+    1452        .dwattr $C$DW$107, DW_AT_decl_column(0x15)
+    1453
+    1454$C$DW$108       .dwtag  DW_TAG_member
+    1455        .dwattr $C$DW$108, DW_AT_type(*$C$DW$T$47)
+    1456        .dwattr $C$DW$108, DW_AT_name("ISRP_bit")
+    1457        .dwattr $C$DW$108, DW_AT_TI_symbol_name("ISRP_bit")
+    1458        .dwattr $C$DW$108, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1459        .dwattr $C$DW$108, DW_AT_accessibility(DW_ACCESS_public)
+    1460        .dwattr $C$DW$108, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1461        .dwattr $C$DW$108, DW_AT_decl_line(0x8d)
+    1462        .dwattr $C$DW$108, DW_AT_decl_column(0x05)
+    1463
+    1464        .dwattr $C$DW$T$48, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1465        .dwattr $C$DW$T$48, DW_AT_decl_line(0x83)
+    1466        .dwattr $C$DW$T$48, DW_AT_decl_column(0x08)
+    1467        .dwendtag $C$DW$T$48
+    1468
+    1469
+    1470$C$DW$T$50      .dwtag  DW_TAG_union_type
+    1471        .dwattr $C$DW$T$50, DW_AT_byte_size(0x04)
+    1472$C$DW$109       .dwtag  DW_TAG_member
+    1473        .dwattr $C$DW$109, DW_AT_type(*$C$DW$T$36)
+    1474        .dwattr $C$DW$109, DW_AT_name("ISP")
+    1475        .dwattr $C$DW$109, DW_AT_TI_symbol_name("ISP")
+    1476        .dwattr $C$DW$109, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1477        .dwattr $C$DW$109, DW_AT_accessibility(DW_ACCESS_public)
+    1478        .dwattr $C$DW$109, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1479        .dwattr $C$DW$109, DW_AT_decl_line(0x93)
+    1480        .dwattr $C$DW$109, DW_AT_decl_column(0x15)
+    1481
+    1482$C$DW$110       .dwtag  DW_TAG_member
+    1483        .dwattr $C$DW$110, DW_AT_type(*$C$DW$T$49)
+    1484        .dwattr $C$DW$110, DW_AT_name("ISP_bit")
+    1485        .dwattr $C$DW$110, DW_AT_TI_symbol_name("ISP_bit")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   28
+
+    1486        .dwattr $C$DW$110, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1487        .dwattr $C$DW$110, DW_AT_accessibility(DW_ACCESS_public)
+    1488        .dwattr $C$DW$110, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1489        .dwattr $C$DW$110, DW_AT_decl_line(0x9c)
+    1490        .dwattr $C$DW$110, DW_AT_decl_column(0x05)
+    1491
+    1492        .dwattr $C$DW$T$50, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1493        .dwattr $C$DW$T$50, DW_AT_decl_line(0x92)
+    1494        .dwattr $C$DW$T$50, DW_AT_decl_column(0x08)
+    1495        .dwendtag $C$DW$T$50
+    1496
+    1497
+    1498$C$DW$T$52      .dwtag  DW_TAG_union_type
+    1499        .dwattr $C$DW$T$52, DW_AT_byte_size(0x04)
+    1500$C$DW$111       .dwtag  DW_TAG_member
+    1501        .dwattr $C$DW$111, DW_AT_type(*$C$DW$T$36)
+    1502        .dwattr $C$DW$111, DW_AT_name("IESP")
+    1503        .dwattr $C$DW$111, DW_AT_TI_symbol_name("IESP")
+    1504        .dwattr $C$DW$111, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1505        .dwattr $C$DW$111, DW_AT_accessibility(DW_ACCESS_public)
+    1506        .dwattr $C$DW$111, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1507        .dwattr $C$DW$111, DW_AT_decl_line(0xa1)
+    1508        .dwattr $C$DW$111, DW_AT_decl_column(0x15)
+    1509
+    1510$C$DW$112       .dwtag  DW_TAG_member
+    1511        .dwattr $C$DW$112, DW_AT_type(*$C$DW$T$51)
+    1512        .dwattr $C$DW$112, DW_AT_name("IESP_bit")
+    1513        .dwattr $C$DW$112, DW_AT_TI_symbol_name("IESP_bit")
+    1514        .dwattr $C$DW$112, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1515        .dwattr $C$DW$112, DW_AT_accessibility(DW_ACCESS_public)
+    1516        .dwattr $C$DW$112, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1517        .dwattr $C$DW$112, DW_AT_decl_line(0xaa)
+    1518        .dwattr $C$DW$112, DW_AT_decl_column(0x05)
+    1519
+    1520        .dwattr $C$DW$T$52, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1521        .dwattr $C$DW$T$52, DW_AT_decl_line(0xa0)
+    1522        .dwattr $C$DW$T$52, DW_AT_decl_column(0x08)
+    1523        .dwendtag $C$DW$T$52
+    1524
+    1525
+    1526$C$DW$T$54      .dwtag  DW_TAG_union_type
+    1527        .dwattr $C$DW$T$54, DW_AT_byte_size(0x04)
+    1528$C$DW$113       .dwtag  DW_TAG_member
+    1529        .dwattr $C$DW$113, DW_AT_type(*$C$DW$T$36)
+    1530        .dwattr $C$DW$113, DW_AT_name("IECP")
+    1531        .dwattr $C$DW$113, DW_AT_TI_symbol_name("IECP")
+    1532        .dwattr $C$DW$113, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1533        .dwattr $C$DW$113, DW_AT_accessibility(DW_ACCESS_public)
+    1534        .dwattr $C$DW$113, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1535        .dwattr $C$DW$113, DW_AT_decl_line(0xb0)
+    1536        .dwattr $C$DW$113, DW_AT_decl_column(0x15)
+    1537
+    1538$C$DW$114       .dwtag  DW_TAG_member
+    1539        .dwattr $C$DW$114, DW_AT_type(*$C$DW$T$53)
+    1540        .dwattr $C$DW$114, DW_AT_name("IECP_bit")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   29
+
+    1541        .dwattr $C$DW$114, DW_AT_TI_symbol_name("IECP_bit")
+    1542        .dwattr $C$DW$114, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1543        .dwattr $C$DW$114, DW_AT_accessibility(DW_ACCESS_public)
+    1544        .dwattr $C$DW$114, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1545        .dwattr $C$DW$114, DW_AT_decl_line(0xb8)
+    1546        .dwattr $C$DW$114, DW_AT_decl_column(0x05)
+    1547
+    1548        .dwattr $C$DW$T$54, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1549        .dwattr $C$DW$T$54, DW_AT_decl_line(0xaf)
+    1550        .dwattr $C$DW$T$54, DW_AT_decl_column(0x08)
+    1551        .dwendtag $C$DW$T$54
+    1552
+    1553
+    1554$C$DW$T$56      .dwtag  DW_TAG_union_type
+    1555        .dwattr $C$DW$T$56, DW_AT_byte_size(0x04)
+    1556$C$DW$115       .dwtag  DW_TAG_member
+    1557        .dwattr $C$DW$115, DW_AT_type(*$C$DW$T$36)
+    1558        .dwattr $C$DW$115, DW_AT_name("PMAO")
+    1559        .dwattr $C$DW$115, DW_AT_TI_symbol_name("PMAO")
+    1560        .dwattr $C$DW$115, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1561        .dwattr $C$DW$115, DW_AT_accessibility(DW_ACCESS_public)
+    1562        .dwattr $C$DW$115, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1563        .dwattr $C$DW$115, DW_AT_decl_line(0xc1)
+    1564        .dwattr $C$DW$115, DW_AT_decl_column(0x15)
+    1565
+    1566$C$DW$116       .dwtag  DW_TAG_member
+    1567        .dwattr $C$DW$116, DW_AT_type(*$C$DW$T$55)
+    1568        .dwattr $C$DW$116, DW_AT_name("PMAO_bit")
+    1569        .dwattr $C$DW$116, DW_AT_TI_symbol_name("PMAO_bit")
+    1570        .dwattr $C$DW$116, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1571        .dwattr $C$DW$116, DW_AT_accessibility(DW_ACCESS_public)
+    1572        .dwattr $C$DW$116, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1573        .dwattr $C$DW$116, DW_AT_decl_line(0xc7)
+    1574        .dwattr $C$DW$116, DW_AT_decl_column(0x05)
+    1575
+    1576        .dwattr $C$DW$T$56, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1577        .dwattr $C$DW$T$56, DW_AT_decl_line(0xc0)
+    1578        .dwattr $C$DW$T$56, DW_AT_decl_column(0x08)
+    1579        .dwendtag $C$DW$T$56
+    1580
+    1581
+    1582$C$DW$T$58      .dwtag  DW_TAG_union_type
+    1583        .dwattr $C$DW$T$58, DW_AT_byte_size(0x04)
+    1584$C$DW$117       .dwtag  DW_TAG_member
+    1585        .dwattr $C$DW$117, DW_AT_type(*$C$DW$T$36)
+    1586        .dwattr $C$DW$117, DW_AT_name("IEPCLK")
+    1587        .dwattr $C$DW$117, DW_AT_TI_symbol_name("IEPCLK")
+    1588        .dwattr $C$DW$117, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1589        .dwattr $C$DW$117, DW_AT_accessibility(DW_ACCESS_public)
+    1590        .dwattr $C$DW$117, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1591        .dwattr $C$DW$117, DW_AT_decl_line(0xd0)
+    1592        .dwattr $C$DW$117, DW_AT_decl_column(0x15)
+    1593
+    1594$C$DW$118       .dwtag  DW_TAG_member
+    1595        .dwattr $C$DW$118, DW_AT_type(*$C$DW$T$57)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   30
+
+    1596        .dwattr $C$DW$118, DW_AT_name("IEPCLK_bit")
+    1597        .dwattr $C$DW$118, DW_AT_TI_symbol_name("IEPCLK_bit")
+    1598        .dwattr $C$DW$118, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1599        .dwattr $C$DW$118, DW_AT_accessibility(DW_ACCESS_public)
+    1600        .dwattr $C$DW$118, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1601        .dwattr $C$DW$118, DW_AT_decl_line(0xd5)
+    1602        .dwattr $C$DW$118, DW_AT_decl_column(0x05)
+    1603
+    1604        .dwattr $C$DW$T$58, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1605        .dwattr $C$DW$T$58, DW_AT_decl_line(0xcf)
+    1606        .dwattr $C$DW$T$58, DW_AT_decl_column(0x08)
+    1607        .dwendtag $C$DW$T$58
+    1608
+    1609
+    1610$C$DW$T$60      .dwtag  DW_TAG_union_type
+    1611        .dwattr $C$DW$T$60, DW_AT_byte_size(0x04)
+    1612$C$DW$119       .dwtag  DW_TAG_member
+    1613        .dwattr $C$DW$119, DW_AT_type(*$C$DW$T$36)
+    1614        .dwattr $C$DW$119, DW_AT_name("SPP")
+    1615        .dwattr $C$DW$119, DW_AT_TI_symbol_name("SPP")
+    1616        .dwattr $C$DW$119, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1617        .dwattr $C$DW$119, DW_AT_accessibility(DW_ACCESS_public)
+    1618        .dwattr $C$DW$119, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1619        .dwattr $C$DW$119, DW_AT_decl_line(0xdb)
+    1620        .dwattr $C$DW$119, DW_AT_decl_column(0x15)
+    1621
+    1622$C$DW$120       .dwtag  DW_TAG_member
+    1623        .dwattr $C$DW$120, DW_AT_type(*$C$DW$T$59)
+    1624        .dwattr $C$DW$120, DW_AT_name("SPP_bit")
+    1625        .dwattr $C$DW$120, DW_AT_TI_symbol_name("SPP_bit")
+    1626        .dwattr $C$DW$120, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1627        .dwattr $C$DW$120, DW_AT_accessibility(DW_ACCESS_public)
+    1628        .dwattr $C$DW$120, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1629        .dwattr $C$DW$120, DW_AT_decl_line(0xe1)
+    1630        .dwattr $C$DW$120, DW_AT_decl_column(0x05)
+    1631
+    1632        .dwattr $C$DW$T$60, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1633        .dwattr $C$DW$T$60, DW_AT_decl_line(0xda)
+    1634        .dwattr $C$DW$T$60, DW_AT_decl_column(0x08)
+    1635        .dwendtag $C$DW$T$60
+    1636
+    1637
+    1638$C$DW$T$62      .dwtag  DW_TAG_union_type
+    1639        .dwattr $C$DW$T$62, DW_AT_byte_size(0x04)
+    1640$C$DW$121       .dwtag  DW_TAG_member
+    1641        .dwattr $C$DW$121, DW_AT_type(*$C$DW$T$36)
+    1642        .dwattr $C$DW$121, DW_AT_name("PIN_MX")
+    1643        .dwattr $C$DW$121, DW_AT_TI_symbol_name("PIN_MX")
+    1644        .dwattr $C$DW$121, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1645        .dwattr $C$DW$121, DW_AT_accessibility(DW_ACCESS_public)
+    1646        .dwattr $C$DW$121, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1647        .dwattr $C$DW$121, DW_AT_decl_line(0xe9)
+    1648        .dwattr $C$DW$121, DW_AT_decl_column(0x15)
+    1649
+    1650$C$DW$122       .dwtag  DW_TAG_member
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   31
+
+    1651        .dwattr $C$DW$122, DW_AT_type(*$C$DW$T$61)
+    1652        .dwattr $C$DW$122, DW_AT_name("PIN_MX_bit")
+    1653        .dwattr $C$DW$122, DW_AT_TI_symbol_name("PIN_MX_bit")
+    1654        .dwattr $C$DW$122, DW_AT_data_member_location[DW_OP_plus_uconst 0x0]
+    1655        .dwattr $C$DW$122, DW_AT_accessibility(DW_ACCESS_public)
+    1656        .dwattr $C$DW$122, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compil
+    1657        .dwattr $C$DW$122, DW_AT_decl_line(0xee)
+    1658        .dwattr $C$DW$122, DW_AT_decl_column(0x05)
+    1659
+    1660        .dwattr $C$DW$T$62, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1661        .dwattr $C$DW$T$62, DW_AT_decl_line(0xe8)
+    1662        .dwattr $C$DW$T$62, DW_AT_decl_column(0x08)
+    1663        .dwendtag $C$DW$T$62
+    1664
+    1665$C$DW$T$2       .dwtag  DW_TAG_unspecified_type
+    1666        .dwattr $C$DW$T$2, DW_AT_name("void")
+    1667
+    1668$C$DW$T$4       .dwtag  DW_TAG_base_type
+    1669        .dwattr $C$DW$T$4, DW_AT_encoding(DW_ATE_boolean)
+    1670        .dwattr $C$DW$T$4, DW_AT_name("bool")
+    1671        .dwattr $C$DW$T$4, DW_AT_byte_size(0x01)
+    1672
+    1673$C$DW$T$5       .dwtag  DW_TAG_base_type
+    1674        .dwattr $C$DW$T$5, DW_AT_encoding(DW_ATE_signed_char)
+    1675        .dwattr $C$DW$T$5, DW_AT_name("signed char")
+    1676        .dwattr $C$DW$T$5, DW_AT_byte_size(0x01)
+    1677
+    1678$C$DW$T$6       .dwtag  DW_TAG_base_type
+    1679        .dwattr $C$DW$T$6, DW_AT_encoding(DW_ATE_unsigned_char)
+    1680        .dwattr $C$DW$T$6, DW_AT_name("unsigned char")
+    1681        .dwattr $C$DW$T$6, DW_AT_byte_size(0x01)
+    1682
+    1683$C$DW$T$7       .dwtag  DW_TAG_base_type
+    1684        .dwattr $C$DW$T$7, DW_AT_encoding(DW_ATE_signed_char)
+    1685        .dwattr $C$DW$T$7, DW_AT_name("wchar_t")
+    1686        .dwattr $C$DW$T$7, DW_AT_byte_size(0x04)
+    1687
+    1688$C$DW$T$8       .dwtag  DW_TAG_base_type
+    1689        .dwattr $C$DW$T$8, DW_AT_encoding(DW_ATE_signed)
+    1690        .dwattr $C$DW$T$8, DW_AT_name("short")
+    1691        .dwattr $C$DW$T$8, DW_AT_byte_size(0x02)
+    1692
+    1693$C$DW$T$9       .dwtag  DW_TAG_base_type
+    1694        .dwattr $C$DW$T$9, DW_AT_encoding(DW_ATE_unsigned)
+    1695        .dwattr $C$DW$T$9, DW_AT_name("unsigned short")
+    1696        .dwattr $C$DW$T$9, DW_AT_byte_size(0x02)
+    1697
+    1698$C$DW$T$10      .dwtag  DW_TAG_base_type
+    1699        .dwattr $C$DW$T$10, DW_AT_encoding(DW_ATE_signed)
+    1700        .dwattr $C$DW$T$10, DW_AT_name("int")
+    1701        .dwattr $C$DW$T$10, DW_AT_byte_size(0x04)
+    1702
+    1703$C$DW$T$11      .dwtag  DW_TAG_base_type
+    1704        .dwattr $C$DW$T$11, DW_AT_encoding(DW_ATE_unsigned)
+    1705        .dwattr $C$DW$T$11, DW_AT_name("unsigned int")
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   32
+
+    1706        .dwattr $C$DW$T$11, DW_AT_byte_size(0x04)
+    1707
+    1708$C$DW$T$32      .dwtag  DW_TAG_typedef
+    1709        .dwattr $C$DW$T$32, DW_AT_name("uint32_t")
+    1710        .dwattr $C$DW$T$32, DW_AT_type(*$C$DW$T$11)
+    1711        .dwattr $C$DW$T$32, DW_AT_language(DW_LANG_C)
+    1712        .dwattr $C$DW$T$32, DW_AT_decl_file("/home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compi
+    1713        .dwattr $C$DW$T$32, DW_AT_decl_line(0x41)
+    1714        .dwattr $C$DW$T$32, DW_AT_decl_column(0x1c)
+    1715
+    1716
+    1717$C$DW$T$33      .dwtag  DW_TAG_array_type
+    1718        .dwattr $C$DW$T$33, DW_AT_type(*$C$DW$T$32)
+    1719        .dwattr $C$DW$T$33, DW_AT_language(DW_LANG_C)
+    1720        .dwattr $C$DW$T$33, DW_AT_byte_size(0x04)
+    1721$C$DW$123       .dwtag  DW_TAG_subrange_type
+    1722        .dwattr $C$DW$123, DW_AT_upper_bound(0x00)
+    1723
+    1724        .dwendtag $C$DW$T$33
+    1725
+    1726
+    1727$C$DW$T$34      .dwtag  DW_TAG_array_type
+    1728        .dwattr $C$DW$T$34, DW_AT_type(*$C$DW$T$32)
+    1729        .dwattr $C$DW$T$34, DW_AT_language(DW_LANG_C)
+    1730        .dwattr $C$DW$T$34, DW_AT_byte_size(0x08)
+    1731$C$DW$124       .dwtag  DW_TAG_subrange_type
+    1732        .dwattr $C$DW$124, DW_AT_upper_bound(0x01)
+    1733
+    1734        .dwendtag $C$DW$T$34
+    1735
+    1736$C$DW$T$36      .dwtag  DW_TAG_volatile_type
+    1737        .dwattr $C$DW$T$36, DW_AT_type(*$C$DW$T$32)
+    1738
+    1739$C$DW$T$12      .dwtag  DW_TAG_base_type
+    1740        .dwattr $C$DW$T$12, DW_AT_encoding(DW_ATE_signed)
+    1741        .dwattr $C$DW$T$12, DW_AT_name("long")
+    1742        .dwattr $C$DW$T$12, DW_AT_byte_size(0x04)
+    1743
+    1744$C$DW$T$13      .dwtag  DW_TAG_base_type
+    1745        .dwattr $C$DW$T$13, DW_AT_encoding(DW_ATE_unsigned)
+    1746        .dwattr $C$DW$T$13, DW_AT_name("unsigned long")
+    1747        .dwattr $C$DW$T$13, DW_AT_byte_size(0x04)
+    1748
+    1749$C$DW$T$14      .dwtag  DW_TAG_base_type
+    1750        .dwattr $C$DW$T$14, DW_AT_encoding(DW_ATE_signed)
+    1751        .dwattr $C$DW$T$14, DW_AT_name("long long")
+    1752        .dwattr $C$DW$T$14, DW_AT_byte_size(0x08)
+    1753
+    1754$C$DW$T$15      .dwtag  DW_TAG_base_type
+    1755        .dwattr $C$DW$T$15, DW_AT_encoding(DW_ATE_unsigned)
+    1756        .dwattr $C$DW$T$15, DW_AT_name("unsigned long long")
+    1757        .dwattr $C$DW$T$15, DW_AT_byte_size(0x08)
+    1758
+    1759$C$DW$T$16      .dwtag  DW_TAG_base_type
+    1760        .dwattr $C$DW$T$16, DW_AT_encoding(DW_ATE_float)
+PRU Assembler Unix v2.3.1 Sun Mar 31 20:55:39 2019
+
+Tools Copyright (c) 2012-2017 Texas Instruments Incorporated
+pru1_utils.asm                                                       PAGE   33
+
+    1761        .dwattr $C$DW$T$16, DW_AT_name("float")
+    1762        .dwattr $C$DW$T$16, DW_AT_byte_size(0x04)
+    1763
+    1764$C$DW$T$17      .dwtag  DW_TAG_base_type
+    1765        .dwattr $C$DW$T$17, DW_AT_encoding(DW_ATE_float)
+    1766        .dwattr $C$DW$T$17, DW_AT_name("double")
+    1767        .dwattr $C$DW$T$17, DW_AT_byte_size(0x08)
+    1768
+    1769$C$DW$T$18      .dwtag  DW_TAG_base_type
+    1770        .dwattr $C$DW$T$18, DW_AT_encoding(DW_ATE_float)
+    1771        .dwattr $C$DW$T$18, DW_AT_name("long double")
+    1772        .dwattr $C$DW$T$18, DW_AT_byte_size(0x08)
+    1773
+    1774        .dwattr $C$DW$CU, DW_AT_language(DW_LANG_C)
+    1775        .dwendtag $C$DW$CU
+    1776
+
+No Assembly Errors, No Assembly Warnings

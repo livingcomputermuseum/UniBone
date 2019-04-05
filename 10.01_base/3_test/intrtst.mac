@@ -1,0 +1,253 @@
+
+	.title	INTR and DMA test
+
+	; This program tests the DEC DL11 console interface
+	; and the INTR and DMA systems.
+	; The foreground thread runs in 4 phases:
+	; 1.1. print a start message,
+	; 1.2. echoes chars typed to the output until ^C is hit
+	;      Chars 0..7 set the new processor priority level.
+	; 1.3. prints an end message and HALTs.
+	; 1.4. on CONT it repeats.
+	;
+	; 2. For INTR test, the 256 vectors 0,4,10,14,..374 each print
+	; a string on interrupt.
+	;
+	; Contact: Joerg Hoppe / j_hoppe@t-online.de / www.retromcp.com
+
+dladr	=	177560	; DL11 console base address
+psw	=	177776	; processor status
+
+
+	; count of automatically generated interrupt vectors
+veccnt	= 100
+
+	; ------- macro to define interrupt vector #<vecidx> ------
+	.macro vector	vecidx
+	.=4*vecidx	 ; vector #vecidx
+	.word	isr'vecidx	; new PC of ISR
+	.word	340		; new PSW: priority is max = 7
+	.endm
+
+	; ----- macro to define ISR for vector #n -------
+	.macro isr	vecidx
+isr'vecidx:
+	mov	r0,-(sp)
+	mov	#vecidx*4,r0 ; vector in r0
+	call	@#doisr    ; print message for vector in r0
+	mov	(sp)+,r0
+	rti
+	.endm
+
+
+
+
+	.asect
+
+	. = 0
+	; ---- "veccnt" Interrupt Vectors ---------
+	n=0
+	.rept	veccnt
+	vector	\n
+	n=n+1
+       .endr
+
+	; ---- veccnt ISRs ---------
+	n=0
+	.rept	veccnt
+	isr  \n
+	n=n+1
+	.endr
+
+
+
+
+	; ---- foreground thread ---------
+	.=10000
+
+stack	=	. - 2		; stack growns down from start
+
+start:
+	mov	#stack,sp	; init stack
+	clr	   @#psw	; clear priority, allow all interupts
+
+	; 1. print "Hello" msg
+	mov	#shello,r1
+	call	@#puts
+
+	; test vecnum printout
+	; mov	  #123456,r0
+	; call	  @#isrmsg
+
+	; 2. echo chars until ^C hit
+1$:
+	call	@#getc		; wait for char, return in r0
+	bic	#177600,r0	; make 7bit: clear bits <15:7>
+	cmpb	r0,#3		; break by ^C ?
+	beq	9$		; yes: leave loop
+	cmpb	r0,#60
+	blo	2$		; char is < '0'
+	cmpb	r0,#67
+	bhi	2$		; char is > '7'
+	movb	r0,r2		; save
+
+	; key is 0..7: change priority
+	mov	#sprio0,r1	; print info
+	call	@#puts
+	movb	r2,r0		; restore digit
+	call	@#putc		; print level digit
+	mov	#sprio1,r1
+	call	@#puts
+	; change PSW
+	movb	r2,r0
+	bicb	#370,r0 	; ASCII -> integer
+	asl	r0		; move level to "priority" field in PSW
+	asl	r0		; in bits 7,6,5
+	asl	r0
+	asl	r0
+	asl	r0
+	mov	r0,@#psw
+
+	br	1$
+
+2$:
+	call	@#putc		; no: echo char in r0 and loop
+	br	1$
+
+9$:
+
+	; 3. print "Bye bye" msg and HALT
+	mov	#sbye,r1
+	call	@#puts
+	halt
+
+	; 4. loop on CONT
+	br	start
+
+
+	; ----------------------
+	; Common code for all ISRs
+	; print vector number in r0
+	; called on interrupt level
+
+doisr:
+	mov	r4,-(sp)
+	mov	r3,-(sp)
+	mov	r2,-(sp)
+	mov	r1,-(sp)
+	mov	r0,-(sp)
+
+	; print msg
+	mov	#sisr1,r1 ; "ISR "
+	call	@#puts
+	mov	(sp),r0 	; restore vecnum
+	call	 @#putnum
+	mov	#sisr2,r1 ; "cr lf
+	call	@#puts
+
+	mov	(sp)+,r0
+	mov	(sp)+,r1
+	mov	(sp)+,r2
+	mov	(sp)+,r3
+	mov	(sp)+,r4
+	return
+
+
+	; ----------------------
+	; puts - print a string
+	; r1 = pointer, r0,r1 changed
+puts:
+	movb	(r1)+,r0	; load xmt char
+	beq	1$		; string ends with 0
+	call	@#putc
+	br	puts		; transmit nxt char of string
+1$:	return
+
+
+	; ----------------------
+	; putnum - print the octal number in r0
+numbf0:  .blkw	 10		 ; space to mount number string
+numbf1	=.
+putnum:
+	mov	r0,r2		; r2 = shifter
+	mov	#numbf1,r1	; r1 = buffer pointer, backwards
+	movb	#0,-(r1)	; set terminating 0
+	; repeat 6 times
+	mov	#6,r3
+1$:
+	mov	r2,r0
+	; extract lower 3 bits = octal digit
+	bic	#177770,r0 ; r0 &= 0x07
+	add	#60,r0	; r0 += '0'
+	movb	r0,-(r1) ; write in buffer
+	clc
+	ror	r2	; shift to next digit
+	ror	r2
+	ror	r2
+	sob	r3,1$	; loop for all 6 digits
+
+	call	@#puts
+	return
+
+
+	; DEC DL11 console I/O
+	; ----------------------
+	; putc - output a single char
+	; r0 = char, r4 changed
+putc:
+	mov	#dladr,r4	; set base addr
+	movb	r0,6(r4)	; char into transmit buffer
+1$:	tstb	4(r4)		; XMT RDY?
+	bpl	1$		; no, loop
+	return
+
+	; ----------------------
+	; getc - input a single char
+	; result in r0, r4 changed
+getc:
+	mov	#dladr,r4	; set base addr
+1$:	tstb	(r4)		; RCVR DONE?
+	bpl	1$		; no, loop
+	mov	2(r4),r0	; return data
+	return
+
+
+	; ---- Test strings, each 256 chars max  ---------
+
+sisr1:				; start of ISR <vecnum> message
+	.ascii /<ISR /
+	.byte	0		; NUL=end marker
+sisr2:				; end of ISR <vecnum> message
+	.ascii />/
+	.byte	15,12	; CR, LF,
+	.byte	0		; NUL=end marker
+
+
+shello:
+	.byte	15,12		; CR, LF,
+	.ascii	/*** Interrupt and DMA test ***/
+	.byte	15,12		; CR, LF,
+	.ascii	/The INTR vectors 0..77 print the vector num./
+	.byte	15,12	; CR, LF,
+	.ascii	/The foreground thread echoes typed chars, ^C HALTs./
+	.byte	15,12	; CR, LF,
+	.ascii	/Chars 0..7 set the new processor priority level./
+	.byte	15,12	; CR, LF,
+	.byte	0		; NUL=end marker
+
+sprio0:
+	.byte	15,12	; CR, LF,
+	.ascii	/CPU priority now /
+	.byte	0
+
+sprio1:
+	  .byte   15,12   ; CR, LF,
+	.byte	0		; NUL=end marker
+
+sbye:
+	.byte	15,12
+	.ascii	/Good Bye!/
+	.byte	15,12,0 	; CR, LF, NUL=end marker
+
+
+	.end

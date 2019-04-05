@@ -1,0 +1,108 @@
+PRU C/C++ Optimizer                     v2.3.1
+Build Number 1SGNO-2LI-UASAR-TAR-C08D
+
+==============================================================================
+
+extern void buslatches_reset() is called from 0 sites in this file.
+    It appears to be inlineable (size = 81 units)
+    It has 7 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	__delay_cycles() (8 times)
+	buslatches_pru0_dataout() (8 times)
+
+==============================================================================
+
+extern void buslatches_powercycle() is called from 0 sites in this file.
+    It appears to be inlineable (size = 79 units)
+    It has 7 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	__delay_cycles() (7 times)
+	buslatches_pru0_dataout() (4 times)
+
+==============================================================================
+
+extern void buslatches_test() is called from 0 sites in this file.
+    It appears to be inlineable (size = 27 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	<NONE>
+
+extern void buslatches_powercycle() is called from 0 sites in this file.
+    It appears to be inlineable (size = 79 units)
+    It has 7 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	__delay_cycles() (7 times)
+	buslatches_pru0_dataout() (4 times)
+
+extern void buslatches_reset() is called from 0 sites in this file.
+    It appears to be inlineable (size = 81 units)
+    It has 7 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	__delay_cycles() (8 times)
+	buslatches_pru0_dataout() (8 times)
+
+extern void buslatches_test() is called from 0 sites in this file.
+    It appears to be inlineable (size = 27 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	<NONE>
+
+
+These functions may be recursive:
+	buslatches_powercycle()
+	buslatches_reset()
+
+These external functions are called but not defined here:
+	buslatches_pru0_dataout()
+	__delay_cycles()
+
+
+==============================================================================
+
+extern void buslatches_test() is called from 0 sites in this file.
+    It appears to be inlineable (size = 27 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern void buslatches_reset() is called from 0 sites in this file.
+    It appears to be inlineable (size = 81 units)
+    It has 7 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern void buslatches_powercycle() is called from 0 sites in this file.
+    It appears to be inlineable (size = 79 units)
+    It has 7 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern void buslatches_test() is called from 0 sites in this file.
+    It appears to be inlineable (size = 27 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern void buslatches_reset() is called from 0 sites in this file.
+    It appears to be inlineable (size = 81 units)
+    It has 7 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern void buslatches_powercycle() is called from 0 sites in this file.
+    It appears to be inlineable (size = 79 units)
+    It has 7 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+== END OF INFO OUTPUT==

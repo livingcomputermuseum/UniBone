@@ -1,0 +1,149 @@
+PRU C/C++ Optimizer                     v2.3.1
+Build Number 1SGNO-2LI-UASAR-TAR-C08D
+
+==============================================================================
+
+static void *memset() is called from 3 sites in this file.
+    It appears to be inlineable (size = 21 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern unsigned char iopageregisters_read() is called from 0 sites in this file.
+    It appears to be inlineable (size = 97 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	__delay_cycles() (1 times)
+
+==============================================================================
+
+extern unsigned char iopageregisters_write_w() is called from 0 sites in this file.
+    It appears to be inlineable (size = 103 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	__delay_cycles() (1 times)
+
+==============================================================================
+
+extern unsigned char iopageregisters_write_b() is called from 0 sites in this file.
+    It appears to be inlineable (size = 128 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	__delay_cycles() (1 times)
+
+==============================================================================
+
+extern void iopageregisters_init() is called from 0 sites in this file.
+    It appears to be inlineable (size = 16 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	memset() (3 times)
+
+extern void iopageregisters_init() is called from 0 sites in this file.
+    It appears to be inlineable (size = 16 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	memset() (3 times)
+
+extern unsigned char iopageregisters_read() is called from 0 sites in this file.
+    It appears to be inlineable (size = 97 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	__delay_cycles() (1 times)
+
+extern unsigned char iopageregisters_write_b() is called from 0 sites in this file.
+    It appears to be inlineable (size = 128 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	__delay_cycles() (1 times)
+
+extern unsigned char iopageregisters_write_w() is called from 0 sites in this file.
+    It appears to be inlineable (size = 103 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	__delay_cycles() (1 times)
+
+static void *memset() is called from 3 sites in this file.
+    It appears to be inlineable (size = 21 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	<NONE>
+
+
+These functions may be recursive:
+	iopageregisters_read()
+	iopageregisters_write_b()
+	iopageregisters_write_w()
+Inlineable function will be suppressed: memset()
+
+These external functions are called but not defined here:
+	__delay_cycles()
+
+
+==============================================================================
+
+extern unsigned char iopageregisters_write_w() is called from 0 sites in this file.
+    It appears to be inlineable (size = 103 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern unsigned char iopageregisters_write_b() is called from 0 sites in this file.
+    It appears to be inlineable (size = 128 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern unsigned char iopageregisters_read() is called from 0 sites in this file.
+    It appears to be inlineable (size = 97 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern void iopageregisters_init() is called from 0 sites in this file.
+    It appears to be inlineable (size = 16 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	memset() (3 times)
+
+==============================================================================
+
+extern unsigned char iopageregisters_write_w() is called from 0 sites in this file.
+    It appears to be inlineable (size = 103 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern unsigned char iopageregisters_write_b() is called from 0 sites in this file.
+    It appears to be inlineable (size = 128 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern unsigned char iopageregisters_read() is called from 0 sites in this file.
+    It appears to be inlineable (size = 97 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern void iopageregisters_init() is called from 0 sites in this file.
+    It appears to be inlineable (size = 16 units)
+    It has 9 non-trivial scope blocks nested 5 deep.
+    It calls these functions:
+	memset() (3 times)
+
+== END OF INFO OUTPUT==

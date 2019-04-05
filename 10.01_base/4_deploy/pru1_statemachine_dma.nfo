@@ -1,0 +1,183 @@
+PRU C/C++ Optimizer                     v2.3.1
+Build Number 1SGNO-2LI-UASAR-TAR-C08D
+
+==============================================================================
+
+extern void sm_dma_start() is called from 0 sites in this file.
+    It appears to be inlineable (size = 30 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+static unsigned char sm_dma_state_1() is called from 0 sites in this file.
+    It appears to be inlineable (size = 507 units)
+    It has 19 non-trivial scope blocks nested 6 deep.
+    It calls these functions:
+	iopageregisters_write_w() (1 times)
+	iopageregisters_write_b() (1 times)
+	iopageregisters_read() (1 times)
+	__delay_cycles() (24 times)
+	buslatches_pru0_dataout() (21 times)
+
+==============================================================================
+
+static unsigned char sm_dma_state_11() is called from 0 sites in this file.
+    It appears to be inlineable (size = 72 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	buslatches_pru0_dataout() (1 times)
+	__delay_cycles() (6 times)
+
+==============================================================================
+
+static unsigned char sm_dma_state_21() is called from 0 sites in this file.
+    It appears to be inlineable (size = 66 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	buslatches_pru0_dataout() (3 times)
+	__delay_cycles() (5 times)
+
+==============================================================================
+
+static unsigned char sm_dma_state_99() is called from 0 sites in this file.
+    It appears to be inlineable (size = 155 units)
+    It has 11 non-trivial scope blocks nested 6 deep.
+    It calls these functions:
+	buslatches_pru0_dataout() (6 times)
+	__delay_cycles() (7 times)
+
+extern void sm_dma_start() is called from 0 sites in this file.
+    It appears to be inlineable (size = 30 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	<NONE>
+
+static unsigned char sm_dma_state_1() is called from 0 sites in this file.
+    It appears to be inlineable (size = 507 units)
+    It has 19 non-trivial scope blocks nested 6 deep.
+    It calls these functions:
+	iopageregisters_write_w() (1 times)
+	iopageregisters_write_b() (1 times)
+	iopageregisters_read() (1 times)
+	__delay_cycles() (24 times)
+	buslatches_pru0_dataout() (21 times)
+
+static unsigned char sm_dma_state_11() is called from 0 sites in this file.
+    It appears to be inlineable (size = 72 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	buslatches_pru0_dataout() (1 times)
+	__delay_cycles() (6 times)
+
+static unsigned char sm_dma_state_21() is called from 0 sites in this file.
+    It appears to be inlineable (size = 66 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	buslatches_pru0_dataout() (3 times)
+	__delay_cycles() (5 times)
+
+static unsigned char sm_dma_state_99() is called from 0 sites in this file.
+    It appears to be inlineable (size = 155 units)
+    It has 11 non-trivial scope blocks nested 6 deep.
+    It calls these functions:
+	buslatches_pru0_dataout() (6 times)
+	__delay_cycles() (7 times)
+
+
+These functions may be recursive:
+	sm_dma_state_1()
+	sm_dma_state_11()
+	sm_dma_state_21()
+	sm_dma_state_99()
+
+These external functions are called but not defined here:
+	buslatches_pru0_dataout()
+	__delay_cycles()
+	iopageregisters_read()
+	iopageregisters_write_b()
+	iopageregisters_write_w()
+
+
+==============================================================================
+
+static unsigned char sm_dma_state_99() is called from 0 sites in this file.
+    It appears to be inlineable (size = 155 units)
+    It has 11 non-trivial scope blocks nested 6 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+static unsigned char sm_dma_state_21() is called from 0 sites in this file.
+    It appears to be inlineable (size = 66 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+static unsigned char sm_dma_state_11() is called from 0 sites in this file.
+    It appears to be inlineable (size = 72 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+static unsigned char sm_dma_state_1() is called from 0 sites in this file.
+    It appears to be inlineable (size = 507 units)
+    It has 19 non-trivial scope blocks nested 6 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern void sm_dma_start() is called from 0 sites in this file.
+    It appears to be inlineable (size = 30 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+static unsigned char sm_dma_state_99() is called from 0 sites in this file.
+    It appears to be inlineable (size = 155 units)
+    It has 11 non-trivial scope blocks nested 6 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+static unsigned char sm_dma_state_21() is called from 0 sites in this file.
+    It appears to be inlineable (size = 66 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+static unsigned char sm_dma_state_11() is called from 0 sites in this file.
+    It appears to be inlineable (size = 72 units)
+    It has 4 non-trivial scope blocks nested 4 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+static unsigned char sm_dma_state_1() is called from 0 sites in this file.
+    It appears to be inlineable (size = 507 units)
+    It has 19 non-trivial scope blocks nested 6 deep.
+    It calls these functions:
+	<NONE>
+
+==============================================================================
+
+extern void sm_dma_start() is called from 0 sites in this file.
+    It appears to be inlineable (size = 30 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	<NONE>
+
+== END OF INFO OUTPUT==

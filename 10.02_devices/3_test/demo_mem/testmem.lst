@@ -1,0 +1,64 @@
+       1                                	.title memory test program
+       2                                
+       3                                	; Tests a given memors range with changing patterns
+       4                                	; To be used to stimulate the "testcontroller"
+       5                                	; Testcontroller implements 64 read/write registeres at 760000
+       6                                	; Testing these registres exercises
+       7                                	; - the PRU->ARM register interface
+       8                                	; -  perofmance of PRU->ARM interrupt and
+       9                                	;	context switch time of unbusadapter.worker()
+      10                                
+      11                                
+      12                                
+      13                                	.asect
+      14 160000                         MEMSTR	= 160000	; first cell to test
+      15 160176                         MEMEND	= 160176	; last cell to test
+      16                                
+      17 001000                         	. = 1000
+      18 000776                         stack	=	. - 2		; stack grows down from start
+      19                                
+      20                                	; --- main()
+      21                                	; r3 = pointer to written cell
+      22                                	; r4 = pattern
+      23                                start:
+      24 001000 012706  000776          	mov	#stack,sp	; init stack
+      25 001004 005004                  	clr	r4		; init pattern
+      26                                
+      27                                	; single test run
+      28                                	; write all cells with addr+ offset
+      29                                	; then compare
+      30                                tstrun:
+      31                                	; write all mem with current pattern
+      32 001006 012703  160000          	mov	#MEMSTR,r3
+      33                                wrloop:
+      34 001012 010400                  	mov	r4,r0
+      35 001014 060300                  	add	r3,r0	; testval= addr+ offset
+      36 001016 010023                  	mov	r0,(r3)+
+      37 001020 020327  160176          	cmp	r3,#MEMEND
+      38 001024 101772                  	blos	wrloop
+      39                                
+      40                                	; compare all mem to current pattern
+      41 001026 012703  160000          	mov	#MEMSTR,r3
+      42                                rdloop:
+      43 001032 010400                  	mov	r4,r0
+      44 001034 060300                  	add	r3,r0		; testval= addr+ offset
+      45 001036 012301                  	mov	(r3)+,r1       ; read mem
+      46 001040 020001                  	cmp	r0,r1		; value atr3 as expected
+      47 001042 001005                  	bne	error
+      48 001044 020327  160176          	cmp	r3,#MEMEND	; last cell tested?
+      49 001050 101770                  	blos	rdloop
+      50                                	; repeat full test with next pattern
+      51 001052 005204                  	inc	r4
+      52 001054 000754                  	br	tstrun
+      53                                
+      54                                
+      55                                	; r3 = error address
+      56                                	; r0 = expected value
+      57                                	; r1 = found value
+      58                                error:
+      59 001056 005303                  	dec	r3
+      60 001060 005303                  	dec	r3
+      61 001062 000000                  	halt
+      62                                
+      63                                	.end
+      63                                

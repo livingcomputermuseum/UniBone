@@ -1,0 +1,159 @@
+PRU C/C++ Optimizer                     v2.3.1
+Build Number 1SGNO-2LI-UASAR-TAR-C08D
+
+==============================================================================
+
+static void state_emulation() is called from 1 sites in this file.
+    It appears to be inlineable (size = 189 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	sm_init_start() (1 times)
+	sm_powercycle_start() (1 times)
+	sm_arb_state_idle() (1 times)
+	sm_dma_start() (1 times)
+	sm_intr_start() (1 times)
+	sm_arb_start() (2 times)
+	do_event_initializationsignals() (1 times)
+	 ? () (18 times)
+	sm_slave_start() (3 times)
+	__delay_cycles() (1 times)
+	buslatches_powercycle() (1 times)
+	buslatches_reset() (1 times)
+
+==============================================================================
+
+extern void main() is called from 0 sites in this file.
+    It appears to be inlineable (size = 318 units)
+    It has 10 non-trivial scope blocks nested 7 deep.
+    It calls these functions:
+	__halt() (1 times)
+	buslatches_test() (1 times)
+	buslatches_powercycle() (1 times)
+	ddrmem_fill_pattern() (1 times)
+	state_emulation() (1 times)
+	__delay_cycles() (6 times)
+	buslatches_pru0_dataout() (4 times)
+	sm_dma_start() (1 times)
+	 ? () (4 times)
+	sm_slave_start() (1 times)
+	buslatches_reset() (3 times)
+	iopageregisters_init() (1 times)
+
+extern void main() is called from 0 sites in this file.
+    It has 10 non-trivial scope blocks nested 7 deep.
+    It calls these functions:
+	__halt() (1 times)
+	buslatches_test() (1 times)
+	buslatches_powercycle() (1 times)
+	ddrmem_fill_pattern() (1 times)
+	state_emulation() (1 times)
+	__delay_cycles() (6 times)
+	buslatches_pru0_dataout() (4 times)
+	sm_dma_start() (1 times)
+	 ? () (4 times)
+	sm_slave_start() (1 times)
+	buslatches_reset() (3 times)
+	iopageregisters_init() (1 times)
+
+static void state_emulation() is called from 1 sites in this file.
+    It appears to be inlineable (size = 189 units)
+    It has 3 non-trivial scope blocks nested 3 deep.
+    It calls these functions:
+	sm_init_start() (1 times)
+	sm_powercycle_start() (1 times)
+	sm_arb_state_idle() (1 times)
+	sm_dma_start() (1 times)
+	sm_intr_start() (1 times)
+	sm_arb_start() (2 times)
+	do_event_initializationsignals() (1 times)
+	 ? () (18 times)
+	sm_slave_start() (3 times)
+	__delay_cycles() (1 times)
+	buslatches_powercycle() (1 times)
+	buslatches_reset() (1 times)
+
+
+These functions may be recursive:
+	main()
+	state_emulation()
+
+Making this function inlineable: state_emulation()
+Inlineable function will be suppressed: state_emulation()
+
+These external functions are called but not defined here:
+	do_event_initializationsignals()
+	sm_arb_start()
+	sm_intr_start()
+	sm_arb_state_idle()
+	sm_powercycle_start()
+	sm_init_start()
+	iopageregisters_init()
+	buslatches_reset()
+	sm_slave_start()
+	 ? ()
+	sm_dma_start()
+	buslatches_pru0_dataout()
+	__delay_cycles()
+	ddrmem_fill_pattern()
+	buslatches_powercycle()
+	buslatches_test()
+	__halt()
+
+
+==============================================================================
+
+extern void main() is called from 0 sites in this file.
+    It has 10 non-trivial scope blocks nested 7 deep.
+    It calls these functions:
+	state_emulation() (1 times)
+
+		====== Unroll-and-jam Result Summary ======
+
+LOOP#2 in main() fails to unroll-and-jam: Outer Loop has multiple blocks
+
+		====== End Unroll-and-jam Result ======
+
+
+		====== Unroll-and-jam Result Summary ======
+
+LOOP#5 in main() fails to unroll-and-jam: Outer Loop has multiple blocks
+
+		====== End Unroll-and-jam Result ======
+
+
+		====== Unroll-and-jam Result Summary ======
+
+LOOP#7 in main() fails to unroll-and-jam: Outer Loop has multiple blocks
+
+		====== End Unroll-and-jam Result ======
+
+
+		====== Unroll-and-jam Result Summary ======
+
+LOOP#10 in main() fails to unroll-and-jam: Outer Loop has multiple blocks
+
+		====== End Unroll-and-jam Result ======
+
+
+		====== Unroll-and-jam Result Summary ======
+
+LOOP#13 in main() fails to unroll-and-jam: Outer trip count may be NULL
+
+		====== End Unroll-and-jam Result ======
+
+
+		====== Unroll-and-jam Result Summary ======
+
+LOOP#15 in main() fails to unroll-and-jam: Outer trip count may be NULL
+
+		====== End Unroll-and-jam Result ======
+
+
+==============================================================================
+
+extern void main() is called from 0 sites in this file.
+    It has 12 non-trivial scope blocks nested 7 deep.
+    It calls these functions:
+	state_emulation() (1 times)
+
+== END OF INFO OUTPUT==

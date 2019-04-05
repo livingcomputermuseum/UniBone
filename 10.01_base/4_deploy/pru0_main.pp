@@ -1,0 +1,9 @@
+/home/joerg/retrocmp/dec/UniBone/10.01_base/4_deploy/pru0_main.object: pru0_main.c
+/home/joerg/retrocmp/dec/UniBone/10.01_base/4_deploy/pru0_main.object: /home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/ti-cgt-pru_2.3.1//include/stdint.h
+/home/joerg/retrocmp/dec/UniBone/10.01_base/4_deploy/pru0_main.object: /home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/ti-cgt-pru_2.3.1//include/_stdint40.h
+/home/joerg/retrocmp/dec/UniBone/10.01_base/4_deploy/pru0_main.object: /home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/pru-software-support-package/include/am335x/pru_cfg.h
+/home/joerg/retrocmp/dec/UniBone/10.01_base/4_deploy/pru0_main.object: resource_table_empty.h
+/home/joerg/retrocmp/dec/UniBone/10.01_base/4_deploy/pru0_main.object: /home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/ti-cgt-pru_2.3.1//include/stddef.h
+/home/joerg/retrocmp/dec/UniBone/10.01_base/4_deploy/pru0_main.object: /home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/pru-software-support-package/include/rsc_types.h
+/home/joerg/retrocmp/dec/UniBone/10.01_base/4_deploy/pru0_main.object: /home/joerg/retrocmp/dec/UniBone/91_3rd_party/pru-c-compile/pru-software-support-package/include/pru_types.h
+/home/joerg/retrocmp/dec/UniBone/10.01_base/4_deploy/pru0_main.object: /home/joerg/retrocmp/dec/UniBone/10.01_base/2_src/shared/pru_pru_mailbox.h
