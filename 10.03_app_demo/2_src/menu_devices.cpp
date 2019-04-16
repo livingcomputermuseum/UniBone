@@ -49,6 +49,7 @@
 #include "demo_regs.hpp"
 #include "rl11.hpp"
 #include "rk11.hpp"
+#include "uda.hpp"
 #include "cpu.hpp"
 
 
@@ -84,6 +85,9 @@ void menus_c::menu_devices(void) {
  
         // create RK11 + drives
         rk11_c RK05;
+
+        // Create UDA50
+        uda_c UDA50;
  
 	demo_io.install();
 	demo_io.worker_start();
@@ -97,6 +101,9 @@ void menus_c::menu_devices(void) {
 
         RK05.install();
         RK05.worker_start();
+
+        UDA50.install();
+        UDA50.worker_start();
 
 	cpu.install();
 	cpu.worker_start();
@@ -339,6 +346,9 @@ void menus_c::menu_devices(void) {
 
         RK05.worker_stop();
         RK05.uninstall();
+
+        UDA50.worker_stop();
+        UDA50.uninstall();
 
 	//demo_regs.worker_stop();
 	//demo_regs.uninstall();
