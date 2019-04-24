@@ -465,12 +465,12 @@ bool unibusadapter_c::request_INTR_active(const char *error_info) {
 
 // request a DMA cycle.
 // unibus_control = UNIBUS_CONTROL_DATI or _DATO
-void unibusadapter_c::request_DMA(unibusdevice_c *device, uint8_t unibus_control,
+bool unibusadapter_c::request_DMA(unibusdevice_c *device, uint8_t unibus_control,
 		uint32_t unibus_addr, uint16_t *buffer, unsigned wordcount) {
 // TODO: if another DMA or INTR is active: put request in queue
 	UNUSED(device);
 	if (request_DMA_active(__func__) || request_INTR_active(__func__))
-		return;
+		return false;
 
 	mailbox->dma.startaddr = unibus_addr;
 	mailbox->dma.control = unibus_control;
@@ -490,7 +490,8 @@ void unibusadapter_c::request_DMA(unibusdevice_c *device, uint8_t unibus_control
 
 	// start!
 	mailbox->arm2pru_req = ARM2PRU_DMA;
-	// PRU now changes state
+	// PRU now changes state 
+        return true;
 }
 
 void unibusadapter_c::request_INTR(unibusdevice_c *device, unsigned level, unsigned vector) {

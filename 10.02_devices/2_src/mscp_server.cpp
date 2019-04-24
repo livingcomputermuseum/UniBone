@@ -8,8 +8,9 @@ using namespace std;
 #include "logger.hpp"
 #include "utils.hpp"
 
-#include "uda.hpp"
+#include "mscp_drive.hpp"
 #include "mscp_server.hpp"
+#include "uda.hpp"
 
 void* polling_worker(
     void *context)
@@ -31,16 +32,10 @@ mscp_server::mscp_server(
         _pollState(PollingState::Wait),
         polling_cond(PTHREAD_COND_INITIALIZER),
         polling_mutex(PTHREAD_MUTEX_INITIALIZER),
-        _unitOnline(false),
         _credits(INIT_CREDITS) 
 {
     // Alias the port pointer.  We do not own the port, merely reference it.
     _port = port;
-
-    _diskBuffer.reset(new uint8_t[_diskBufferSize + 512]);  // 16mb in-memory disk data
-                                                            // + 1 block for write protect flag 
-
-    memset(reinterpret_cast<void*>(_diskBuffer.get()), 0x0, _diskBufferSize + 512);
 
     StartPollingThread();
 }
@@ -102,6 +97,8 @@ mscp_server::AbortPollingThread(void)
 void
 mscp_server::Poll(void)
 {
+    worker_init_realtime_priority(rt_device);
+
     timeout_c timer;
 
     while(!_abort_polling)
@@ -109,7 +106,6 @@ mscp_server::Poll(void)
         //
         // Wait to be awoken, then pull commands from the command ring
         //
-        DEBUG("Sleeping until awoken.");
         pthread_mutex_lock(&polling_mutex);
         while (_pollState == PollingState::Wait)
         {
@@ -125,8 +121,9 @@ mscp_server::Poll(void)
         }
 
         pthread_mutex_unlock(&polling_mutex);
+    
+        //timer.wait_us(100);
 
-        DEBUG("The sleeper awakes.");
 
         if (_abort_polling)
         {
@@ -137,15 +134,16 @@ mscp_server::Poll(void)
         // Pull commands from the ring until the ring is empty, at which
         // point we sleep until awoken again.
         //
-        while(!_abort_polling && _pollState == PollingState::Run)
+        while(!_abort_polling && _pollState != PollingState::InitRestart)
         {
-            shared_ptr<Message> message(_port->GetNextCommand());
+           shared_ptr<Message> message(_port->GetNextCommand());
 
             if (nullptr == message)
             {
                 DEBUG("Empty command ring; sleeping.");
                 break;
             }
+
   
             DEBUG("Message received.");
 
@@ -158,19 +156,13 @@ mscp_server::Poll(void)
             ControlMessageHeader* header = 
                 reinterpret_cast<ControlMessageHeader*>(message->Message);
 
-            uint16_t *cmdbuf = reinterpret_cast<uint16_t*>(message->Message);
-
-            DEBUG("Message opcode 0x%x rsvd 0x%x mod 0x%x", 
+            DEBUG("Message opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
                 header->Word3.Command.Opcode,
                 header->Word3.Command.Reserved,
-                header->Word3.Command.Modifiers);
-
-            /*
-            for(int i=0;i<8;i++)
-            {
-                INFO("o%o", cmdbuf[i]);
-            }
-            */
+                header->Word3.Command.Modifiers,
+                header->UnitNumber,
+                header->Reserved,
+                header->ReferenceNumber);
 
             uint32_t cmdStatus = 0;
 
@@ -226,9 +218,6 @@ mscp_server::Poll(void)
                  header->Word3.End.Endcode |= Endcodes::END;
             }
 
-            //
-            // TODO: credits, etc.
-            //
             if (message->Word1.Info.MessageType == MessageTypes::Sequential &&
                 header->Word3.End.Endcode & Endcodes::END)
             {
@@ -241,37 +230,38 @@ mscp_server::Poll(void)
                 // Max 14 credits, also C++ is flaming garbage, thanks for replacing "min"
                 // with something so incredibly annoying to use.
                 // 
-                uint32_t grantedCredits = min(_credits, static_cast<uint32_t>(MAX_CREDITS));
+                uint8_t grantedCredits = min(_credits, static_cast<uint8_t>(MAX_CREDITS));
                 _credits -= grantedCredits;
                 message->Word1.Info.Credits = grantedCredits + 1;
+                DEBUG("granted credits %d", grantedCredits + 1);
             }
+            else
+            {
+                message->Word1.Info.Credits = 0;
+            }
+
+            timer.wait_us(250);
 
             //
             // Post the response to the port's response ring.
             //
-            // TODO: is the retry approach appropriate or necessary?
-            for (int retry=0;retry<10;retry++)
-            {
-                if(_port->PostResponse(message))
+                if(!_port->PostResponse(message.get()))
                 {
-                    break;
+                    FATAL("no room at the inn.");
                 }
-                timer.wait_us(200);
-            }
 
             // Hack: give interrupts time to settle before doing another transfer.
-            timer.wait_us(250); 
+            timer.wait_us(2500); 
  
             //
             // Go around and pick up the next one.
             //
         }
 
-        DEBUG("MSCP Polling thread going back to sleep.");
-      
         pthread_mutex_lock(&polling_mutex); 
         if (_pollState == PollingState::InitRestart)
         {
+            DEBUG("MSCP Polling thread reset.");
             // Signal the Reset call that we're done so it can return
             // and release the Host.
             _pollState = PollingState::Wait;
@@ -315,12 +305,13 @@ mscp_server::GetUnitStatus(
     };
     #pragma pack(pop)
 
-    if (unitNumber != 0)
+    mscp_drive_c* drive = GetDrive(unitNumber);
+
+    if (nullptr == drive ||
+        !drive->IsAvailable())
     {
         return STATUS(Status::UNIT_OFFLINE, 3);  // unknown -- todo move to enum
     } 
-
-    INFO("gusrp size %d", sizeof(GetUnitStatusResponseParameters));
 
     // Adjust message length for response
     message->MessageLength = sizeof(GetUnitStatusResponseParameters) +
@@ -332,8 +323,8 @@ mscp_server::GetUnitStatus(
 
     params->UnitFlags = 0;  // TODO: 0 for now, which is sane.
     params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
-    params->UnitIdentifier = UNIT_ID;    // Unit #0 always for now
-    params->MediaTypeIdentifier = MEDIA_ID_RA80;   // RA80 always for now
+    params->UnitIdentifier = drive->GetUnitID();  
+    params->MediaTypeIdentifier = drive->GetMediaID(); 
     params->ShadowUnit = unitNumber;  // Always equal to unit number
     
     //
@@ -353,7 +344,7 @@ mscp_server::GetUnitStatus(
     //
     params->RCTStuff = 0x01000001;
     
-    if (_unitOnline)
+    if (drive->IsOnline())
     {
         return STATUS(Status::SUCCESS, 0);
     }
@@ -397,8 +388,8 @@ mscp_server::Online(
     #pragma pack(push,1)
     struct OnlineResponseParameters
     {
-        uint16_t UnitFlags alignas(2);
-        uint16_t MultiUnitCode alignas(2);
+        uint16_t UnitFlags;
+        uint16_t MultiUnitCode;
         uint32_t Reserved0;
         uint64_t UnitIdentifier;
         uint32_t MediaTypeIdentifier;
@@ -408,12 +399,15 @@ mscp_server::Online(
     };
     #pragma pack(pop)
 
-    if (unitNumber != 0)
+    mscp_drive_c* drive = GetDrive(unitNumber);
+
+    if (nullptr == drive ||
+        !drive->IsAvailable())
     {
-        return STATUS(Status::UNIT_OFFLINE, 3); // unknown -- move to enum
+        return STATUS(Status::UNIT_OFFLINE, 3);  // unknown -- todo move to enum
     }
-    
-    _unitOnline = true;
+   
+    drive->SetOnline();
 
     // Adjust message length for response
     message->MessageLength = sizeof(OnlineResponseParameters) + 
@@ -425,11 +419,11 @@ mscp_server::Online(
 
     params->UnitFlags = 0;  // TODO: 0 for now, which is sane.
     params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
-    params->UnitIdentifier = UNIT_ID;  // Unit #0 always for now
-    params->MediaTypeIdentifier = MEDIA_ID_RA80;   // RA80 always for now
-    params->UnitSize = _diskBufferSize / 512;
+    params->UnitIdentifier = drive->GetUnitID(); 
+    params->MediaTypeIdentifier = drive->GetMediaID();
+    params->UnitSize = drive->GetBlockCount();
     params->VolumeSerialNumber = 0;  // We report no serial
-       
+    
     return STATUS(Status::SUCCESS, 0);  // TODO: subcode "Already Online" 
 }
 
@@ -440,10 +434,10 @@ mscp_server::SetControllerCharacteristics(
     #pragma pack(push,1)
     struct SetControllerCharacteristicsParameters
     {
+        uint16_t MSCPVersion;    
         uint16_t ControllerFlags;
-        uint16_t MSCPVersion;
-        uint16_t Reserved;
         uint16_t HostTimeout;
+        uint16_t Reserved;
         uint64_t TimeAndDate;
     };
     #pragma pack(pop)
@@ -500,10 +494,13 @@ mscp_server::SetUnitCharacteristics(
 
     // TODO: handle Set Write Protect modifier
 
+    mscp_drive_c* drive = GetDrive(unitNumber);
+
     // Check unit
-    if (unitNumber != 0)
+    if (nullptr == drive ||
+        !drive->IsAvailable())
     {
-        return STATUS(Status::UNIT_OFFLINE, 0);
+        return STATUS(Status::UNIT_OFFLINE, 3);
     }
 
     // TODO: mostly same as Online command: should share logic.
@@ -532,9 +529,9 @@ mscp_server::SetUnitCharacteristics(
 
     params->UnitFlags = 0;  // TODO: 0 for now, which is sane.
     params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
-    params->UnitIdentifier = UNIT_ID;  // Unit #0 always for now
-    params->MediaTypeIdentifier = MEDIA_ID_RA80;   // RA80 always for now
-    params->UnitSize = _diskBufferSize / 512;
+    params->UnitIdentifier = drive->GetUnitID();
+    params->MediaTypeIdentifier = drive->GetMediaID();
+    params->UnitSize = drive->GetBlockCount();
     params->VolumeSerialNumber = 0;  // We report no serial
 
     return STATUS(Status::SUCCESS, 0); 
@@ -561,28 +558,31 @@ mscp_server::Read(
     ReadParameters* params =
         reinterpret_cast<ReadParameters*>(GetParameterPointer(message));
 
-    INFO("MSCP READ unit %d pa o%o count %d lbn %d",
+    DEBUG("MSCP READ unit %d pa o%o count %d lbn %d",
         unitNumber,
         params->BufferPhysicalAddress & 0x00ffffff,
         params->ByteCount,
         params->LBN);
 
+    mscp_drive_c* drive = GetDrive(unitNumber);
+
     // Check unit
-    if (unitNumber != 0)
+    if (nullptr == drive ||
+        !drive->IsAvailable())
     {
-        return STATUS(Status::UNIT_OFFLINE, 0);
+        return STATUS(Status::UNIT_OFFLINE, 3);
     }
 
     // TODO: Need to rectify reads/writes to RCT area more cleanly
     // and enforce block size of 512 for RCT area.
 
     // Check LBN and byte count
-    if (params->LBN >= (_diskBufferSize + 512) / 512) 
+    if (params->LBN >= drive->GetBlockCount() + 1)  // + 1 for RCT write protect flag
     {
         return STATUS(Status::INVALID_COMMAND + (0x1c << 8), 0); // TODO: set sub-code
     }
 
-    if (params->ByteCount > (((_diskBufferSize + 512) / 512) - params->LBN) * 512)
+    if (params->ByteCount > ((drive->GetBlockCount() + 1) - params->LBN) * drive->GetBlockSize())
     {
         return STATUS(Status::INVALID_COMMAND + (0xc << 8), 0); // TODO: as above
     }
@@ -590,11 +590,17 @@ mscp_server::Read(
     //
     // OK: do the transfer to memory
     //
+    unique_ptr<uint8_t> diskBuffer(drive->Read(params->LBN, params->ByteCount));
+
     _port->DMAWrite(
         params->BufferPhysicalAddress & 0x00ffffff,
         params->ByteCount,
-        _diskBuffer.get() + params->LBN * 512);
+        diskBuffer.get());
 
+
+    // Adjust message length for response
+    message->MessageLength = sizeof(ReadParameters) +
+        HEADER_SIZE;
 
     // Set parameters for response.
     // We leave ByteCount as is (for now anyway)
@@ -626,26 +632,29 @@ mscp_server::Write(
     WriteParameters* params =
         reinterpret_cast<WriteParameters*>(GetParameterPointer(message));
 
-    INFO("MSCP WRITE unit %d pa o%o count %d lbn %d",
+    DEBUG("MSCP WRITE unit %d pa o%o count %d lbn %d",
         unitNumber,
         params->BufferPhysicalAddress & 0x00ffffff,
         params->ByteCount,
         params->LBN);
 
+    mscp_drive_c* drive = GetDrive(unitNumber);
+
     // Check unit
-    if (unitNumber != 0)
+    if (nullptr == drive ||
+        !drive->IsAvailable())
     {
-        return STATUS(Status::UNIT_OFFLINE, 0);
+        return STATUS(Status::UNIT_OFFLINE, 3);
     }
 
     // Check LBN
-    if (params->LBN > (_diskBufferSize + 512) / 512)
+    if (params->LBN > drive->GetBlockCount() + 1)  // + 1 for RCT
     {
         return STATUS(Status::INVALID_COMMAND + (0x1c << 8), 0); // TODO: set sub-code
     }
 
     // Check byte count 
-    if (params->ByteCount > (((_diskBufferSize + 512) / 512) - params->LBN) * 512)
+    if (params->ByteCount > ((drive->GetBlockCount() + 1) - params->LBN) * drive->GetBlockSize())
     {
         return STATUS(Status::INVALID_COMMAND + (0x0c << 8), 0); // TODO: as above
     }
@@ -653,12 +662,18 @@ mscp_server::Write(
     //
     // OK: do the transfer from the PDP-11 to a buffer
     //
-    unique_ptr<uint8_t> buffer(_port->DMARead(
+    unique_ptr<uint8_t> memBuffer(_port->DMARead(
         params->BufferPhysicalAddress & 0x00ffffff,
+        params->ByteCount,
         params->ByteCount));
 
-    // Copy the buffer to our in-memory disk buffer
-    memcpy(_diskBuffer.get() + params->LBN * 512, buffer.get(), params->ByteCount);
+    drive->Write(params->LBN,
+        params->ByteCount,
+        memBuffer.get());
+
+    // Adjust message length for response
+    message->MessageLength = sizeof(WriteParameters) +
+        HEADER_SIZE;
 
     // Set parameters for response.
     // We leave ByteCount as is (for now anyway)
@@ -674,6 +689,19 @@ mscp_server::GetParameterPointer(
     shared_ptr<Message> message)
 {
     return reinterpret_cast<ControlMessageHeader*>(message->Message)->Parameters;
+}
+
+mscp_drive_c*
+mscp_server::GetDrive(
+    uint32_t unitNumber)
+{
+    mscp_drive_c* drive = nullptr;
+    if (unitNumber < _port->GetDriveCount())
+    {
+        drive = _port->GetDrive(unitNumber);
+    }
+
+    return drive;
 }
 
 void 
@@ -696,6 +724,12 @@ mscp_server::Reset(void)
     pthread_mutex_unlock(&polling_mutex);
 
     _credits = INIT_CREDITS;
+
+    // Release all drives
+    for (int i=0;i<_port->GetDriveCount();i++)
+    {
+        GetDrive(i)->SetOffline();
+    }
 }
 
 

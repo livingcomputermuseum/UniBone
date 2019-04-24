@@ -66,7 +66,7 @@ public:
 	bool request_DMA_active(const char *error_info) ;
 	bool request_INTR_active(const char *error_info) ;
 
-	void request_DMA(unibusdevice_c *device, uint8_t unibus_control, uint32_t unibus_addr,
+	bool request_DMA(unibusdevice_c *device, uint8_t unibus_control, uint32_t unibus_addr,
 			uint16_t *buffer, unsigned wordcount);
 	void request_INTR(unibusdevice_c *device, unsigned level, unsigned vector);
 	bool complete_DMA(unibusdevice_c *device, uint32_t *unibus_end_addr, bool *error);

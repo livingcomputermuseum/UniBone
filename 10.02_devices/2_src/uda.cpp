@@ -5,6 +5,7 @@
 #include "unibusadapter.hpp"
 #include "unibusdevice.hpp"
 #include "storagecontroller.hpp"
+#include "mscp_drive.hpp"
 #include "uda.hpp"
 
 uda_c::uda_c() :
@@ -47,28 +48,60 @@ uda_c::uda_c() :
     SA_reg->writable_bits = 0xffff;
 
     _server.reset(new mscp_server(this));
+
+    //
+    // Initialize drives.  We support up to eight attached drives.
+    //
+    drivecount = 8;
+    for (uint32_t i=0; i<drivecount; i++)
+    {
+        mscp_drive_c *drive = new mscp_drive_c(this, i);
+        drive->unitno.value = i;
+        drive->name.value = name.value + std::to_string(i);
+        drive->log_label = drive->name.value;
+        drive->parent = this;
+        storagedrives.push_back(drive);
+    }
 }
 
 uda_c::~uda_c()
 {
+    for(uint32_t i=0; i<drivecount; i++)
+    {
+        delete storagedrives[i];
+    }
 
+    storagedrives.clear();
 }
 
 void uda_c::Reset(void)
 {
     DEBUG("UDA reset");
 
-    _server->Reset();
-
     _sa = 0;
     update_SA();
 
     // Signal the worker to begin the initialization sequence.
     StateTransition(InitializationStep::Uninitialized); 
-     
+    
+    _server->Reset(); 
 }
 
-void uda_c::StateTransition(InitializationStep nextStep)
+uint32_t uda_c::GetDriveCount(void)
+{
+    return drivecount;
+}
+    
+mscp_drive_c* uda_c::GetDrive(
+    uint32_t driveNumber)
+{
+    assert(driveNumber < drivecount);
+
+    return dynamic_cast<mscp_drive_c*>(storagedrives[driveNumber]);
+}
+
+void uda_c::StateTransition(
+    InitializationStep nextStep)
 {
     pthread_mutex_lock(&on_after_register_access_mutex);
         _initStep = nextStep;
@@ -98,6 +131,8 @@ void uda_c::worker(void)
 
         _next_step = false;
         pthread_mutex_unlock(&on_after_register_access_mutex);
+
+        // INFO("Awoken.");
 
         switch (_initStep)
         {
@@ -156,12 +191,13 @@ void uda_c::worker(void)
             case InitializationStep::Step4:
                  // Clear communications area, set SA   
                  INFO("Clearing comm area at 0x%x.", _ringBase);
-      
+                 INFO("resp 0x%x comm 0x%x", _responseRingLength, _commandRingLength);
+
                  // TODO: -6 and -8 are described; do these always get cleared or only
                  // on VAXen?  ZUDJ diag only expects -2 and -4 to be cleared...
                 
                  for(uint32_t i = 0; 
-                     i < (_responseRingLength + _commandRingLength) * sizeof(Descriptor);
+                     i < (_responseRingLength + _commandRingLength) * sizeof(Descriptor) + 8;
                      i += 2)
                  {
                      DMAWriteWord(_ringBase - 4 + i, 0x0);
@@ -171,6 +207,8 @@ void uda_c::worker(void)
                  // Set the ownership bit on all descriptors in the response ring
                  // to indicate that the port owns them.
                  //
+
+                 
                  Descriptor blankDescriptor;
                  blankDescriptor.Word0.Word0 = 0;
                  blankDescriptor.Word1.Word1 = 0;
@@ -195,11 +233,14 @@ void uda_c::worker(void)
 
             case InitializationStep::Complete:
                  INFO("Transition to Init state Complete.  Initializing response ring.");
-                 /*
+                 _sa = 0x0;
+                 update_SA();
+ 
                  //
                  // Set the ownership bit on all descriptors in the response ring
                  // to indicate that the port owns them.
                  //
+                 /*
                  Descriptor blankDescriptor;
                  blankDescriptor.Word0.Word0 = 0;
                  blankDescriptor.Word1.Word1 = 0;
@@ -232,7 +273,7 @@ uda_c::on_after_register_access(
             {
                 // "When written with any value, it causes a hard initialization
                 //  of the port and the device controller."
-                DEBUG("Reset due to IP read");  
+                // INFO("Reset due to IP read");  
                 Reset();
             }
             else
@@ -241,7 +282,7 @@ uda_c::on_after_register_access(
                 //  to initiate polling..."
                 if (_initStep == InitializationStep::Complete)
                 {
-                    DEBUG("Request to start polling.");
+                    //INFO("Request to start polling.");
                     _server->InitPolling();
                 }
             }
@@ -254,7 +295,7 @@ uda_c::on_after_register_access(
             {
                 case InitializationStep::Uninitialized:
                     // Should not occur, we treat it like step1 here.
-                    DEBUG("Write to SA in Uninitialized state.");
+                    INFO("Write to SA in Uninitialized state.");
 
                 case InitializationStep::Step1:
                     // Host writes the following:
@@ -358,7 +399,7 @@ uda_c::on_after_register_access(
                     // supporting onboard diagnostics and there's nothing to
                     // report.
                     //
-                    DEBUG("Step4: 0x%x", value);
+                    INFO("Step4: 0x%x", value);
                     if (value & 0x1)
                     {
                         //
@@ -404,28 +445,18 @@ uda_c::GetNextCommand(void)
     uint32_t descriptorAddress = 
         GetCommandDescriptorAddress(_commandRingPointer);
 
-    DEBUG("Next descriptor address is o%o", descriptorAddress);
+    DEBUG("Next descriptor (ring ptr 0x%x) address is o%o", 
+        _commandRingPointer, 
+        descriptorAddress);
 
-    // Multiple retries on read, this is a workaround for attempting to do DMA
-    // while an interrupt is active.  Need to find a better solution for this;
-    // likely at a lower level than this.
 
-    std::unique_ptr<Descriptor> cmdDescriptor;
-    for(int retry = 0 ; retry < 10; retry++)
-    {
-        cmdDescriptor.reset(
+    std::unique_ptr<Descriptor> cmdDescriptor(
         reinterpret_cast<Descriptor*>(
             DMARead(
                 descriptorAddress,
+                sizeof(Descriptor),
                 sizeof(Descriptor))));
 
-        if (cmdDescriptor != nullptr)
-        {
-            break;
-        }
-
-        timer.wait_us(200);
-    }        
 
     // TODO: if NULL is returned after retry assume a bus error and handle it appropriately.
     assert(cmdDescriptor != nullptr);
@@ -451,27 +482,19 @@ uda_c::GetNextCommand(void)
             DMAReadWord(
                 messageAddress - 4,
                 success);
-           
+        
+        // INFO("Message length 0x%x", messageLength);
+ 
         //
         // TODO: sanity check message length (what is the max length we
         // can expect to see?)
         //
-
-//        std::unique_ptr<Message> cmdMessage(
-//            reinterpret_cast<Message*>(
-          uint16_t* data = reinterpret_cast<uint16_t*>(
+        std::unique_ptr<Message> cmdMessage(
+            reinterpret_cast<Message*>(
                 DMARead(
                     messageAddress - 4,
-                    messageLength + 4));
-        /*
-        for(int i=0;i<(messageLength + 4) / 2; i++)
-        {
-            INFO("o%o", data[i]);
-        }
-        */
-
-        std::unique_ptr<Message> cmdMessage(reinterpret_cast<Message*>(data));
-
+                    messageLength + 4, 
+                    sizeof(Message)))); 
 
         //
         // Handle Ring Transitions (from full to not-full) and associated
@@ -501,6 +524,7 @@ uda_c::GetNextCommand(void)
                     reinterpret_cast<Descriptor*>(
                         DMARead(
                             previousDescriptorAddress,
+                            sizeof(Descriptor),
                             sizeof(Descriptor))));
 
                 if (previousDescriptor->Word1.Fields.Ownership)
@@ -531,13 +555,12 @@ uda_c::GetNextCommand(void)
         // Post an interrupt as necessary.
         if (doInterrupt)
         {
-            DEBUG("Ring now empty, interrupting.");
             //
             // Set ring base - 4 to non-zero to indicate a transition.
             //
             DMAWriteWord(
                 _ringBase - 4,
-                1);
+                0xff);
 
             //
             // Raise the interrupt
@@ -556,7 +579,7 @@ uda_c::GetNextCommand(void)
 
 bool
 uda_c::PostResponse(
-    shared_ptr<Message> response
+    Message* response
 )
 {
     bool res = false;
@@ -567,6 +590,7 @@ uda_c::PostResponse(
         reinterpret_cast<Descriptor*>(
             DMARead(
                 descriptorAddress,
+                sizeof(Descriptor),
                 sizeof(Descriptor))));
 
     // TODO: if NULL is returned assume a bus error and handle it appropriately.
@@ -598,12 +622,19 @@ uda_c::PostResponse(
                 messageAddress - 4,
                 success);
 
+        DEBUG("response address o%o length o%o", messageAddress, response->MessageLength);
+
+        if (reinterpret_cast<uint16_t*>(response)[0] == 0)
+        {
+            INFO("Writing zero length response!");
+        }
+
         if (messageLength < response->MessageLength)
         {
             // TODO: handle this; for now eat flaming death.
-            FATAL("Response buffer %x > message length %x", response->MessageLength, messageLength);
+            INFO("Response buffer %x > message length %x", response->MessageLength, messageLength);
         }
-        else
+        // else
         {
             //
             // This will fit; simply copy the response message over the top
@@ -613,7 +644,7 @@ uda_c::PostResponse(
             DMAWrite(
                 messageAddress - 4,
                 response->MessageLength + 4,
-                reinterpret_cast<uint8_t*>(response.get()));
+                reinterpret_cast<uint8_t*>(response));
         }
 
         //
@@ -646,6 +677,7 @@ uda_c::PostResponse(
                     reinterpret_cast<Descriptor*>(
                         DMARead(
                             previousDescriptorAddress,
+                            sizeof(Descriptor),
                             sizeof(Descriptor))));
 
                 if (previousDescriptor->Word1.Fields.Ownership)
@@ -671,13 +703,13 @@ uda_c::PostResponse(
         // Post an interrupt as necessary.
         if (doInterrupt)
         {
-            DEBUG("ring no longer empty, interrupting.");
+            // INFO("Response ring no longer empty, interrupting.");
             //
-            // Set ring base - 4 to non-zero to indicate a transition.
+            // Set ring base - 2 to non-zero to indicate a transition.
             //
             DMAWriteWord(
-                _ringBase - 4,
-                1);
+                _ringBase - 2,
+                0xff);
 
             //
             // Raise the interrupt
@@ -784,6 +816,7 @@ uda_c::DMAReadWord(
 {
     uint8_t* buffer = DMARead(
         address,
+        sizeof(uint16_t),
         sizeof(uint16_t));
 
     if (buffer)
@@ -814,30 +847,48 @@ uda_c::DMAWrite(
     bool timeout = false;
     timeout_c timer;
 
-    assert((lengthInBytes % 2) == 0);
+    assert ((lengthInBytes % 2) == 0);
 
-    unibusadapter->request_DMA(
-        this,
-        UNIBUS_CONTROL_DATO,
-        address,
-        reinterpret_cast<uint16_t*>(buffer),
-        lengthInBytes >> 1); 
-  
-    // Wait for completion
-    while (true)
+    // Retry the transfer to work around lower-level DMA issues
+    while(true)
     {
-        timer.wait_us(50);
-        uint32_t last_address = 0;
-        if (unibusadapter->complete_DMA(
-            this,
-            &last_address,
-            &timeout))
+        if(!unibusadapter->request_DMA_active("uda r") &&
+           !unibusadapter->request_INTR_active("uda w"))
         {
-            break;
+            unibusadapter->request_DMA(
+            this,
+            UNIBUS_CONTROL_DATO,
+            address,
+            reinterpret_cast<uint16_t*>(buffer),
+            lengthInBytes >> 1);
+        
+            // Wait for completion
+            uint32_t last_address = 0;
+            while(!unibusadapter->complete_DMA(
+                this,
+                &last_address,
+                &timeout))
+            {
+                timer.wait_us(50);
+            }
+
+            if (!timeout)
+            {
+                // Success!
+                // timer.wait_us(250); // also a hack
+                return true;
+            }
+            else
+            {
+                INFO("    DMA WRITE FAILED, RETRYING.");
+            }
         }
+  
+        // Try again
+        timer.wait_us(100);
     }
 
-    return !timeout;
+    return false;
 }
 
 /*
@@ -848,43 +899,62 @@ uda_c::DMAWrite(
 uint8_t*
 uda_c::DMARead(
     uint32_t address,
-    size_t lengthInBytes)
+    size_t lengthInBytes,
+    size_t bufferSize)
 {
+    assert (bufferSize >= lengthInBytes);
     assert((lengthInBytes % 2) == 0);
 
-    uint16_t* buffer = new uint16_t[lengthInBytes >> 1];
+    uint16_t* buffer = new uint16_t[bufferSize >> 1];
 
     assert(buffer);
+
+    memset(reinterpret_cast<uint8_t*>(buffer), 0xc3, bufferSize);
 
     bool timeout = false;
     timeout_c timer;
 
-    unibusadapter->request_DMA(
-        this,
-        UNIBUS_CONTROL_DATI,
-        address,
-        buffer,
-        lengthInBytes >> 1);
-
-    // Wait for completion
-    while (true)
+    // We retry the transfer to work around lower-level DMA issues
+    while(true)
     {
-        timer.wait_us(50);
-        uint32_t last_address = 0;
-        if (unibusadapter->complete_DMA(
-            this,
-            &last_address,
-            &timeout))
+        timeout = false;
+
+        if(!unibusadapter->request_DMA_active("uda r") &&
+           !unibusadapter->request_INTR_active("uda w"))
         {
-            break;
+            unibusadapter->request_DMA(
+            this,
+            UNIBUS_CONTROL_DATI,
+            address,
+            buffer,
+            lengthInBytes >> 1);
+              
+            uint32_t last_address = 0;
+            // Wait for completion
+            while (!unibusadapter->complete_DMA(
+                    this,
+                    &last_address,
+                    &timeout))
+            {
+                timer.wait_us(50);
+            }
+
+            if (!timeout)
+            {
+                // success!
+                // timer.wait_us(250); 
+                break;
+            }
+            else
+            {
+                INFO("DMA READ FAILED (addr o%o length o%o, lastaddr o%o RETRYING", address, lengthInBytes, last_address);
+            }
         }
+
+        // Try again
+        timer.wait_us(100);
     }
 
-    if (timeout)
-    {
-        delete[] buffer;
-        buffer = nullptr;
-    }
-
-    return reinterpret_cast<uint8_t*>(buffer); 
+    // timer.wait_us(250);
+    return reinterpret_cast<uint8_t*>(buffer);
 } 

@@ -5,6 +5,7 @@
 
 class uda_c;
 class Message;
+class mscp_drive_c;
 
 // Builds a uint32_t containing the status, flags, and endcode for a response message,
 // used to simplify returning the appropriate status bits from command functions.
@@ -16,9 +17,6 @@ class Message;
 #define MAX_CREDITS 14
 #define INIT_CREDITS 32
 
-#define MEDIA_ID_RA80 0x25641050
-#define UNIT_ID 0x1234567802020000
-
 // TODO: Dependent on little-endian hardware
 //
 // ControlMessageHeader encapsulates the standard MSCP control
@@ -29,8 +27,8 @@ class Message;
 struct ControlMessageHeader
 {
     uint32_t ReferenceNumber;
-    uint16_t Reserved;
     uint16_t UnitNumber;
+    uint16_t Reserved;
 
     union
     {
@@ -49,7 +47,7 @@ struct ControlMessageHeader
         } End;
     } Word3;
 
-    uint8_t Parameters[36];
+    uint8_t Parameters[512];  
 };
 #pragma pack(pop)
 
@@ -134,6 +132,7 @@ private:
     uint32_t Write(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
     
     uint8_t* GetParameterPointer(std::shared_ptr<Message> message);
+    mscp_drive_c* GetDrive(uint32_t unitNumber);
 
 private:
     void StartPollingThread(void);
@@ -161,12 +160,7 @@ private:
     pthread_cond_t polling_cond;
     pthread_mutex_t polling_mutex;
 
-    // Temporary: in-memory buffer for disk access
-    std::unique_ptr<uint8_t> _diskBuffer;
-    uint32_t _diskBufferSize = 237212 * 512; // RA80 size
-    bool _unitOnline;
-
     // Credits available
-    uint32_t _credits;
+    uint8_t _credits;
 };
 

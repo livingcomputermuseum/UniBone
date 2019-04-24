@@ -9,29 +9,31 @@
 #include "unibusdevice.hpp"
 #include "storagecontroller.hpp"
 #include "mscp_server.hpp"
+#include "mscp_drive.hpp"
 
 // TODO: this currently assumes a little-endian machine!
+#pragma pack(push,1)
 struct Message
 {
-    uint16_t MessageLength alignas(2);
+    uint16_t MessageLength;
 
     union
     {
-        uint16_t Word1;
         struct
         {
             uint16_t Credits : 4;
             uint16_t MessageType : 4;
             uint16_t ConnectionID : 8;
         } Info;
-    } Word1 alignas(2);
+        uint16_t Word1;
+    } Word1;
 
     // 384 bytes is the minimum needed to support
     // datagram messages.  The underlying buffer will
     // be allocated to cover whatever size needed.
-    uint8_t Message[384] alignas(2);
+    uint8_t Message[sizeof(ControlMessageHeader)];
 };
-
+#pragma pack(pop)
 
 /*
   This implements the Transport layer for a Unibus MSCP controller.
@@ -67,9 +69,12 @@ public:
     // Posts a response message to the response ring and memory
     // if there is space.
     // Returns FALSE if the ring is full.
-    bool PostResponse(std::shared_ptr<Message> response);
+    bool PostResponse(Message* response);
 
     uint64_t GetControllerIdentifier(void);
+   
+    uint32_t GetDriveCount(void);
+    mscp_drive_c* GetDrive(uint32_t driveNumber);
 
 private:
     // TODO: consolidate these private/public groups here 
@@ -84,7 +89,7 @@ public:
     uint16_t DMAReadWord(uint32_t address, bool& success);
 
     bool DMAWrite(uint32_t address, size_t lengthInBytes, uint8_t* buffer);
-    uint8_t* DMARead(uint32_t address, size_t lengthInBytes);
+    uint8_t* DMARead(uint32_t address, size_t lengthInBytes, size_t bufferSize);
 
 private:
     void update_SA(void);
@@ -95,7 +100,7 @@ private:
 
     uint16_t _sa;
 
-    std::unique_ptr<mscp_server> _server;
+    std::shared_ptr<mscp_server> _server;
 
     uint32_t _ringBase;
 
@@ -138,15 +143,16 @@ private:
     void StateTransition(InitializationStep nextStep);
 
     // TODO: this currently assumes a little-endian machine!
+    #pragma pack(push,1)
     struct Descriptor
     {
-        union alignas(2)
+        union 
         {
             uint16_t Word0;
             uint16_t EnvelopeLow;
         } Word0;
 
-        union alignas(2)
+        union
         {
             uint16_t Word1;
             struct
@@ -157,6 +163,7 @@ private:
                 uint16_t Ownership : 1;
             } Fields;
         } Word1;
-    };    
+    };   
+    #pragma pack(pop) 
 };
 
