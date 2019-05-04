@@ -148,7 +148,7 @@ void uda_c::worker(void)
 
             case InitializationStep::Step1:
                  // Wait 100uS, set SA.
-                 timeout.wait_us(10);
+                 timeout.wait_us(100); 
 
                  INFO("Transition to Init state S1.");
                  //
@@ -163,44 +163,42 @@ void uda_c::worker(void)
 
             case InitializationStep::Step2:
                  // Wait 100uS, set SA.
-                 timeout.wait_us(100);
+                 timeout.wait_ms(100);
 
                  INFO("Transition to Init state S2.");
                  // update the SA read value for step 2:
                  // S2 is set, unibus port type (0),  SA bits 15-8 written
                  // by the host in step 1.
-                 _sa = 0x1000 | (_step1Value >> 8);
+                 _sa = 0x1000 | ((_step1Value >> 8) & 0xff);
                  update_SA();
-
                  Interrupt();
                  break;
 
             case InitializationStep::Step3:
                  // Wait 100uS, set SA.
-                 timeout.wait_us(100);
+                 timeout.wait_ms(100);
 
                  INFO("Transition to Init state S3.");
                  // Update the SA read value for step 3:
                  // S3 set, plus SA bits 7-0 written by the host in step 1.
                  _sa = 0x2000 | (_step1Value & 0xff);
                  update_SA();
-
                  Interrupt();
                  break;
  
             case InitializationStep::Step4:
+
                  // Clear communications area, set SA   
                  INFO("Clearing comm area at 0x%x.", _ringBase);
                  INFO("resp 0x%x comm 0x%x", _responseRingLength, _commandRingLength);
 
                  // TODO: -6 and -8 are described; do these always get cleared or only
                  // on VAXen?  ZUDJ diag only expects -2 and -4 to be cleared...
-                
                  for(uint32_t i = 0; 
-                     i < (_responseRingLength + _commandRingLength) * sizeof(Descriptor) + 8;
+                     i < (_responseRingLength + _commandRingLength) * sizeof(Descriptor) + 4;
                      i += 2)
                  {
-                     DMAWriteWord(_ringBase - 4 + i, 0x0);
+                     DMAWriteWord(_ringBase + i - 4, 0x0);
                  }
 
                  //
@@ -208,7 +206,6 @@ void uda_c::worker(void)
                  // to indicate that the port owns them.
                  //
 
-                 
                  Descriptor blankDescriptor;
                  blankDescriptor.Word0.Word0 = 0;
                  blankDescriptor.Word1.Word1 = 0;
@@ -220,7 +217,7 @@ void uda_c::worker(void)
                          GetResponseDescriptorAddress(i),
                          sizeof(Descriptor),
                          reinterpret_cast<uint8_t*>(&blankDescriptor));
-                 }
+                 }  
  
                  INFO("Transition to Init state S4.");
                  // Update the SA read value for step 4:
@@ -233,9 +230,9 @@ void uda_c::worker(void)
 
             case InitializationStep::Complete:
                  INFO("Transition to Init state Complete.  Initializing response ring.");
-                 _sa = 0x0;
-                 update_SA();
- 
+                 //_sa = 0x0;
+                 //update_SA();
+
                  //
                  // Set the ownership bit on all descriptors in the response ring
                  // to indicate that the port owns them.
@@ -282,7 +279,7 @@ uda_c::on_after_register_access(
                 //  to initiate polling..."
                 if (_initStep == InitializationStep::Complete)
                 {
-                    //INFO("Request to start polling.");
+                    INFO("Request to start polling.");
                     _server->InitPolling();
                 }
             }
@@ -325,9 +322,9 @@ uda_c::on_after_register_access(
                     _responseRingLength = (1 << ((value & 0x700) >> 8));
                     _commandRingLength = (1 << ((value & 0x3800) >> 11));
 
-                    DEBUG("Step1: 0x%x", value); 
-                    DEBUG("resp ring 0x%x", _responseRingLength);
-                    DEBUG("cmd ring 0x%x", _commandRingLength);
+                    INFO("Step1: 0x%x", value); 
+                    INFO("resp ring 0x%x", _responseRingLength);
+                    INFO("cmd ring 0x%x", _commandRingLength);
  
                     // Move to step 2.
                     StateTransition(InitializationStep::Step2);
@@ -347,7 +344,7 @@ uda_c::on_after_register_access(
                     _ringBase = value & 0xfffe;
                     _purgeInterruptEnable = !!(value & 0x1);
 
-                    DEBUG("Step2: 0x%x", value);
+                    INFO("Step2: 0x%x", value);
                     // Move to step 3 and interrupt as necessary.
                     StateTransition(InitializationStep::Step3);
                     break;
@@ -366,7 +363,7 @@ uda_c::on_after_register_access(
                     // [ringbase+0].
                     _ringBase |= ((value & 0x7fff) << 16);
 
-                    DEBUG("Step3: 0x%x", value);
+                    INFO("Step3: 0x%x", value);
                     // Move to step 4 and interrupt as necessary.
                     StateTransition(InitializationStep::Step4);
                     break;
@@ -407,6 +404,10 @@ uda_c::on_after_register_access(
                         // start the controller running.
                         //
                         StateTransition(InitializationStep::Complete);
+                        // The VMS bootstrap expects SA to be zero IMMEDIATELY
+                        // after completion. 
+                        _sa = 0;
+                        update_SA();
                     }
                     else
                     {
@@ -560,7 +561,7 @@ uda_c::GetNextCommand(void)
             //
             DMAWriteWord(
                 _ringBase - 4,
-                0xff);
+                0xffff);
 
             //
             // Raise the interrupt
@@ -709,7 +710,7 @@ uda_c::PostResponse(
             //
             DMAWriteWord(
                 _ringBase - 2,
-                0xff);
+                0xffff);
 
             //
             // Raise the interrupt
@@ -844,51 +845,13 @@ uda_c::DMAWrite(
     size_t lengthInBytes,
     uint8_t* buffer)
 {
-    bool timeout = false;
-    timeout_c timer;
-
     assert ((lengthInBytes % 2) == 0);
 
-    // Retry the transfer to work around lower-level DMA issues
-    while(true)
-    {
-        if(!unibusadapter->request_DMA_active("uda r") &&
-           !unibusadapter->request_INTR_active("uda w"))
-        {
-            unibusadapter->request_DMA(
-            this,
+    return unibusadapter->request_DMA(
             UNIBUS_CONTROL_DATO,
             address,
             reinterpret_cast<uint16_t*>(buffer),
             lengthInBytes >> 1);
-        
-            // Wait for completion
-            uint32_t last_address = 0;
-            while(!unibusadapter->complete_DMA(
-                this,
-                &last_address,
-                &timeout))
-            {
-                timer.wait_us(50);
-            }
-
-            if (!timeout)
-            {
-                // Success!
-                // timer.wait_us(250); // also a hack
-                return true;
-            }
-            else
-            {
-                INFO("    DMA WRITE FAILED, RETRYING.");
-            }
-        }
-  
-        // Try again
-        timer.wait_us(100);
-    }
-
-    return false;
 }
 
 /*
@@ -911,50 +874,18 @@ uda_c::DMARead(
 
     memset(reinterpret_cast<uint8_t*>(buffer), 0xc3, bufferSize);
 
-    bool timeout = false;
-    timeout_c timer;
+    bool success = unibusadapter->request_DMA(
+                UNIBUS_CONTROL_DATI,
+                address,
+                buffer,
+                lengthInBytes >> 1);
 
-    // We retry the transfer to work around lower-level DMA issues
-    while(true)
-    {
-        timeout = false;
-
-        if(!unibusadapter->request_DMA_active("uda r") &&
-           !unibusadapter->request_INTR_active("uda w"))
-        {
-            unibusadapter->request_DMA(
-            this,
-            UNIBUS_CONTROL_DATI,
-            address,
-            buffer,
-            lengthInBytes >> 1);
-              
-            uint32_t last_address = 0;
-            // Wait for completion
-            while (!unibusadapter->complete_DMA(
-                    this,
-                    &last_address,
-                    &timeout))
-            {
-                timer.wait_us(50);
-            }
-
-            if (!timeout)
-            {
-                // success!
-                // timer.wait_us(250); 
-                break;
-            }
-            else
-            {
-                INFO("DMA READ FAILED (addr o%o length o%o, lastaddr o%o RETRYING", address, lengthInBytes, last_address);
-            }
-        }
-
-        // Try again
-        timer.wait_us(100);
+    if (success)
+    { 
+	return reinterpret_cast<uint8_t*>(buffer);
     }
-
-    // timer.wait_us(250);
-    return reinterpret_cast<uint8_t*>(buffer);
+    else
+    {
+        return nullptr;
+    }
 } 

@@ -15,7 +15,7 @@ class mscp_drive_c;
 #define GET_FLAGS(status) (((status) >> 8) & 0xff)
 
 #define MAX_CREDITS 14
-#define INIT_CREDITS 32
+#define INIT_CREDITS 1 
 
 // TODO: Dependent on little-endian hardware
 //
@@ -93,6 +93,16 @@ enum Status
     CONTROLLER_ERROR = 0xa,
     DRIVE_ERROR = 0xb,
     DIAGNOSTIC_MESSAGE = 0x1f
+};
+
+enum SuccessSubcodes
+{
+    NORMAL = 0x0,
+    SPIN_DOWN_IGNORED = 0x20,
+    STILL_CONNECTED = 0x40,
+    DUPLICATE_UNIT_NUMBER = 0x80,
+    ALREADY_ONLINE = 0x100,
+    STILL_ONLINE = 0x200,
 };
 
 enum MessageTypes

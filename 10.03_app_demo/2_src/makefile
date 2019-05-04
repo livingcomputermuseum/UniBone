@@ -93,6 +93,7 @@ OBJECTS = $(OBJDIR)/application.o	\
         $(OBJDIR)/rk05.o        \
         $(OBJDIR)/uda.o         \
         $(OBJDIR)/mscp_server.o \
+        $(OBJDIR)/mscp_drive.o \
 	$(OBJDIR)/storagedrive.o	\
         $(OBJDIR)/storagecontroller.o	\
         $(OBJDIR)/demo_io.o	\
@@ -201,6 +202,9 @@ $(OBJDIR)/uda.o :   $(DEVICE_SRC_DIR)/uda.cpp $(DEVICE_SRC_DIR)/uda.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/mscp_server.o :   $(DEVICE_SRC_DIR)/mscp_server.cpp $(DEVICE_SRC_DIR)/mscp_server.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/mscp_drive.o :   $(DEVICE_SRC_DIR)/mscp_drive.cpp $(DEVICE_SRC_DIR)/mscp_drive.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/storagedrive.o :  $(BASE_SRC_DIR)/storagedrive.cpp $(BASE_SRC_DIR)/storagedrive.hpp

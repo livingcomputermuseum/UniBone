@@ -122,7 +122,7 @@ mscp_server::Poll(void)
 
         pthread_mutex_unlock(&polling_mutex);
     
-        //timer.wait_us(100);
+        // timer.wait_us(100);
 
 
         if (_abort_polling)
@@ -156,7 +156,8 @@ mscp_server::Poll(void)
             ControlMessageHeader* header = 
                 reinterpret_cast<ControlMessageHeader*>(message->Message);
 
-            DEBUG("Message opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
+            DEBUG("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
+                message->MessageLength,
                 header->Word3.Command.Opcode,
                 header->Word3.Command.Reserved,
                 header->Word3.Command.Modifiers,
@@ -240,7 +241,7 @@ mscp_server::Poll(void)
                 message->Word1.Info.Credits = 0;
             }
 
-            timer.wait_us(250);
+            //timer.wait_us(250);
 
             //
             // Post the response to the port's response ring.
@@ -251,7 +252,7 @@ mscp_server::Poll(void)
                 }
 
             // Hack: give interrupts time to settle before doing another transfer.
-            timer.wait_us(2500); 
+            //timer.wait_us(2500); 
  
             //
             // Go around and pick up the next one.
@@ -295,27 +296,31 @@ mscp_server::GetUnitStatus(
         uint32_t Reserved0;
         uint64_t UnitIdentifier;
         uint32_t MediaTypeIdentifier;
-        uint16_t Reserved1;
         uint16_t ShadowUnit;
-        uint16_t GroupSize;
+        uint16_t Reserved1;
         uint16_t TrackSize;
-        uint16_t Reserved2;
+        uint16_t GroupSize;
         uint16_t CylinderSize;
+        uint16_t Reserved2;   
         uint32_t RCTStuff;
     };
     #pragma pack(pop)
+
+    INFO("MSCP GET UNIT STATUS drive %d", unitNumber);
+
+    // Adjust message length for response
+    message->MessageLength = sizeof(GetUnitStatusResponseParameters) +
+        HEADER_SIZE;
+ 
 
     mscp_drive_c* drive = GetDrive(unitNumber);
 
     if (nullptr == drive ||
         !drive->IsAvailable())
     {
+        INFO("Returning UNIT OFFLINE");
         return STATUS(Status::UNIT_OFFLINE, 3);  // unknown -- todo move to enum
     } 
-
-    // Adjust message length for response
-    message->MessageLength = sizeof(GetUnitStatusResponseParameters) +
-        HEADER_SIZE;
 
     GetUnitStatusResponseParameters* params = 
         reinterpret_cast<GetUnitStatusResponseParameters*>(
@@ -333,8 +338,8 @@ mscp_server::GetUnitStatus(
     // or cylinders to speak of (no seek times, etc.)
     //
     params->TrackSize = 1;  // one block per track, per aa-l619a-tk.
-    params->GroupSize = 0;
-    params->CylinderSize = 0;
+    params->GroupSize = 1;
+    params->CylinderSize = 1;
 
     //
     // Since we do no bad block replacement (no bad blocks possible in a disk image file)
@@ -343,7 +348,7 @@ mscp_server::GetUnitStatus(
     // the RCT are present.
     //
     params->RCTStuff = 0x01000001;
-    
+
     if (drive->IsOnline())
     {
         return STATUS(Status::SUCCESS, 0);
@@ -399,19 +404,24 @@ mscp_server::Online(
     };
     #pragma pack(pop)
 
+    INFO("MSCP ONLINE drive %d", unitNumber);
+
+    // Adjust message length for response
+    message->MessageLength = sizeof(OnlineResponseParameters) +
+        HEADER_SIZE;
+
     mscp_drive_c* drive = GetDrive(unitNumber);
 
     if (nullptr == drive ||
         !drive->IsAvailable())
     {
+        INFO("Returning UNIT OFFLINE");
         return STATUS(Status::UNIT_OFFLINE, 3);  // unknown -- todo move to enum
     }
-   
+  
+    bool alreadyOnline = drive->IsOnline();
+ 
     drive->SetOnline();
-
-    // Adjust message length for response
-    message->MessageLength = sizeof(OnlineResponseParameters) + 
-        HEADER_SIZE;
 
     OnlineResponseParameters* params =
         reinterpret_cast<OnlineResponseParameters*>(
@@ -422,9 +432,12 @@ mscp_server::Online(
     params->UnitIdentifier = drive->GetUnitID(); 
     params->MediaTypeIdentifier = drive->GetMediaID();
     params->UnitSize = drive->GetBlockCount();
-    params->VolumeSerialNumber = 0;  // We report no serial
-    
-    return STATUS(Status::SUCCESS, 0);  // TODO: subcode "Already Online" 
+    params->VolumeSerialNumber = 1;  // We report no serial
+    params->Reserved0 = 0;
+    params->Reserved1 = 0;
+
+    return STATUS(Status::SUCCESS | 
+        (alreadyOnline ? SuccessSubcodes::ALREADY_ONLINE : SuccessSubcodes::NORMAL), 0); 
 }
 
 uint32_t
@@ -446,6 +459,11 @@ mscp_server::SetControllerCharacteristics(
         reinterpret_cast<SetControllerCharacteristicsParameters*>(
             GetParameterPointer(message));
 
+    INFO("MSCP SET CONTROLLER CHARACTERISTICS");
+
+    // Adjust message length for response
+    message->MessageLength = sizeof(SetControllerCharacteristicsParameters) +
+        HEADER_SIZE;
     //
     // Check the version, if non-zero we must return an Invalid Command
     // end message.
@@ -494,14 +512,7 @@ mscp_server::SetUnitCharacteristics(
 
     // TODO: handle Set Write Protect modifier
 
-    mscp_drive_c* drive = GetDrive(unitNumber);
-
-    // Check unit
-    if (nullptr == drive ||
-        !drive->IsAvailable())
-    {
-        return STATUS(Status::UNIT_OFFLINE, 3);
-    }
+    INFO("MSCP SET UNIT CHARACTERISTICS drive %d", unitNumber);
 
     // TODO: mostly same as Online command: should share logic.
     #pragma pack(push,1)
@@ -522,6 +533,15 @@ mscp_server::SetUnitCharacteristics(
     // Adjust message length for response
     message->MessageLength = sizeof(SetUnitCharacteristicsResponseParameters) +
         HEADER_SIZE;
+
+    mscp_drive_c* drive = GetDrive(unitNumber);
+    // Check unit
+    if (nullptr == drive ||
+        !drive->IsAvailable())
+    {
+        INFO("Returning UNIT OFFLINE");
+        return STATUS(Status::UNIT_OFFLINE, 3);
+    }
 
     SetUnitCharacteristicsResponseParameters* params =
         reinterpret_cast<SetUnitCharacteristicsResponseParameters*>(
@@ -558,12 +578,17 @@ mscp_server::Read(
     ReadParameters* params =
         reinterpret_cast<ReadParameters*>(GetParameterPointer(message));
 
-    DEBUG("MSCP READ unit %d pa o%o count %d lbn %d",
+    DEBUG("MSCP READ unit %d chan o%o pa o%o count %d lbn %d",
         unitNumber,
+        params->BufferPhysicalAddress >> 24,
         params->BufferPhysicalAddress & 0x00ffffff,
         params->ByteCount,
         params->LBN);
 
+    // Adjust message length for response
+    message->MessageLength = sizeof(ReadParameters) +
+        HEADER_SIZE;
+   
     mscp_drive_c* drive = GetDrive(unitNumber);
 
     // Check unit
@@ -597,17 +622,12 @@ mscp_server::Read(
         params->ByteCount,
         diskBuffer.get());
 
-
-    // Adjust message length for response
-    message->MessageLength = sizeof(ReadParameters) +
-        HEADER_SIZE;
-
     // Set parameters for response.
     // We leave ByteCount as is (for now anyway)
     // And set First Bad Block to 0.  (This is unnecessary since we're
     // not reporting a bad block, but we're doing it for completeness.)
     params->LBN = 0;
-
+   
     return STATUS(Status::SUCCESS,0);
 }
 
@@ -632,11 +652,16 @@ mscp_server::Write(
     WriteParameters* params =
         reinterpret_cast<WriteParameters*>(GetParameterPointer(message));
 
-    DEBUG("MSCP WRITE unit %d pa o%o count %d lbn %d",
+    DEBUG("MSCP WRITE unit %d chan o%o pa o%o count %d lbn %d",
         unitNumber,
+        params->BufferPhysicalAddress >> 24,
         params->BufferPhysicalAddress & 0x00ffffff,
         params->ByteCount,
         params->LBN);
+
+    // Adjust message length for response
+    message->MessageLength = sizeof(WriteParameters) +
+        HEADER_SIZE;
 
     mscp_drive_c* drive = GetDrive(unitNumber);
 
@@ -670,10 +695,6 @@ mscp_server::Write(
     drive->Write(params->LBN,
         params->ByteCount,
         memBuffer.get());
-
-    // Adjust message length for response
-    message->MessageLength = sizeof(WriteParameters) +
-        HEADER_SIZE;
 
     // Set parameters for response.
     // We leave ByteCount as is (for now anyway)

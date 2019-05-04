@@ -88,6 +88,8 @@ rk11_c::rk11_c() :
     RKDB_reg->reset_value = 0;
     RKDB_reg->writable_bits = 0x0000; // read only
 
+    _rkda_drive = 0;
+
     //
     // Drive configuration: up to eight drives.
     //
@@ -127,8 +129,7 @@ void rk11_c::dma_transfer(DMARequest &request)
         {
             // Write FROM buffer TO unibus memory, IBA on:
             // We only need to write the last word in the buffer to memory.
-            unibusadapter->request_DMA(
-                this,
+            request.timeout = !unibusadapter->request_DMA(
                 UNIBUS_CONTROL_DATO,
                 request.address,
                 request.buffer + request.count - 1,
@@ -139,8 +140,7 @@ void rk11_c::dma_transfer(DMARequest &request)
             // Read FROM unibus memory TO buffer, IBA on:
             // We read a single word from the unibus and fill the
             // entire buffer with this value. 
-            unibusadapter->request_DMA(
-                this,
+            request.timeout = !unibusadapter->request_DMA(
                 UNIBUS_CONTROL_DATI,
                 request.address,
                 request.buffer,
@@ -153,8 +153,7 @@ void rk11_c::dma_transfer(DMARequest &request)
         if (request.write)
         {
             // Write FROM buffer TO unibus memory
-            unibusadapter->request_DMA(
-                this,
+            request.timeout = !unibusadapter->request_DMA(
                 UNIBUS_CONTROL_DATO,
                 request.address,
                 request.buffer,
@@ -163,26 +162,11 @@ void rk11_c::dma_transfer(DMARequest &request)
         else
         {
             // Read FROM unibus memory TO buffer
-            unibusadapter->request_DMA(
-                this, 
+            request.timeout = !unibusadapter->request_DMA(
                 UNIBUS_CONTROL_DATI, 
                 request.address,
                 request.buffer,
                 request.count);
-        }
-    }
-
-    // And wait for completion. 
-    while(true)
-    {
-        timeout.wait_us(50);    // Stolen from RL11
-        uint32_t last_address = 0;
-        if (unibusadapter->complete_DMA(
-               this, 
-               &last_address, 
-               &request.timeout))
-        {
-            break;   
         }
     }
 

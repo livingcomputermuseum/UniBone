@@ -718,7 +718,7 @@ void RL11_c::state_readwrite() {
 			//logger.debug_hexdump(LC_RL, "Read data between disk access and DMA",
 			//		(uint8_t *) silo, sizeof(silo), NULL);
 			// start DMA transmission of SILO into memory
-			unibusadapter->request_DMA(this, UNIBUS_CONTROL_DATO, unibus_address, silo,
+			error_dma_timeout = !unibusadapter->request_DMA(UNIBUS_CONTROL_DATO, unibus_address, silo,
 					dma_wordcount);
 		} else if (function_code == CMD_WRITE_CHECK) {
 			// read sector data to compare with sector data
@@ -726,26 +726,20 @@ void RL11_c::state_readwrite() {
 			// logger.debug_hexdump(LC_RL, "Read data between disk access and DMA",
 			//		(uint8_t *) silo, sizeof(silo), NULL);
 			// start DMA transmission of memory to compare with SILO
-			unibusadapter->request_DMA(this, UNIBUS_CONTROL_DATI, unibus_address, silo_compare,
+			error_dma_timeout = !unibusadapter->request_DMA(UNIBUS_CONTROL_DATI, unibus_address, silo_compare,
 					dma_wordcount);
 		} else if (function_code == CMD_WRITE_DATA) {
 			// start DMA transmission of memory into SILO
-			unibusadapter->request_DMA(this, UNIBUS_CONTROL_DATI, unibus_address, silo,
+			error_dma_timeout = !unibusadapter->request_DMA(UNIBUS_CONTROL_DATI, unibus_address, silo,
 					dma_wordcount);
 		}
 
 		change_state(RL11_STATE_RW_WAIT_DMA);
 		break;
 	case RL11_STATE_RW_WAIT_DMA:
-		// wait for DMA to complete, start read of next sector
+		// Complete DMA, move to next sector
 
-		// data late DLT does never happen
-		if (!unibusadapter->complete_DMA(this, &unibus_address, (bool *) &error_dma_timeout)) {
-			timeout.wait_us(50); // 50us, but is more because of granularity
-			break; // DMA still in progress
-		}
-
-		unibus_address += 2; // was last address, is now next to fill
+		unibus_address += dma_wordcount * 2;
 		// if timeout: addr AFTER illegal address (verified)
 		update_unibus_address(unibus_address); // set addr msb to cs
 

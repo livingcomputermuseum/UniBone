@@ -72,10 +72,10 @@ void menus_c::menu_devices(void) {
 		unibus->emulation_logic_start(); // PRU is active UNIBUS node
 
 	// 2 demo controller
-	demo_io_c demo_io;
+	//demo_io_c demo_io;
 	//demo_regs_c demo_regs; // mem at 160000: RT11 crashes?
 
-	cpu_c cpu;
+	// cpu_c cpu;
 
 	// create RL11 + drives
 	RL11_c RL11; // instantiates also 4 RL01/02 drives
@@ -89,8 +89,8 @@ void menus_c::menu_devices(void) {
         // Create UDA50
         uda_c UDA50;
  
-	demo_io.install();
-	demo_io.worker_start();
+	// demo_io.install();
+	//demo_io.worker_start();
 
 	//demo_regs.install();
 	//demo_regs.worker_start();
@@ -105,8 +105,8 @@ void menus_c::menu_devices(void) {
         UDA50.install();
         UDA50.worker_start();
 
-	cpu.install();
-	cpu.worker_start();
+	// cpu.install();
+	// cpu.worker_start();
 
 	while (!ready) {
 
@@ -337,24 +337,24 @@ void menus_c::menu_devices(void) {
 			cout << "Error : " << e.what() << "\n";
 		}
 	} // ready
-	cpu.worker_stop();
-	cpu.uninstall();
+	// cpu.worker_stop();
+	// cpu.uninstall();
 
-	RL11.worker_stop();
-	RL11.disconnect_from_panel();
-	RL11.uninstall();
+	//RL11.worker_stop();
+	//RL11.disconnect_from_panel();
+	//RL11.uninstall();
 
         RK05.worker_stop();
         RK05.uninstall();
 
-        UDA50.worker_stop();
-        UDA50.uninstall();
+ //       UDA50.worker_stop();
+  //      UDA50.uninstall();
 
 	//demo_regs.worker_stop();
 	//demo_regs.uninstall();
 
-	demo_io.worker_stop();
-	demo_io.uninstall();
+	// demo_io.worker_stop();
+	// demo_io.uninstall();
 
 	if (unibus->arbitration_active)
 		unibus->emulation_logic_stop(); // undo
