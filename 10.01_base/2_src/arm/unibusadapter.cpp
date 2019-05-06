@@ -92,7 +92,8 @@ irq_request_c::irq_request_c(
 	unsigned level,
 	unsigned vector) :
 		_level(level),
-		_vector(vector)
+		_vector(vector),
+		_isComplete(false)
 {
 
 }
@@ -174,13 +175,13 @@ void unibusadapter_c::worker_init_event() {
 			device->on_init_changed();
 		}
 
+        INFO("clearing due to INIT empty %d", _irqRequests.empty());
+
  	// Clear bus request queues
-	/*
         pthread_mutex_lock(&_busWorker_mutex);
-        _dmaRequests.clear();
-        _irqRequests.clear();
+        while (!_dmaRequests.empty()) _dmaRequests.pop();
+        while (!_irqRequests.empty()) _irqRequests.pop();
         pthread_mutex_unlock(&_busWorker_mutex);
-	*/
 }
 
 void unibusadapter_c::worker_power_event() {
@@ -194,13 +195,13 @@ void unibusadapter_c::worker_power_event() {
 			device->on_power_changed();
 		}
 
+        INFO("clearing due to power empty %d", _irqRequests.empty());
+
 	// Clear bus request queues
-	/*
 	pthread_mutex_lock(&_busWorker_mutex);
-	_dmaRequests.clear();
-        _irqRequests.clear();
-	pthread_mutex_unlock(&_busWorker_mutex);
-	*/
+ 	while (!_dmaRequests.empty()) _dmaRequests.pop();
+        while (!_irqRequests.empty()) _irqRequests.pop();
+        pthread_mutex_unlock(&_busWorker_mutex);
 }
 
 // process DATI/DATO access to active device registers
@@ -587,11 +588,11 @@ bool unibusadapter_c::request_DMA(
 
 void unibusadapter_c::dma_worker()
 {
-
+	//worker_init_realtime_priority(rt_device);
 	while(true)
 	{
 		dma_request_c* dmaReq = nullptr;
-                irq_request_c irqReq(0,0);
+                irq_request_c* irqReq = nullptr;
  
 		//
 		// Wait for the next request.
@@ -610,8 +611,7 @@ void unibusadapter_c::dma_worker()
 		//
                 if (!_irqRequests.empty())
 		{
-			irq_request_c const& req = _irqRequests.front();
-			irqReq = req;
+			irqReq = _irqRequests.front();
 			_irqRequests.pop();
 		}
 		else
@@ -622,16 +622,18 @@ void unibusadapter_c::dma_worker()
 		pthread_mutex_unlock(&_busWorker_mutex);
 
                 
-		// Sanity check: Should be no active DMA requests on the PRU.
-		assert (!request_DMA_active(nullptr));
+		// Sanity check: Should be no active DMA or interrupt requests on the PRU.
+		assert (!request_DMA_active(nullptr) && !request_INTR_active(nullptr));
 
+                /*
 		// If there's an IRQ still active, wait for it to finish.
 		// TODO: find a way to avoid having to do this.
 		timeout_c timer;
 		while (request_INTR_active(nullptr))
 		{
+                        INFO("intr active");
 			timer.wait_us(50);
-		}
+		} */
 
 		if (dmaReq)
 		{
@@ -670,7 +672,7 @@ void unibusadapter_c::dma_worker()
 				// Wait for the transfer to complete.
 				// TODO: we're polling the mailbox; is there a more efficient way to do this?
 				timeout_c timeout;	
-				while (request_DMA_active(NULL))
+				while (request_DMA_active(nullptr))
 				{
 					timeout.wait_us(50);
 				}
@@ -691,8 +693,14 @@ void unibusadapter_c::dma_worker()
 			dmaReq->SetUnibusEndAddr(mailbox->dma.cur_addr);
 			dmaReq->SetSuccess(mailbox->dma.cur_status == DMA_STATE_READY);
 
-			assert(dmaReq->GetUnibusAddr() + dmaReq->GetWordCount() * 2 == mailbox->dma.cur_addr + 2);
+			if(dmaReq->GetUnibusAddr() + dmaReq->GetWordCount() * 2 != mailbox->dma.cur_addr + 2)
 
+			{
+				FATAL("PRU end addr 0x%x, expected 0x%x",
+					mailbox->dma.cur_addr + 2,
+					dmaReq->GetUnibusAddr() + dmaReq->GetWordCount() * 2);
+			}
+		
 			//
 			// Signal that the request is complete.
 			//
@@ -704,7 +712,7 @@ void unibusadapter_c::dma_worker()
 		else
 		{
 			// Handle interrupt request
-			switch(irqReq.GetInterruptLevel())
+			switch(irqReq->GetInterruptLevel())
 			{
 				case 4:
 				mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B4;
@@ -723,15 +731,30 @@ void unibusadapter_c::dma_worker()
 				break;
 		
 				default:
-				ERROR("Request_INTR(): Illegal priority %u, aborting", irqReq.GetInterruptLevel());
+				ERROR("Request_INTR(): Illegal priority %u, aborting", irqReq->GetInterruptLevel());
 				return;
 			}
-	
-			mailbox->intr.vector = irqReq.GetVector();
+
+			mailbox->intr.vector = irqReq->GetVector();
 
 			// start!
 			mailbox->arm2pru_req = ARM2PRU_INTR;
 			// PRU now changes state
+
+			// Signal that the request has been raised.
+			pthread_mutex_lock(&_busWorker_mutex);
+			irqReq->SetComplete();
+			pthread_cond_signal(&_requestFinished_cond);
+			pthread_mutex_unlock(&_busWorker_mutex);
+
+                        // Wait for the transfer to complete.
+                        // TODO: we're polling the mailbox; is there a more efficient way to
+			// do this? (as w/dma)
+                        timeout_c timeout;
+                        while(request_INTR_active(nullptr))
+                        {
+                       		timeout.wait_us(50);
+                        }
 		}	
 	}
 }
@@ -746,8 +769,18 @@ void unibusadapter_c::request_INTR(uint32_t level, uint32_t vector) {
                 vector);
 
         pthread_mutex_lock(&_busWorker_mutex);
-        _irqRequests.push(request);
+        _irqRequests.push(&request);
         pthread_cond_signal(&_busWakeup_cond);
+        pthread_mutex_unlock(&_busWorker_mutex);
+
+        //
+        // Wait for request to finish.
+        //
+        pthread_mutex_lock(&_busWorker_mutex);
+        while (!request.IsComplete())
+        {
+                pthread_cond_wait(&_requestFinished_cond, &_busWorker_mutex);
+        }
         pthread_mutex_unlock(&_busWorker_mutex);
 
 	//

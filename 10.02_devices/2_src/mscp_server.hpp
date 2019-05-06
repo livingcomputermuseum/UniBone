@@ -9,7 +9,7 @@ class mscp_drive_c;
 
 // Builds a uint32_t containing the status, flags, and endcode for a response message,
 // used to simplify returning the appropriate status bits from command functions.
-#define STATUS(status, flags) ((flags) << 8) | ((status) << 16)
+#define STATUS(status, modifier, flags) ((flags) << 8) | (((status) | ((modifier) * 0x20)) << 16)
 
 #define GET_STATUS(status) (((status) >> 16) & 0xffff)
 #define GET_FLAGS(status) (((status) >> 8) & 0xff)
@@ -134,6 +134,9 @@ public:
     bool on_param_changed(parameter_c *param) override { return true; }
 
 private:
+    uint32_t Available(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
+    uint32_t DetermineAccessPaths(std::shared_ptr<Message> message, uint16_t unitNumber); 
+    uint32_t Erase(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
     uint32_t GetUnitStatus(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
     uint32_t Online(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers); 
     uint32_t SetControllerCharacteristics(std::shared_ptr<Message> message);

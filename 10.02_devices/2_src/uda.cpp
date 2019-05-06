@@ -148,7 +148,7 @@ void uda_c::worker(void)
 
             case InitializationStep::Step1:
                  // Wait 100uS, set SA.
-                 timeout.wait_us(100); 
+                 timeout.wait_ms(100); 
 
                  INFO("Transition to Init state S1.");
                  //
@@ -162,10 +162,8 @@ void uda_c::worker(void)
                  break;
 
             case InitializationStep::Step2:
-                 // Wait 100uS, set SA.
-                 timeout.wait_ms(100);
-
                  INFO("Transition to Init state S2.");
+                 timeout.wait_ms(1000);
                  // update the SA read value for step 2:
                  // S2 is set, unibus port type (0),  SA bits 15-8 written
                  // by the host in step 1.
@@ -176,7 +174,7 @@ void uda_c::worker(void)
 
             case InitializationStep::Step3:
                  // Wait 100uS, set SA.
-                 timeout.wait_ms(100);
+                 timeout.wait_ms(1000);
 
                  INFO("Transition to Init state S3.");
                  // Update the SA read value for step 3:
@@ -187,6 +185,7 @@ void uda_c::worker(void)
                  break;
  
             case InitializationStep::Step4:
+                 timeout.wait_ms(100);
 
                  // Clear communications area, set SA   
                  INFO("Clearing comm area at 0x%x.", _ringBase);
@@ -195,10 +194,10 @@ void uda_c::worker(void)
                  // TODO: -6 and -8 are described; do these always get cleared or only
                  // on VAXen?  ZUDJ diag only expects -2 and -4 to be cleared...
                  for(uint32_t i = 0; 
-                     i < (_responseRingLength + _commandRingLength) * sizeof(Descriptor) + 4;
+                     i < (_responseRingLength + _commandRingLength) * sizeof(Descriptor) + 6;
                      i += 2)
                  {
-                     DMAWriteWord(_ringBase + i - 4, 0x0);
+                     DMAWriteWord(_ringBase + i - 6, 0x0);
                  }
 
                  //
@@ -225,7 +224,7 @@ void uda_c::worker(void)
                  // _sa = 0x4063;  //UDA50
                  _sa = 0x4042;
                  update_SA();
-                 Interrupt();
+                 Interrupt(); 
                  break;
 
             case InitializationStep::Complete:
@@ -317,7 +316,8 @@ uda_c::on_after_register_access(
                     // be generated during normal operation and, if IE=1,
                     // during initialization.
                     _step1Value = value;
-                    intr_vector.value = _interruptVector = (value & 0x7f) << 2;
+
+                    intr_vector.value = _interruptVector = ((value & 0x7f) << 2);
                     _interruptEnable = !!(value & 0x80);
                     _responseRingLength = (1 << ((value & 0x700) >> 8));
                     _commandRingLength = (1 << ((value & 0x3800) >> 11));
@@ -325,6 +325,8 @@ uda_c::on_after_register_access(
                     INFO("Step1: 0x%x", value); 
                     INFO("resp ring 0x%x", _responseRingLength);
                     INFO("cmd ring 0x%x", _commandRingLength);
+                    INFO("vector 0x%x", _interruptVector);
+                    INFO("ie %d", _interruptEnable);
  
                     // Move to step 2.
                     StateTransition(InitializationStep::Step2);
@@ -344,7 +346,7 @@ uda_c::on_after_register_access(
                     _ringBase = value & 0xfffe;
                     _purgeInterruptEnable = !!(value & 0x1);
 
-                    INFO("Step2: 0x%x", value);
+                    INFO("Step2: rb 0x%x pi %d", _ringBase, _purgeInterruptEnable);
                     // Move to step 3 and interrupt as necessary.
                     StateTransition(InitializationStep::Step3);
                     break;
@@ -363,7 +365,7 @@ uda_c::on_after_register_access(
                     // [ringbase+0].
                     _ringBase |= ((value & 0x7fff) << 16);
 
-                    INFO("Step3: 0x%x", value);
+                    INFO("Step3: ringbase 0x%x", _ringBase);
                     // Move to step 4 and interrupt as necessary.
                     StateTransition(InitializationStep::Step4);
                     break;
@@ -740,6 +742,7 @@ uda_c::Interrupt(void)
 {
     if (_interruptEnable && _interruptVector != 0)
     {
+        INFO("interrupt");
         interrupt();
     }
 }

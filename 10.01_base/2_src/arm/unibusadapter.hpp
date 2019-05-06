@@ -80,10 +80,14 @@ public:
 
     uint32_t GetInterruptLevel() { return _level; }
     uint32_t GetVector() { return _vector; }
+    bool IsComplete() { return _isComplete; }
+
+    void SetComplete() { _isComplete = true; }
 
 private:
     uint32_t _level;
     uint32_t _vector;
+    bool     _isComplete;
 };
  
 
@@ -126,7 +130,7 @@ public:
 private:
  
         std::queue<dma_request_c*> _dmaRequests;
-        std::queue<irq_request_c> _irqRequests;
+        std::queue<irq_request_c*> _irqRequests;
         pthread_t _busWorker_pthread;
         pthread_cond_t _busWakeup_cond;
         pthread_cond_t _requestFinished_cond;

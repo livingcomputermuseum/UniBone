@@ -78,7 +78,7 @@ void menus_c::menu_devices(void) {
 	// cpu_c cpu;
 
 	// create RL11 + drives
-	RL11_c RL11; // instantiates also 4 RL01/02 drives
+	// RL11_c RL11; // instantiates also 4 RL01/02 drives
 	cur_device = NULL;
 
 	paneldriver->reset(); // reset I2C, restart worker()
@@ -95,9 +95,9 @@ void menus_c::menu_devices(void) {
 	//demo_regs.install();
 	//demo_regs.worker_start();
 
-	RL11.install();
-	RL11.connect_to_panel();
-	RL11.worker_start();
+	//RL11.install();
+	//RL11.connect_to_panel();
+	//RL11.worker_start();
 
         RK05.install();
         RK05.worker_start();
@@ -344,11 +344,11 @@ void menus_c::menu_devices(void) {
 	//RL11.disconnect_from_panel();
 	//RL11.uninstall();
 
-        RK05.worker_stop();
-        RK05.uninstall();
+        // RK05.worker_stop();
+        // RK05.uninstall();
 
- //       UDA50.worker_stop();
-  //      UDA50.uninstall();
+        UDA50.worker_stop();
+        UDA50.uninstall();
 
 	//demo_regs.worker_stop();
 	//demo_regs.uninstall();
