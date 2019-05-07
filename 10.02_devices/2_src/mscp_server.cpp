@@ -156,7 +156,7 @@ mscp_server::Poll(void)
             ControlMessageHeader* header = 
                 reinterpret_cast<ControlMessageHeader*>(message->Message);
 
-            INFO("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
+            DEBUG("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
                 message->MessageLength,
                 header->Word3.Command.Opcode,
                 header->Word3.Command.Reserved,
@@ -210,7 +210,7 @@ mscp_server::Poll(void)
                     break;
             }
 
-            INFO("cmd 0x%x st 0x%x fl 0x%x", cmdStatus, GET_STATUS(cmdStatus), GET_FLAGS(cmdStatus));
+            DEBUG("cmd 0x%x st 0x%x fl 0x%x", cmdStatus, GET_STATUS(cmdStatus), GET_FLAGS(cmdStatus));
 
             //
             // Set the endcode and status bits
@@ -302,7 +302,7 @@ mscp_server::Available(
     // Just set the specified drive as Available if appropriate.
     // We do nothing with the spin-down modifier.
 
-    INFO("MSCP AVAILABLE");
+    DEBUG("MSCP AVAILABLE");
 
     mscp_drive_c* drive = GetDrive(unitNumber);
 
@@ -322,7 +322,7 @@ mscp_server::DetermineAccessPaths(
     shared_ptr<Message> message,
     uint16_t unitNumber)
 {
-    INFO("MSCP DETERMINE ACCESS PATHS drive %d", unitNumber);
+    DEBUG("MSCP DETERMINE ACCESS PATHS drive %d", unitNumber);
 
     // "This command must be treated as a no-op that always succeeds
     //  if the unit is incapable of being connected to more than one
@@ -352,7 +352,7 @@ mscp_server::Erase(
     EraseParameters* params =
         reinterpret_cast<EraseParameters*>(GetParameterPointer(message));
 
-    INFO ("MSCP ERASE unit %d chan count %d lbn %d",
+    DEBUG("MSCP ERASE unit %d chan count %d lbn %d",
         unitNumber,
         params->ByteCount,
         params->LBN);
@@ -425,7 +425,7 @@ mscp_server::GetUnitStatus(
     };
     #pragma pack(pop)
 
-    INFO("MSCP GET UNIT STATUS drive %d", unitNumber);
+    DEBUG("MSCP GET UNIT STATUS drive %d", unitNumber);
 
     // Adjust message length for response
     message->MessageLength = sizeof(GetUnitStatusResponseParameters) +
@@ -552,7 +552,7 @@ mscp_server::Online(
     };
     #pragma pack(pop)
 
-    INFO("MSCP ONLINE drive %d", unitNumber);
+    DEBUG("MSCP ONLINE drive %d", unitNumber);
 
     // Adjust message length for response
     message->MessageLength = sizeof(OnlineResponseParameters) +
@@ -563,7 +563,6 @@ mscp_server::Online(
     if (nullptr == drive ||
         !drive->IsAvailable())
     {
-        INFO("Returning UNIT OFFLINE");
         return STATUS(Status::UNIT_OFFLINE, 0x3, 0);  // unknown -- todo move to enum
     }
   
@@ -607,7 +606,7 @@ mscp_server::SetControllerCharacteristics(
         reinterpret_cast<SetControllerCharacteristicsParameters*>(
             GetParameterPointer(message));
 
-    INFO("MSCP SET CONTROLLER CHARACTERISTICS");
+    DEBUG("MSCP SET CONTROLLER CHARACTERISTICS");
 
     // Adjust message length for response
     message->MessageLength = sizeof(SetControllerCharacteristicsParameters) +
@@ -660,7 +659,7 @@ mscp_server::SetUnitCharacteristics(
 
     // TODO: handle Set Write Protect modifier
 
-    INFO("MSCP SET UNIT CHARACTERISTICS drive %d", unitNumber);
+    DEBUG("MSCP SET UNIT CHARACTERISTICS drive %d", unitNumber);
 
     // TODO: mostly same as Online command: should share logic.
     #pragma pack(push,1)
@@ -687,7 +686,6 @@ mscp_server::SetUnitCharacteristics(
     if (nullptr == drive ||
         !drive->IsAvailable())
     {
-        INFO("Returning UNIT OFFLINE");
         return STATUS(Status::UNIT_OFFLINE, 0x3, 0);
     }
 
@@ -726,7 +724,7 @@ mscp_server::Read(
     ReadParameters* params =
         reinterpret_cast<ReadParameters*>(GetParameterPointer(message));
 
-    INFO ("MSCP READ unit %d chan o%o pa o%o count %d lbn %d",
+    DEBUG("MSCP READ unit %d chan o%o pa o%o count %d lbn %d",
         unitNumber,
         params->BufferPhysicalAddress >> 24,
         params->BufferPhysicalAddress & 0x00ffffff,
@@ -800,7 +798,7 @@ mscp_server::Write(
     WriteParameters* params =
         reinterpret_cast<WriteParameters*>(GetParameterPointer(message));
 
-    INFO ("MSCP WRITE unit %d chan o%o pa o%o count %d lbn %d",
+    DEBUG("MSCP WRITE unit %d chan o%o pa o%o count %d lbn %d",
         unitNumber,
         params->BufferPhysicalAddress >> 24,
         params->BufferPhysicalAddress & 0x00ffffff,

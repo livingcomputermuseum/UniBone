@@ -19,6 +19,8 @@ uda_c::uda_c() :
         _responseRingPointer(0),
         _interruptVector(0),
         _interruptEnable(false),
+        _purgeInterruptEnable(false),
+        _step1Value(0),
         _initStep(InitializationStep::Uninitialized),
         _next_step(false)
 {
@@ -80,6 +82,18 @@ void uda_c::Reset(void)
 
     _sa = 0;
     update_SA();
+
+    _ringBase = 0;
+    _commandRingLength = 0;
+    _responseRingLength = 0;
+    _commandRingPointer = 0;
+    _responseRingPointer = 0;
+    _interruptVector = 0;
+    intr_vector.value = 0;
+    _interruptEnable = false;
+    _purgeInterruptEnable = false;
+    _next_step = false;
+
 
     // Signal the worker to begin the initialization sequence.
     StateTransition(InitializationStep::Uninitialized); 
@@ -148,7 +162,7 @@ void uda_c::worker(void)
 
             case InitializationStep::Step1:
                  // Wait 100uS, set SA.
-                 timeout.wait_ms(100); 
+                 timeout.wait_us(1000); 
 
                  INFO("Transition to Init state S1.");
                  //
@@ -163,7 +177,7 @@ void uda_c::worker(void)
 
             case InitializationStep::Step2:
                  INFO("Transition to Init state S2.");
-                 timeout.wait_ms(1000);
+                 timeout.wait_us(1000);
                  // update the SA read value for step 2:
                  // S2 is set, unibus port type (0),  SA bits 15-8 written
                  // by the host in step 1.
@@ -174,7 +188,7 @@ void uda_c::worker(void)
 
             case InitializationStep::Step3:
                  // Wait 100uS, set SA.
-                 timeout.wait_ms(1000);
+                 timeout.wait_us(1000);
 
                  INFO("Transition to Init state S3.");
                  // Update the SA read value for step 3:
@@ -185,7 +199,7 @@ void uda_c::worker(void)
                  break;
  
             case InitializationStep::Step4:
-                 timeout.wait_ms(100);
+                 timeout.wait_us(100);
 
                  // Clear communications area, set SA   
                  INFO("Clearing comm area at 0x%x.", _ringBase);
@@ -269,7 +283,7 @@ uda_c::on_after_register_access(
             {
                 // "When written with any value, it causes a hard initialization
                 //  of the port and the device controller."
-                // INFO("Reset due to IP read");  
+                DEBUG("Reset due to IP read");  
                 Reset();
             }
             else
@@ -278,7 +292,7 @@ uda_c::on_after_register_access(
                 //  to initiate polling..."
                 if (_initStep == InitializationStep::Complete)
                 {
-                    INFO("Request to start polling.");
+                    DEBUG("Request to start polling.");
                     _server->InitPolling();
                 }
             }
@@ -742,7 +756,6 @@ uda_c::Interrupt(void)
 {
     if (_interruptEnable && _interruptVector != 0)
     {
-        INFO("interrupt");
         interrupt();
     }
 }
