@@ -78,10 +78,7 @@ uda_c::~uda_c()
 
 void uda_c::Reset(void)
 {
-    DEBUG("UDA reset");
-
-    _sa = 0;
-    update_SA();
+    INFO("UDA reset");
 
     _ringBase = 0;
     _commandRingLength = 0;
@@ -94,11 +91,13 @@ void uda_c::Reset(void)
     _purgeInterruptEnable = false;
     _next_step = false;
 
+    _server->Reset();
 
     // Signal the worker to begin the initialization sequence.
     StateTransition(InitializationStep::Uninitialized); 
     
-    _server->Reset(); 
+    _sa = 0;
+    update_SA();
 }
 
 uint32_t uda_c::GetDriveCount(void)
@@ -126,7 +125,7 @@ void uda_c::StateTransition(
 
 void uda_c::worker(void)
 {
-    worker_init_realtime_priority(rt_device);
+    worker_init_realtime_priority(rt_max);    
 
     timeout_c timeout;
 
@@ -862,6 +861,7 @@ uda_c::DMAWrite(
     uint8_t* buffer)
 {
     assert ((lengthInBytes % 2) == 0);
+    assert (address < 0x40000);
 
     return unibusadapter->request_DMA(
             UNIBUS_CONTROL_DATO,
@@ -883,6 +883,7 @@ uda_c::DMARead(
 {
     assert (bufferSize >= lengthInBytes);
     assert((lengthInBytes % 2) == 0);
+    assert (address < 0x40000);
 
     uint16_t* buffer = new uint16_t[bufferSize >> 1];
 

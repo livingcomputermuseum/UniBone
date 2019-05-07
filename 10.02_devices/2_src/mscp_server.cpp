@@ -122,9 +122,6 @@ mscp_server::Poll(void)
 
         pthread_mutex_unlock(&polling_mutex);
     
-        // timer.wait_us(100);
-
-
         if (_abort_polling)
         {
             break;
@@ -262,6 +259,14 @@ mscp_server::Poll(void)
                 FATAL("no room at the inn.");
             }
 
+            //
+            // This delay works around an issue in the VMS bootstrap -- unsure of the 
+            // exact cause, it appears to be a race condition exacerbated by the speed
+            // at which we're able to process commands in the ring buffer (we are much
+            // faster than any real MSCP device ever was.)
+            // This is likely a hack, we may be papering over a bug somewhere.
+            // 
+            timer.wait_us(100);
  
             //
             // Go around and pick up the next one.

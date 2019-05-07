@@ -124,6 +124,7 @@ public:
 	bool request_DMA(uint8_t unibus_control, uint32_t unibus_addr,
 			uint16_t *buffer, uint32_t wordcount);
 	void request_INTR(uint32_t level, uint32_t vector);
+        void rundown_bus_requests(void);
 
 	void print_shared_register_map(void);
 

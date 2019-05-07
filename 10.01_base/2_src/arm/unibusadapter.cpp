@@ -175,13 +175,9 @@ void unibusadapter_c::worker_init_event() {
 			device->on_init_changed();
 		}
 
-        INFO("clearing due to INIT empty %d", _irqRequests.empty());
 
  	// Clear bus request queues
-        pthread_mutex_lock(&_busWorker_mutex);
-        while (!_dmaRequests.empty()) _dmaRequests.pop();
-        while (!_irqRequests.empty()) _irqRequests.pop();
-        pthread_mutex_unlock(&_busWorker_mutex);
+        rundown_bus_requests();
 }
 
 void unibusadapter_c::worker_power_event() {
@@ -195,13 +191,8 @@ void unibusadapter_c::worker_power_event() {
 			device->on_power_changed();
 		}
 
-        INFO("clearing due to power empty %d", _irqRequests.empty());
-
 	// Clear bus request queues
-	pthread_mutex_lock(&_busWorker_mutex);
- 	while (!_dmaRequests.empty()) _dmaRequests.pop();
-        while (!_irqRequests.empty()) _irqRequests.pop();
-        pthread_mutex_unlock(&_busWorker_mutex);
+	rundown_bus_requests();
 }
 
 // process DATI/DATO access to active device registers
@@ -625,16 +616,6 @@ void unibusadapter_c::dma_worker()
 		// Sanity check: Should be no active DMA or interrupt requests on the PRU.
 		assert (!request_DMA_active(nullptr) && !request_INTR_active(nullptr));
 
-                /*
-		// If there's an IRQ still active, wait for it to finish.
-		// TODO: find a way to avoid having to do this.
-		timeout_c timer;
-		while (request_INTR_active(nullptr))
-		{
-                        INFO("intr active");
-			timer.wait_us(50);
-		} */
-
 		if (dmaReq)
 		{
 			// We do the DMA transfer in chunks so we can handle arbitrary buffer sizes.
@@ -693,14 +674,9 @@ void unibusadapter_c::dma_worker()
 			dmaReq->SetUnibusEndAddr(mailbox->dma.cur_addr);
 			dmaReq->SetSuccess(mailbox->dma.cur_status == DMA_STATE_READY);
 
-			if(dmaReq->GetUnibusAddr() + dmaReq->GetWordCount() * 2 != mailbox->dma.cur_addr + 2)
+			assert(dmaReq->GetUnibusAddr() + dmaReq->GetWordCount() * 2 == 
+				mailbox->dma.cur_addr + 2);
 
-			{
-				FATAL("PRU end addr 0x%x, expected 0x%x",
-					mailbox->dma.cur_addr + 2,
-					dmaReq->GetUnibusAddr() + dmaReq->GetWordCount() * 2);
-			}
-		
 			//
 			// Signal that the request is complete.
 			//
@@ -758,6 +734,33 @@ void unibusadapter_c::dma_worker()
 		}	
 	}
 }
+
+void unibusadapter_c::rundown_bus_requests()
+{
+	//
+	// Cancel all pending DMA and IRQ requests, freeing threads waiting
+	// on completion.
+	//
+	pthread_mutex_lock(&_busWorker_mutex);
+        while (!_dmaRequests.empty()) 
+	{
+		dma_request_c* dmaReq = _dmaRequests.front();
+		dmaReq->SetSuccess(false);
+		dmaReq->SetComplete();
+		pthread_cond_signal(&_requestFinished_cond);
+		_dmaRequests.pop();
+	}
+        while (!_irqRequests.empty())
+	{
+		irq_request_c* irqReq = _irqRequests.front();
+		irqReq->SetComplete();
+		pthread_cond_signal(&_requestFinished_cond);
+		_irqRequests.pop();
+	}
+        pthread_mutex_unlock(&_busWorker_mutex);
+
+}
+
 
 void unibusadapter_c::request_INTR(uint32_t level, uint32_t vector) {
         //
