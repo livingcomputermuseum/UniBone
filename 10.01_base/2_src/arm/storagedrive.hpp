@@ -67,6 +67,7 @@ public:
 	bool file_is_open(void);
 	void file_read(uint8_t *buffer, uint64_t position, unsigned len);
 	void file_write(uint8_t *buffer, uint64_t position, unsigned len);
+	uint64_t file_size(void);
 	void file_close(void);
 
 	storagedrive_c(storagecontroller_c *controller);

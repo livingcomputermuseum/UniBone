@@ -1,7 +1,38 @@
+/*
+    mscp_server.cpp: Implementation a simple MSCP server.
 
+
+    This provides an implementation of the Minimal MSCP subset outlined
+    in AA-L619A-TK (Chapter 6).  It takes a few liberties and errs on 
+    the side of implementation simplicity.
+
+    In particular:
+         All commands are executed sequentially, as they appear in the
+         command ring.  This includes any commands in the "Immediate"
+         category.  Technically this is incorrect:  Immediate commands
+         should execute as soon as possible, before any other commands.
+         In practice I have yet to find code that cares.
+
+         This simplifies the implementation significantly, and apart
+         from maintaining fealty to the MSCP spec for Immediate commands,
+         there's no good reason to make it more complex:  real MSCP
+         controllers (like the original UDA50) would resequence commands
+         to allow optimal throughput across multiple units, etc.  On the
+         unibone, the underlying storage and the execution speed of the
+         processor is orders of magnitude faster, so even a brute-force
+         braindead implementation like this can saturate the Unibus.
+
+    TODO:
+    Some commands aren't checked as thoroughly for errors as they could be,
+    and at this time NXM (attempts to address non-existent memory) are
+    almost completely unhandled.
+
+    
+*/
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <memory>
  
 using namespace std;
 
@@ -163,11 +194,24 @@ mscp_server::Poll(void)
                 header->ReferenceNumber);
 
             uint32_t cmdStatus = 0;
+            uint16_t modifiers = header->Word3.Command.Modifiers;
 
             switch (header->Word3.Command.Opcode)
             {
+                case Opcodes::ABORT:
+                    cmdStatus = Abort(message);
+                    break;
+
+                case Opcodes::ACCESS:
+                    cmdStatus = Access(message, header->UnitNumber);
+                    break;
+
                 case Opcodes::AVAILABLE:
-                    cmdStatus = Available(message, header->UnitNumber, header->Word3.Command.Modifiers);
+                    cmdStatus = Available(message, header->UnitNumber, modifiers);
+                    break;
+
+                case Opcodes::COMPARE_HOST_DATA:
+                    cmdStatus = CompareHostData(message, header->UnitNumber);
                     break;
 
                 case Opcodes::DETERMINE_ACCESS_PATHS:
@@ -175,15 +219,27 @@ mscp_server::Poll(void)
                     break;
 
                 case Opcodes::ERASE:
-                    cmdStatus = Erase(message, header->UnitNumber, header->Word3.Command.Modifiers);
+                    cmdStatus = Erase(message, header->UnitNumber, modifiers);
+                    break;
+
+                case Opcodes::GET_COMMAND_STATUS:
+                    cmdStatus = GetCommandStatus(message);
                     break;
 
                 case Opcodes::GET_UNIT_STATUS:
-                    cmdStatus = GetUnitStatus(message, header->UnitNumber, header->Word3.Command.Modifiers);
+                    cmdStatus = GetUnitStatus(message, header->UnitNumber, modifiers);
                     break;
 
                 case Opcodes::ONLINE:
-                    cmdStatus = Online(message, header->UnitNumber, header->Word3.Command.Modifiers);
+                    cmdStatus = Online(message, header->UnitNumber, modifiers);
+                    break;
+
+                case Opcodes::READ:
+                    cmdStatus = Read(message, header->UnitNumber, modifiers);
+                    break;
+
+                case Opcodes::REPLACE:
+                    cmdStatus = Replace(message, header->UnitNumber);
                     break;
 
                 case Opcodes::SET_CONTROLLER_CHARACTERISTICS:
@@ -191,15 +247,11 @@ mscp_server::Poll(void)
                     break;
 
                 case Opcodes::SET_UNIT_CHARACTERISTICS:
-                    cmdStatus = SetUnitCharacteristics(message, header->UnitNumber, header->Word3.Command.Modifiers);
-                    break;
-
-                case Opcodes::READ:
-                    cmdStatus = Read(message, header->UnitNumber, header->Word3.Command.Modifiers);
+                    cmdStatus = SetUnitCharacteristics(message, header->UnitNumber, modifiers);
                     break;
 
                 case Opcodes::WRITE:
-                    cmdStatus = Write(message, header->UnitNumber, header->Word3.Command.Modifiers);
+                    cmdStatus = Write(message, header->UnitNumber, modifiers);
                     break;
 
                 default:
@@ -260,13 +312,14 @@ mscp_server::Poll(void)
             }
 
             //
-            // This delay works around an issue in the VMS bootstrap -- unsure of the 
+            // This delay works around an issue in various bootstraps -- unsure of the 
             // exact cause, it appears to be a race condition exacerbated by the speed
             // at which we're able to process commands in the ring buffer (we are much
-            // faster than any real MSCP device ever was.)
+            // faster than any real MSCP device ever was) and the liberties that bootstrap
+            // code takes with the MSCP spec to save code space.
             // This is likely a hack, we may be papering over a bug somewhere.
             // 
-            timer.wait_us(100);
+            timer.wait_us(2000);
  
             //
             // Go around and pick up the next one.
@@ -297,6 +350,25 @@ mscp_server::Poll(void)
 }
 
 uint32_t
+mscp_server::Abort(
+    shared_ptr<Message> message)
+{
+    INFO("MSCP ABORT");
+
+    //
+    // Since we do not reorder messages and in fact pick up and execute
+    // them one at a time, sequentially as they appear in the ring buffer,
+    // by the time we've gotten this command, the command it's referring
+    // to is long gone.
+    // This is legal behavior and it's legal for us to ignore ABORT in this
+    // case.
+    //
+    // We just return SUCCESS here.
+    return STATUS(Status::SUCCESS, 0, 0);
+}
+
+
+uint32_t
 mscp_server::Available(
     shared_ptr<Message> message,
     uint16_t unitNumber,
@@ -323,6 +395,33 @@ mscp_server::Available(
 }
 
 uint32_t
+mscp_server::Access(
+    shared_ptr<Message> message,
+    uint16_t unitNumber)
+{
+    INFO("MSCP ACCESS");
+
+    return DoDiskTransfer(
+        Opcodes::ACCESS,
+        message,
+        unitNumber,
+        0);
+}
+
+uint32_t
+mscp_server::CompareHostData(
+    shared_ptr<Message> message,
+    uint16_t unitNumber)
+{
+    INFO("MSCP COMPARE HOST DATA");
+    return DoDiskTransfer(
+        Opcodes::COMPARE_HOST_DATA,
+        message,
+        unitNumber,
+        0);
+}
+
+uint32_t
 mscp_server::DetermineAccessPaths(
     shared_ptr<Message> message,
     uint16_t unitNumber)
@@ -342,66 +441,40 @@ mscp_server::Erase(
     uint16_t unitNumber,
     uint16_t modifiers)
 {
+    return DoDiskTransfer(
+        Opcodes::ERASE,
+        message,
+        unitNumber,
+        modifiers);
+}
+
+uint32_t
+mscp_server::GetCommandStatus(
+    shared_ptr<Message> message)
+{
+    INFO("MSCP GET COMMAND STATUS");
+
     #pragma pack(push,1)
-    struct EraseParameters
+    struct GetCommandStatusResponseParameters
     {
-        uint32_t ByteCount;
-        uint32_t Unused0;
-        uint32_t Unused1;
-        uint32_t Unused2;
-        uint32_t LBN;
+        uint32_t OutstandingReferenceNumber;
+        uint32_t CommandStatus;
     };
     #pragma pack(pop)
 
-    // TODO: Factor this code out (shared w/Read and Write)
-    EraseParameters* params =
-        reinterpret_cast<EraseParameters*>(GetParameterPointer(message));
+    message->MessageLength = sizeof(GetCommandStatusResponseParameters)
+        + HEADER_SIZE;
 
-    DEBUG("MSCP ERASE unit %d chan count %d lbn %d",
-        unitNumber,
-        params->ByteCount,
-        params->LBN);
-
-    // Adjust message length for response
-    message->MessageLength = sizeof(EraseParameters) +
-        HEADER_SIZE;
-
-    mscp_drive_c* drive = GetDrive(unitNumber);
-
-    // Check unit
-    if (nullptr == drive ||
-        !drive->IsAvailable())
-    {
-        return STATUS(Status::UNIT_OFFLINE, 0x3, 0);
-    }
-
-    // Check LBN
-    if (params->LBN > drive->GetBlockCount() + 1)  // + 1 for RCT
-    {
-        return STATUS(Status::INVALID_COMMAND + (0x1c << 8), 0, 0); // TODO: set sub-code
-    }
-
-    // Check byte count
-    if (params->ByteCount > ((drive->GetBlockCount() + 1) - params->LBN) * drive->GetBlockSize())
-    {
-        return STATUS(Status::INVALID_COMMAND + (0x0c << 8), 0, 0); // TODO: as above
-    }
+    
+    GetCommandStatusResponseParameters* params = 
+        reinterpret_cast<GetCommandStatusResponseParameters*>(
+            GetParameterPointer(message));
 
     //
-    // OK: do the transfer from a zero'd out buffer to disk
+    // This will always return zero; as with the ABORT command, at this
+    // point the command being referenced has already been executed.
     //
-    unique_ptr<uint8_t> memBuffer(new uint8_t[params->ByteCount]);
-    memset(reinterpret_cast<void*>(memBuffer.get()), 0, params->ByteCount);
-
-    drive->Write(params->LBN,
-        params->ByteCount,
-        memBuffer.get());
-
-    // Set parameters for response.
-    // We leave ByteCount as is (for now anyway)
-    // And set First Bad Block to 0.  (This is unnecessary since we're
-    // not reporting a bad block, but we're doing it for completeness.)
-    params->LBN = 0;
+    params->CommandStatus = 0;
 
     return STATUS(Status::SUCCESS, 0, 0);
 }
@@ -593,6 +666,31 @@ mscp_server::Online(
 }
 
 uint32_t
+mscp_server::Replace(
+    shared_ptr<Message> message,
+    uint16_t unitNumber)
+{
+    INFO("MSCP REPLACE");
+    //
+    // We treat this as a success for valid units as we do no block replacement at all.
+    // Best just to smile and nod.  We could be more vigilant and check LBNs, etc...
+    //
+    message->MessageLength = HEADER_SIZE;
+
+    mscp_drive_c* drive = GetDrive(unitNumber);
+
+    if (nullptr == drive ||
+        !drive->IsAvailable())
+    {
+        return STATUS(Status::UNIT_OFFLINE, 0x3, 0);  // unknown -- todo move to enum
+    }
+    else
+    {
+        return STATUS(Status::SUCCESS, 0, 0);
+    }
+}
+
+uint32_t
 mscp_server::SetControllerCharacteristics(
     shared_ptr<Message> message)
 {
@@ -715,71 +813,11 @@ mscp_server::Read(
     uint16_t unitNumber,
     uint16_t modifiers)
 {
-    #pragma pack(push,1)
-    struct ReadParameters
-    {
-        uint32_t ByteCount;
-        uint32_t BufferPhysicalAddress;  // upper 8 bits are channel address for VAXen
-        uint32_t Unused0;
-        uint32_t Unused1;
-        uint32_t LBN;
-    };
-    #pragma pack(pop)
-
-    ReadParameters* params =
-        reinterpret_cast<ReadParameters*>(GetParameterPointer(message));
-
-    DEBUG("MSCP READ unit %d chan o%o pa o%o count %d lbn %d",
+    return DoDiskTransfer(
+        Opcodes::READ,
+        message,
         unitNumber,
-        params->BufferPhysicalAddress >> 24,
-        params->BufferPhysicalAddress & 0x00ffffff,
-        params->ByteCount,
-        params->LBN);
-
-    // Adjust message length for response
-    message->MessageLength = sizeof(ReadParameters) +
-        HEADER_SIZE;
-   
-    mscp_drive_c* drive = GetDrive(unitNumber);
-
-    // Check unit
-    if (nullptr == drive ||
-        !drive->IsAvailable())
-    {
-        return STATUS(Status::UNIT_OFFLINE, 0x3, 0);
-    }
-
-    // TODO: Need to rectify reads/writes to RCT area more cleanly
-    // and enforce block size of 512 for RCT area.
-
-    // Check LBN and byte count
-    if (params->LBN >= drive->GetBlockCount() + 1)  // + 1 for RCT write protect flag
-    {
-        return STATUS(Status::INVALID_COMMAND + (0x1c << 8), 0, 0); // TODO: set sub-code
-    }
-
-    if (params->ByteCount > ((drive->GetBlockCount() + 1) - params->LBN) * drive->GetBlockSize())
-    {
-        return STATUS(Status::INVALID_COMMAND + (0xc << 8), 0, 0); // TODO: as above
-    }
-
-    //
-    // OK: do the transfer to memory
-    //
-    unique_ptr<uint8_t> diskBuffer(drive->Read(params->LBN, params->ByteCount));
-
-    _port->DMAWrite(
-        params->BufferPhysicalAddress & 0x00ffffff,
-        params->ByteCount,
-        diskBuffer.get());
-
-    // Set parameters for response.
-    // We leave ByteCount as is (for now anyway)
-    // And set First Bad Block to 0.  (This is unnecessary since we're
-    // not reporting a bad block, but we're doing it for completeness.)
-    params->LBN = 0;
-   
-    return STATUS(Status::SUCCESS, 0, 0);
+        modifiers);
 }
 
 uint32_t
@@ -788,8 +826,22 @@ mscp_server::Write(
     uint16_t unitNumber,
     uint16_t modifiers)
 {
+    return DoDiskTransfer(
+        Opcodes::WRITE,
+        message,
+        unitNumber,
+        modifiers);
+}
+
+uint32_t
+mscp_server::DoDiskTransfer(
+    uint16_t operation,
+    shared_ptr<Message> message,
+    uint16_t unitNumber,
+    uint16_t modifiers)
+{
     #pragma pack(push,1)
-    struct WriteParameters
+    struct ReadWriteEraseParameters
     {
         uint32_t ByteCount;
         uint32_t BufferPhysicalAddress;  // upper 8 bits are channel address for VAXen
@@ -799,11 +851,11 @@ mscp_server::Write(
     };
     #pragma pack(pop)
 
-    // TODO: Factor this code out (shared w/Read)
-    WriteParameters* params =
-        reinterpret_cast<WriteParameters*>(GetParameterPointer(message));
+    ReadWriteEraseParameters* params =
+        reinterpret_cast<ReadWriteEraseParameters*>(GetParameterPointer(message));
 
-    DEBUG("MSCP WRITE unit %d chan o%o pa o%o count %d lbn %d",
+    DEBUG("MSCP RWE 0x%x unit %d chan o%o pa o%o count %d lbn %d",
+        operation,
         unitNumber,
         params->BufferPhysicalAddress >> 24,
         params->BufferPhysicalAddress & 0x00ffffff,
@@ -811,7 +863,7 @@ mscp_server::Write(
         params->LBN);
 
     // Adjust message length for response
-    message->MessageLength = sizeof(WriteParameters) +
+    message->MessageLength = sizeof(ReadWriteEraseParameters) +
         HEADER_SIZE;
 
     mscp_drive_c* drive = GetDrive(unitNumber);
@@ -823,29 +875,130 @@ mscp_server::Write(
         return STATUS(Status::UNIT_OFFLINE, 0x3, 0);
     }
 
-    // Check LBN
-    if (params->LBN > drive->GetBlockCount() + 1)  // + 1 for RCT
+    // Are we accessing the RCT area?
+    bool rctAccess = params->LBN >= drive->GetBlockCount(); 
+    uint32_t rctBlockNumber = params->LBN - drive->GetBlockCount();
+
+    // Check that the LBN is valid
+    if (params->LBN >= drive->GetBlockCount() + drive->GetRCTBlockCount())
     {
         return STATUS(Status::INVALID_COMMAND + (0x1c << 8), 0, 0); // TODO: set sub-code
     }
 
-    // Check byte count 
-    if (params->ByteCount > ((drive->GetBlockCount() + 1) - params->LBN) * drive->GetBlockSize())
+    // Check byte count: 
+    if (params->ByteCount > ((drive->GetBlockCount() + drive->GetRCTBlockCount()) - params->LBN) * drive->GetBlockSize())
     {
         return STATUS(Status::INVALID_COMMAND + (0x0c << 8), 0, 0); // TODO: as above
+    }
+
+    // If this is an RCT access, byte count must equal the block size.
+    if (rctAccess && params->ByteCount != drive->GetBlockSize())
+    {
+        return STATUS(Status::INVALID_COMMAND + (0x0c << 8), 0, 0); // TODO: again
     }
 
     //
     // OK: do the transfer from the PDP-11 to a buffer
     //
-    unique_ptr<uint8_t> memBuffer(_port->DMARead(
-        params->BufferPhysicalAddress & 0x00ffffff,
-        params->ByteCount,
-        params->ByteCount));
+    switch (operation)
+    {
+        case Opcodes::ACCESS:
+            // We don't need to actually do any sort of transfer; ACCESS merely checks
+            // That the data can be read -- we checked the LBN, etc. above and we 
+            // will never encounter a read error, so there's nothing left to do.
+        break;
 
-    drive->Write(params->LBN,
-        params->ByteCount,
-        memBuffer.get());
+        case Opcodes::COMPARE_HOST_DATA:
+        {
+            // Read the data in from disk, read the data in from memory, and compare.
+            unique_ptr<uint8_t> diskBuffer;
+
+            if (rctAccess)
+            {
+                diskBuffer.reset(drive->ReadRCTBlock(rctBlockNumber));
+            }
+            else
+            {
+                diskBuffer.reset(drive->Read(params->LBN, params->ByteCount));
+            }
+
+            unique_ptr<uint8_t> memBuffer(_port->DMARead(
+                params->BufferPhysicalAddress & 0x00ffffff,
+                params->ByteCount,
+                params->ByteCount));
+  
+            if (!memcmp(diskBuffer.get(), memBuffer.get(), params->ByteCount))
+            {
+                // TODO: maybe not do an early return, make code not as ugly?  Hm.
+                return STATUS(Status::COMPARE_ERROR, 0, 0);
+            }
+        }
+ 
+        case Opcodes::ERASE:
+        {
+            unique_ptr<uint8_t> memBuffer(new uint8_t[params->ByteCount]);
+            memset(reinterpret_cast<void*>(memBuffer.get()), 0, params->ByteCount);
+
+            if (rctAccess)
+            {
+                drive->WriteRCTBlock(rctBlockNumber,
+                    memBuffer.get());
+            }
+            else
+            {
+                drive->Write(params->LBN,
+                    params->ByteCount,
+                    memBuffer.get());
+            }
+        } 
+        break;
+
+        case Opcodes::READ:
+        {
+            unique_ptr<uint8_t> diskBuffer;
+            
+            if (rctAccess)
+            {
+                diskBuffer.reset(drive->ReadRCTBlock(rctBlockNumber));
+            }
+            else
+            { 
+                diskBuffer.reset(drive->Read(params->LBN, params->ByteCount));
+            }
+
+            _port->DMAWrite(
+                params->BufferPhysicalAddress & 0x00ffffff,
+                params->ByteCount,
+                diskBuffer.get());
+        }
+        break;
+
+        case Opcodes::WRITE:
+        {
+            unique_ptr<uint8_t> memBuffer(_port->DMARead(
+                params->BufferPhysicalAddress & 0x00ffffff,
+                params->ByteCount,
+                params->ByteCount));
+ 
+            if (rctAccess)
+            {
+                drive->WriteRCTBlock(rctBlockNumber,
+                    memBuffer.get());
+            }
+            else
+            {
+                drive->Write(params->LBN,
+                    params->ByteCount,
+                    memBuffer.get());
+            }
+        }
+        break;
+
+        default:
+            // Should never happen.
+            assert(false);
+            break;
+    }
 
     // Set parameters for response.
     // We leave ByteCount as is (for now anyway)

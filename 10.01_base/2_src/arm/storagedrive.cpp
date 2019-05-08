@@ -145,6 +145,12 @@ void storagedrive_c::file_write(uint8_t *buffer, uint64_t position, unsigned len
 	f.flush();
 }
 
+uint64_t storagedrive_c::file_size(void)
+{
+	f.seekp(0, ios::end);
+        return f.tellp();
+}
+
 void storagedrive_c::file_close(void) {
 	assert(file_is_open());
 	f.close();

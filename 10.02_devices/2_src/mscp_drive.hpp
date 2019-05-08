@@ -20,6 +20,7 @@ public:
 
     uint32_t GetBlockSize(void);
     uint32_t GetBlockCount(void);
+    uint32_t GetRCTBlockCount(void);
     uint32_t GetMediaID(void);
     uint64_t GetUnitID(void);
 
@@ -35,7 +36,14 @@ public:
 
     uint8_t* Read(
         uint32_t blockNumber,
-        size_t lengthInBytes); 
+        size_t lengthInBytes);
+
+    void WriteRCTBlock(
+        uint32_t rctBlockNumber,
+        uint8_t* buffer);
+
+    uint8_t* ReadRCTBlock(
+        uint32_t rctBlockNumber); 
 
 public:
     bool on_param_changed(parameter_c *param) override;
@@ -43,6 +51,10 @@ public:
     void on_init_changed(void) override;
 
     void worker(void) override;
+
+public:
+    parameter_bool_c use_image_size = parameter_bool_c(
+        this, "useimagesize", "uis", false, "Determine unit size from image file instead of drive type");
 
 private:
    
@@ -55,7 +67,7 @@ private:
         bool      ReadOnly;
     };
 
-    DriveInfo g_driveTable[23] 
+    DriveInfo g_driveTable[22] 
     {
     { "RX50",  800,      0x25658032, true,  false },
     { "RX33",  2400,     0x25658021, true,  false },
@@ -78,12 +90,23 @@ private:
     { "RA90",  2376153,  0x2564105a, false, false },
     { "RA92",  2940951,  0x2564105c, false, false },
     { "RA73",  3920490,  0x25641049, false, false },
-    { "JD90",  2376153,  0x2564105d, false, false }, 
     { "", 0, 0, false, false }
     };
 
     bool SetDriveType(const char* typeName);
+    void UpdateCapacity(void); 
     DriveInfo _driveInfo;
     bool _online;
     uint64_t _unitID;
+    bool _useImageSize;
+
+    //
+    // RCT ("Replacement and Caching Table") data:
+    // At this time we provide the minimum required by the MSCP spec,
+    // a single block used to provide the volume write-protect flags.
+    // We do not require additional RCT space because the underlying media
+    // (an image file) doesn't have bad sectors.       
+    // This data is not persisted to disk as it is unnecessary.
+    //
+    unique_ptr<uint8_t> _rctData;
 };

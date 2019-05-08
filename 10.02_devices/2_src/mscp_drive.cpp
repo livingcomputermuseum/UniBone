@@ -3,6 +3,7 @@
 */
 
 #include <assert.h>
+#include <memory>
 
 using namespace std;
 
@@ -14,7 +15,8 @@ using namespace std;
 mscp_drive_c::mscp_drive_c(
     storagecontroller_c *controller,
     uint32_t driveNumber) :
-        storagedrive_c(controller)
+        storagedrive_c(controller),
+        _useImageSize(false)
 {
     log_label = "MSCPD";
     SetDriveType("RA81");
@@ -22,7 +24,11 @@ mscp_drive_c::mscp_drive_c(
 
     // Calculate the unit's ID:
     // drive number in upper 32 bits, class/model in lower.
-    _unitID = (static_cast<uint64_t>(0xffffffff) << 32) | 0x02020000;
+    _unitID = (static_cast<uint64_t>(driveNumber) << 32) | 0x02020000;
+
+    // Initialize the RCT area
+    _rctData.reset(new uint8_t[GetBlockSize()]);
+    memset(reinterpret_cast<void *>(_rctData.get()), 0, GetBlockSize());
 }
 
 mscp_drive_c::~mscp_drive_c()
@@ -43,9 +49,27 @@ uint32_t mscp_drive_c::GetBlockSize()
 
 uint32_t mscp_drive_c::GetBlockCount()
 {
-    // TODO: need to be able to handle drives of arbitrary size, not just
-    // DEC-branded units.
-    return _driveInfo.BlockCount;
+    if (_useImageSize)
+    {
+        // Return the image size / Block size (rounding down).
+        return file_size() / GetBlockSize();
+    }
+    else
+    {
+        //
+        // Use the size defined by the drive type.
+        //
+        return _driveInfo.BlockCount;
+    }
+}
+
+uint32_t mscp_drive_c::GetRCTBlockCount()
+{
+    //
+    // We provide only a single RCT block, required by the MSCP spec for the volume
+    // write-protect flags.
+    //
+    return 1;
 }
 
 uint32_t mscp_drive_c::GetMediaID()
@@ -123,6 +147,50 @@ uint8_t* mscp_drive_c::Read(
     return buffer;
 }
 
+//
+// Writes a single block's worth of data from the provided buffer into the
+// RCT area at the specified RCT block.  Buffer must be at least as large 
+// as the disk's block size.
+//
+void mscp_drive_c::WriteRCTBlock(
+    uint32_t rctBlockNumber,
+    uint8_t* buffer)
+{
+    assert (rctBlockNumber < GetRCTBlockCount());
+
+    memcpy(
+       reinterpret_cast<void *>(_rctData.get() + rctBlockNumber * GetBlockSize()),
+       reinterpret_cast<void *>(buffer), 
+       GetBlockSize());
+}
+
+//
+// Reads a single block's worth of data from the RCT area (at the specified
+// block offset).  Returns a pointer to a buffer containing the data read.
+// Caller is responsible for freeing this buffer.
+//
+uint8_t* mscp_drive_c::ReadRCTBlock(
+    uint32_t rctBlockNumber)
+{
+    assert (rctBlockNumber < GetRCTBlockCount());
+
+    uint8_t* buffer = new uint8_t[GetBlockSize()];
+    assert (nullptr != buffer);
+
+    memcpy(
+        reinterpret_cast<void *>(buffer),
+        reinterpret_cast<void *>(_rctData.get() + rctBlockNumber * GetBlockSize()),
+        GetBlockSize()); 
+        
+    return buffer;
+} 
+
+void mscp_drive_c::UpdateCapacity()
+{
+    capacity.value = 
+        GetBlockCount() * GetBlockSize();
+}
+
 bool mscp_drive_c::on_param_changed(
     parameter_c *param)
 {
@@ -138,11 +206,19 @@ bool mscp_drive_c::on_param_changed(
        if (file_open(image_filepath.new_value, true))
        {
             image_filepath.value = image_filepath.new_value;
+            UpdateCapacity();
             return true;
        }
       
        //
        // TODO: if file is a nonstandard size? 
+   }
+   else if (&use_image_size == param)
+   {
+       _useImageSize = use_image_size.new_value;
+       use_image_size.value = use_image_size.new_value;
+       UpdateCapacity(); 
+       return true;
    }
 
    return false;
@@ -161,7 +237,7 @@ bool mscp_drive_c::SetDriveType(const char* typeName)
         {
             _driveInfo = g_driveTable[index];
             type_name.value = _driveInfo.TypeName;
-            capacity.value = GetBlockCount() * GetBlockSize();
+            UpdateCapacity(); 
             return true;
         }
 

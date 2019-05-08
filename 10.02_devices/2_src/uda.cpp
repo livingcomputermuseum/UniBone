@@ -1,3 +1,14 @@
+/*
+    uda.cpp: Implementation of the MSCP port (unibus interface).
+
+    This provides logic for the UDA50's SA and IP registers, 
+    the four-step initialization handshake, DMA transfers to and
+    from the Unibus, and the command/response ring protocols.
+
+    At this time it acts as the port for an MSCP controller.  
+    It would be trivial to extend this to TMSCP at a future date.
+*/
+
 #include <string.h>
 #include <assert.h>
 

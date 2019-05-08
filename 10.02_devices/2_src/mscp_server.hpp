@@ -134,16 +134,22 @@ public:
     bool on_param_changed(parameter_c *param) override { return true; }
 
 private:
+    uint32_t Abort(std::shared_ptr<Message> message); 
+    uint32_t Access(std::shared_ptr<Message> message, uint16_t unitNumber);
     uint32_t Available(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
+    uint32_t CompareHostData(std::shared_ptr<Message> message, uint16_t unitNumber); 
     uint32_t DetermineAccessPaths(std::shared_ptr<Message> message, uint16_t unitNumber); 
     uint32_t Erase(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
+    uint32_t GetCommandStatus(std::shared_ptr<Message> message); 
     uint32_t GetUnitStatus(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
     uint32_t Online(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers); 
     uint32_t SetControllerCharacteristics(std::shared_ptr<Message> message);
     uint32_t SetUnitCharacteristics(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
     uint32_t Read(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
+    uint32_t Replace(std::shared_ptr<Message> message, uint16_t unitNumber);
     uint32_t Write(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
     
+    uint32_t DoDiskTransfer(uint16_t operation, std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers); 
     uint8_t* GetParameterPointer(std::shared_ptr<Message> message);
     mscp_drive_c* GetDrive(uint32_t unitNumber);
 
