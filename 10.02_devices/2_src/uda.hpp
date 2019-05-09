@@ -28,9 +28,6 @@ struct Message
         uint16_t Word1;
     } Word1;
 
-    // 384 bytes is the minimum needed to support
-    // datagram messages.  The underlying buffer will
-    // be allocated to cover whatever size needed.
     uint8_t Message[sizeof(ControlMessageHeader)];
 };
 #pragma pack(pop)
@@ -92,13 +89,11 @@ public:
     uint8_t* DMARead(uint32_t address, size_t lengthInBytes, size_t bufferSize);
 
 private:
-    void update_SA(void);
+    void update_SA(uint16_t value);
 
     // UDA50 registers:
     unibusdevice_register_t *IP_reg;
     unibusdevice_register_t *SA_reg;
-
-    uint16_t _sa;
 
     std::shared_ptr<mscp_server> _server;
 
@@ -137,8 +132,8 @@ private:
         Complete,
     };
 
-    InitializationStep _initStep;
-    bool _next_step;
+    volatile InitializationStep _initStep;
+    volatile bool _next_step;
 
     void StateTransition(InitializationStep nextStep);
 

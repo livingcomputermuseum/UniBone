@@ -21,7 +21,6 @@
 
 uda_c::uda_c() :
         storagecontroller_c(),
-        _sa(0),
         _server(nullptr),
         _ringBase(0),
         _commandRingLength(0),
@@ -92,8 +91,8 @@ void uda_c::Reset(void)
     INFO("UDA reset");
 
     _ringBase = 0;
-    _commandRingLength = 0;
-    _responseRingLength = 0;
+    //_commandRingLength = 0;
+    //_responseRingLength = 0;
     _commandRingPointer = 0;
     _responseRingPointer = 0;
     _interruptVector = 0;
@@ -106,9 +105,7 @@ void uda_c::Reset(void)
 
     // Signal the worker to begin the initialization sequence.
     StateTransition(InitializationStep::Uninitialized); 
-    
-    _sa = 0;
-    update_SA();
+    update_SA(0x0);
 }
 
 uint32_t uda_c::GetDriveCount(void)
@@ -164,15 +161,15 @@ void uda_c::worker(void)
                  INFO("Transition to Init state Uninitialized.");
 
                  // SA should already be zero but we'll be extra sure here.
-                 _sa = 0;
-                 update_SA();
+                 update_SA(0x0);
 
+                 timeout.wait_ms(500);
                  StateTransition(InitializationStep::Step1);
                  break;                
 
             case InitializationStep::Step1:
                  // Wait 100uS, set SA.
-                 timeout.wait_us(1000); 
+                 timeout.wait_ms(500);  
 
                  INFO("Transition to Init state S1.");
                  //
@@ -181,30 +178,27 @@ void uda_c::worker(void)
                  // implement enhanced diagnostics, and that no errors have
                  // occurred.
                  //
-                 _sa = 0x0800;
-                 update_SA();
+                 update_SA(0x0800);
                  break;
 
             case InitializationStep::Step2:
                  INFO("Transition to Init state S2.");
-                 timeout.wait_us(1000);
+                 timeout.wait_ms(500); 
                  // update the SA read value for step 2:
                  // S2 is set, unibus port type (0),  SA bits 15-8 written
                  // by the host in step 1.
-                 _sa = 0x1000 | ((_step1Value >> 8) & 0xff);
-                 update_SA();
+                 update_SA(0x1000 | ((_step1Value >> 8) & 0xff));
                  Interrupt();
                  break;
 
             case InitializationStep::Step3:
                  // Wait 100uS, set SA.
-                 timeout.wait_us(1000);
+                 timeout.wait_ms(500); 
 
                  INFO("Transition to Init state S3.");
                  // Update the SA read value for step 3:
                  // S3 set, plus SA bits 7-0 written by the host in step 1.
-                 _sa = 0x2000 | (_step1Value & 0xff);
-                 update_SA();
+                 update_SA(0x2000 | (_step1Value & 0xff));
                  Interrupt();
                  break;
  
@@ -212,23 +206,23 @@ void uda_c::worker(void)
                  timeout.wait_us(100);
 
                  // Clear communications area, set SA   
-                 INFO("Clearing comm area at 0x%x.", _ringBase);
+                 INFO("Clearing comm area at 0x%x. Purge header: %d", _ringBase, _purgeInterruptEnable);
                  INFO("resp 0x%x comm 0x%x", _responseRingLength, _commandRingLength);
 
-                 // TODO: -6 and -8 are described; do these always get cleared or only
-                 // on VAXen?  ZUDJ diag only expects -2 and -4 to be cleared...
-                 for(uint32_t i = 0; 
-                     i < (_responseRingLength + _commandRingLength) * sizeof(Descriptor) + 6;
-                     i += 2)
                  {
-                     DMAWriteWord(_ringBase + i - 6, 0x0);
+                     int headerSize = _purgeInterruptEnable ? 8 : 4;
+                     for(uint32_t i = 0; 
+                         i < (_responseRingLength + _commandRingLength) * sizeof(Descriptor) + headerSize;
+                         i += 2)
+                     {
+                         DMAWriteWord(_ringBase + i - headerSize, 0x0);
+                     }
                  }
 
                  //
                  // Set the ownership bit on all descriptors in the response ring
                  // to indicate that the port owns them.
                  //
-
                  Descriptor blankDescriptor;
                  blankDescriptor.Word0.Word0 = 0;
                  blankDescriptor.Word1.Word1 = 0;
@@ -242,37 +236,15 @@ void uda_c::worker(void)
                          reinterpret_cast<uint8_t*>(&blankDescriptor));
                  }  
  
-                 INFO("Transition to Init state S4.");
+                 INFO("Transition to Init state S4, comm area initialized.");
                  // Update the SA read value for step 4:
                  // Bits 7-0 indicating our control microcode version.
-                 // _sa = 0x4063;  //UDA50
-                 _sa = 0x4042;
-                 update_SA();
-                 Interrupt(); 
+                 update_SA(0x4063);  // UDA50 ID, makes RSTS happy
+                 Interrupt();
                  break;
 
             case InitializationStep::Complete:
-                 INFO("Transition to Init state Complete.  Initializing response ring.");
-                 //_sa = 0x0;
-                 //update_SA();
-
-                 //
-                 // Set the ownership bit on all descriptors in the response ring
-                 // to indicate that the port owns them.
-                 //
-                 /*
-                 Descriptor blankDescriptor;
-                 blankDescriptor.Word0.Word0 = 0;
-                 blankDescriptor.Word1.Word1 = 0;
-                 blankDescriptor.Word1.Fields.Ownership = 1;
-
-                 for(uint32_t i = 0; i < _responseRingLength; i++)
-                 {
-                     DMAWrite(
-                         GetResponseDescriptorAddress(i),
-                         sizeof(Descriptor),
-                         reinterpret_cast<uint8_t*>(&blankDescriptor));
-                 } */
+                 INFO("Initialization complete.");
                  break;
 
         }
@@ -432,8 +404,7 @@ uda_c::on_after_register_access(
                         StateTransition(InitializationStep::Complete);
                         // The VMS bootstrap expects SA to be zero IMMEDIATELY
                         // after completion. 
-                        _sa = 0;
-                        update_SA();
+                        update_SA(0x0);
                     }
                     else
                     {
@@ -455,11 +426,11 @@ uda_c::on_after_register_access(
 }
 
 void
-uda_c::update_SA()
+uda_c::update_SA(uint16_t value)
 {
     set_register_dati_value(
         SA_reg,
-        _sa,
+        value,
         "update_SA"); 
 } 
 

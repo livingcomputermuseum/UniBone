@@ -184,7 +184,7 @@ mscp_server::Poll(void)
             ControlMessageHeader* header = 
                 reinterpret_cast<ControlMessageHeader*>(message->Message);
 
-            DEBUG("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
+            INFO ("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
                 message->MessageLength,
                 header->Word3.Command.Opcode,
                 header->Word3.Command.Reserved,
@@ -542,7 +542,7 @@ mscp_server::GetUnitStatus(
 
     if(!drive->IsAvailable())
     {
-        // Known drive, but offline.
+        // Known drive, but not available at this time.
         params->UnitIdentifier = 0;
         params->ShadowUnit = 0;
 
@@ -556,7 +556,7 @@ mscp_server::GetUnitStatus(
     params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
     params->UnitIdentifier = drive->GetUnitID();  
     params->MediaTypeIdentifier = drive->GetMediaID(); 
-    params->ShadowUnit = 0;   // Always equal to unit number
+    params->ShadowUnit = unitNumber;   // Always equal to unit number
     
     //
     // For group, and cylinder size we return 0 -- this is appropriate for the
@@ -709,7 +709,7 @@ mscp_server::SetControllerCharacteristics(
         reinterpret_cast<SetControllerCharacteristicsParameters*>(
             GetParameterPointer(message));
 
-    DEBUG("MSCP SET CONTROLLER CHARACTERISTICS");
+    INFO ("MSCP SET CONTROLLER CHARACTERISTICS");
 
     // Adjust message length for response
     message->MessageLength = sizeof(SetControllerCharacteristicsParameters) +
@@ -724,6 +724,7 @@ mscp_server::SetControllerCharacteristics(
     }  
     else
     {
+        INFO("version 0x%x controller flags 0x%x", params->MSCPVersion, params->ControllerFlags);
         _hostTimeout = params->HostTimeout;
         _controllerFlags = params->ControllerFlags; 
 
