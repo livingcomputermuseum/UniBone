@@ -652,10 +652,25 @@ void unibusadapter_c::dma_worker()
 				//
 				// Wait for the transfer to complete.
 				// TODO: we're polling the mailbox; is there a more efficient way to do this?
-				timeout_c timeout;	
-				while (request_DMA_active(nullptr))
+				timeout_c timeout;
+                                int retries = 0;
+				while (request_DMA_active(nullptr) && retries < 10000)
 				{
 					timeout.wait_us(50);
+                                        retries++;
+				}
+
+				//
+				// TODO: this should not be necessary.  There are rare occasions
+				// where it appears that the PRU dma transfer is interrupted
+				// but never clears the DMA active flag, so we hang in the loop above
+				// forever.
+				// Nothing to do in that case but give up.
+				// And log the issue.  Should get to the root of this..
+				//
+                                if (retries == 10000) 
+				{
+					INFO("dma timeout");
 				}
 	
 				if (dmaReq->GetUnibusControl() == UNIBUS_CONTROL_DATI)
