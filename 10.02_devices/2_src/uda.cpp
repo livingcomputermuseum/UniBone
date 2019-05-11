@@ -88,24 +88,19 @@ uda_c::~uda_c()
 
 void uda_c::Reset(void)
 {
-    INFO("UDA reset");
+    DEBUG("UDA reset");
+
+    _server->Reset();
 
     _ringBase = 0;
-    //_commandRingLength = 0;
-    //_responseRingLength = 0;
+    _commandRingLength = 0;
+    _responseRingLength = 0;
     _commandRingPointer = 0;
     _responseRingPointer = 0;
     _interruptVector = 0;
     intr_vector.value = 0;
     _interruptEnable = false;
     _purgeInterruptEnable = false;
-    _next_step = false;
-
-    _server->Reset();
-
-    // Signal the worker to begin the initialization sequence.
-    StateTransition(InitializationStep::Uninitialized); 
-    update_SA(0x0);
 }
 
 uint32_t uda_c::GetDriveCount(void)
@@ -133,7 +128,7 @@ void uda_c::StateTransition(
 
 void uda_c::worker(void)
 {
-    worker_init_realtime_priority(rt_max);    
+    worker_init_realtime_priority(rt_device); 
 
     timeout_c timeout;
 
@@ -153,25 +148,24 @@ void uda_c::worker(void)
         _next_step = false;
         pthread_mutex_unlock(&on_after_register_access_mutex);
 
-        // INFO("Awoken.");
-
         switch (_initStep)
         {
             case InitializationStep::Uninitialized:
-                 INFO("Transition to Init state Uninitialized.");
-
+                 DEBUG("Transition to Init state Uninitialized."); 
                  // SA should already be zero but we'll be extra sure here.
                  update_SA(0x0);
 
-                 timeout.wait_ms(500);
+                 // Reset the controller: This may take some time as we must
+                 // wait for the MSCP server to wrap up its current workitem.
+                 Reset();
                  StateTransition(InitializationStep::Step1);
                  break;                
 
             case InitializationStep::Step1:
                  // Wait 100uS, set SA.
-                 timeout.wait_ms(500);  
+                 timeout.wait_us(500);  
 
-                 INFO("Transition to Init state S1.");
+                 DEBUG("Transition to Init state S1.");
                  //
                  // S1 is set, all other bits zero.  This indicates that we
                  // support a host-settable interrupt vector, that we do not
@@ -182,8 +176,8 @@ void uda_c::worker(void)
                  break;
 
             case InitializationStep::Step2:
-                 INFO("Transition to Init state S2.");
-                 timeout.wait_ms(500); 
+                 DEBUG("Transition to Init state S2.");
+                 timeout.wait_us(500); 
                  // update the SA read value for step 2:
                  // S2 is set, unibus port type (0),  SA bits 15-8 written
                  // by the host in step 1.
@@ -193,9 +187,9 @@ void uda_c::worker(void)
 
             case InitializationStep::Step3:
                  // Wait 100uS, set SA.
-                 timeout.wait_ms(500); 
+                 timeout.wait_us(500); 
 
-                 INFO("Transition to Init state S3.");
+                 DEBUG("Transition to Init state S3.");
                  // Update the SA read value for step 3:
                  // S3 set, plus SA bits 7-0 written by the host in step 1.
                  update_SA(0x2000 | (_step1Value & 0xff));
@@ -206,8 +200,8 @@ void uda_c::worker(void)
                  timeout.wait_us(100);
 
                  // Clear communications area, set SA   
-                 INFO("Clearing comm area at 0x%x. Purge header: %d", _ringBase, _purgeInterruptEnable);
-                 INFO("resp 0x%x comm 0x%x", _responseRingLength, _commandRingLength);
+                 DEBUG("Clearing comm area at 0x%x. Purge header: %d", _ringBase, _purgeInterruptEnable);
+                 DEBUG("resp 0x%x comm 0x%x", _responseRingLength, _commandRingLength);
 
                  {
                      int headerSize = _purgeInterruptEnable ? 8 : 4;
@@ -236,7 +230,7 @@ void uda_c::worker(void)
                          reinterpret_cast<uint8_t*>(&blankDescriptor));
                  }  
  
-                 INFO("Transition to Init state S4, comm area initialized.");
+                 DEBUG("Transition to Init state S4, comm area initialized.");
                  // Update the SA read value for step 4:
                  // Bits 7-0 indicating our control microcode version.
                  update_SA(0x4063);  // UDA50 ID, makes RSTS happy
@@ -244,9 +238,8 @@ void uda_c::worker(void)
                  break;
 
             case InitializationStep::Complete:
-                 INFO("Initialization complete.");
+                 DEBUG("Initialization complete.");
                  break;
-
         }
     }
 }
@@ -266,7 +259,7 @@ uda_c::on_after_register_access(
                 // "When written with any value, it causes a hard initialization
                 //  of the port and the device controller."
                 DEBUG("Reset due to IP read");  
-                Reset();
+                StateTransition(InitializationStep::Uninitialized);
             }
             else
             {
@@ -287,7 +280,7 @@ uda_c::on_after_register_access(
             {
                 case InitializationStep::Uninitialized:
                     // Should not occur, we treat it like step1 here.
-                    INFO("Write to SA in Uninitialized state.");
+                    DEBUG("Write to SA in Uninitialized state.");
 
                 case InitializationStep::Step1:
                     // Host writes the following:
@@ -318,11 +311,11 @@ uda_c::on_after_register_access(
                     _responseRingLength = (1 << ((value & 0x700) >> 8));
                     _commandRingLength = (1 << ((value & 0x3800) >> 11));
 
-                    INFO("Step1: 0x%x", value); 
-                    INFO("resp ring 0x%x", _responseRingLength);
-                    INFO("cmd ring 0x%x", _commandRingLength);
-                    INFO("vector 0x%x", _interruptVector);
-                    INFO("ie %d", _interruptEnable);
+                    DEBUG("Step1: 0x%x", value); 
+                    DEBUG("resp ring 0x%x", _responseRingLength);
+                    DEBUG("cmd ring 0x%x", _commandRingLength);
+                    DEBUG("vector 0x%x", _interruptVector);
+                    DEBUG("ie %d", _interruptEnable);
  
                     // Move to step 2.
                     StateTransition(InitializationStep::Step2);
@@ -342,7 +335,7 @@ uda_c::on_after_register_access(
                     _ringBase = value & 0xfffe;
                     _purgeInterruptEnable = !!(value & 0x1);
 
-                    INFO("Step2: rb 0x%x pi %d", _ringBase, _purgeInterruptEnable);
+                    DEBUG("Step2: rb 0x%x pi %d", _ringBase, _purgeInterruptEnable);
                     // Move to step 3 and interrupt as necessary.
                     StateTransition(InitializationStep::Step3);
                     break;
@@ -361,7 +354,7 @@ uda_c::on_after_register_access(
                     // [ringbase+0].
                     _ringBase |= ((value & 0x7fff) << 16);
 
-                    INFO("Step3: ringbase 0x%x", _ringBase);
+                    DEBUG("Step3: ringbase 0x%x", _ringBase);
                     // Move to step 4 and interrupt as necessary.
                     StateTransition(InitializationStep::Step4);
                     break;
@@ -394,7 +387,7 @@ uda_c::on_after_register_access(
                     // supporting onboard diagnostics and there's nothing to
                     // report.
                     //
-                    INFO("Step4: 0x%x", value);
+                    DEBUG("Step4: 0x%x", value);
                     if (value & 0x1)
                     {
                         //
@@ -417,7 +410,7 @@ uda_c::on_after_register_access(
                     //  operation, it signals the port that the host has successfully
                     //  completed a bus adapter purge in response to a port-initiated
                     //  purge request.
-                    //  Unsure what this means at the moment.
+                    //  We don't deal with bus adapter purges, yet.
                     break;
             }
             break;
@@ -481,8 +474,6 @@ uda_c::GetNextCommand(void)
                 messageAddress - 4,
                 success);
         
-        // INFO("Message length 0x%x", messageLength);
- 
         //
         // TODO: sanity check message length (what is the max length we
         // can expect to see?)
@@ -558,7 +549,7 @@ uda_c::GetNextCommand(void)
             //
             DMAWriteWord(
                 _ringBase - 4,
-                0xffff);
+                0x1);
 
             //
             // Raise the interrupt
@@ -624,13 +615,13 @@ uda_c::PostResponse(
 
         if (reinterpret_cast<uint16_t*>(response)[0] == 0)
         {
-            INFO("Writing zero length response!");
+            ERROR("Writing zero length response!");
         }
 
         if (messageLength < response->MessageLength)
         {
-            // TODO: handle this; for now eat flaming death.
-            INFO("Response buffer %x > message length %x", response->MessageLength, messageLength);
+            // TODO: A lot of bootstraps appear to set up response buffers of length 0...
+            ERROR("Response buffer %x > message length %x", response->MessageLength, messageLength);
         }
         // else
         {
@@ -701,13 +692,13 @@ uda_c::PostResponse(
         // Post an interrupt as necessary.
         if (doInterrupt)
         {
-            // INFO("Response ring no longer empty, interrupting.");
+            DEBUG("Response ring no longer empty, interrupting.");
             //
             // Set ring base - 2 to non-zero to indicate a transition.
             //
             DMAWriteWord(
                 _ringBase - 2,
-                0xffff);
+                0x1);
 
             //
             // Raise the interrupt
@@ -749,7 +740,7 @@ uda_c::on_power_changed(void)
     if (power_down)
     {
         DEBUG("Reset due to power change");
-        Reset();
+        StateTransition(InitializationStep::Uninitialized);
     }
 }
 
@@ -759,7 +750,7 @@ uda_c::on_init_changed(void)
     if (init_asserted)
     {
         DEBUG("Reset due to INIT");
-        Reset();
+        StateTransition(InitializationStep::Uninitialized);
     }
 
     storagecontroller_c::on_init_changed();

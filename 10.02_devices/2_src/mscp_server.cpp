@@ -184,7 +184,7 @@ mscp_server::Poll(void)
             ControlMessageHeader* header = 
                 reinterpret_cast<ControlMessageHeader*>(message->Message);
 
-            INFO ("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
+            DEBUG("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
                 message->MessageLength,
                 header->Word3.Command.Opcode,
                 header->Word3.Command.Reserved,
@@ -301,7 +301,6 @@ mscp_server::Poll(void)
             {
                 message->Word1.Info.Credits = 0;
             }
-
 
             //
             // Post the response to the port's response ring.
@@ -709,7 +708,7 @@ mscp_server::SetControllerCharacteristics(
         reinterpret_cast<SetControllerCharacteristicsParameters*>(
             GetParameterPointer(message));
 
-    INFO ("MSCP SET CONTROLLER CHARACTERISTICS");
+    DEBUG("MSCP SET CONTROLLER CHARACTERISTICS");
 
     // Adjust message length for response
     message->MessageLength = sizeof(SetControllerCharacteristicsParameters) +
@@ -724,7 +723,6 @@ mscp_server::SetControllerCharacteristics(
     }  
     else
     {
-        INFO("version 0x%x controller flags 0x%x", params->MSCPVersion, params->ControllerFlags);
         _hostTimeout = params->HostTimeout;
         _controllerFlags = params->ControllerFlags; 
 

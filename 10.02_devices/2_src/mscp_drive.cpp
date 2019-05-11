@@ -24,7 +24,7 @@ mscp_drive_c::mscp_drive_c(
 
     // Calculate the unit's ID:
     // drive number in upper 32 bits, class/model in lower.
-    _unitID = (static_cast<uint64_t>(driveNumber) << 32) | 0x02020000;
+    _unitID = (static_cast<uint64_t>(driveNumber + 1) << 32) | 0x02020000;
 
     // Initialize the RCT area
     _rctData.reset(new uint8_t[GetBlockSize()]);
