@@ -23,6 +23,9 @@ public:
     uint32_t GetRCTBlockCount(void);
     uint32_t GetMediaID(void);
     uint64_t GetUnitID(void);
+    uint16_t GetRCTSize(void);
+    uint8_t GetRBNs(void);
+    uint8_t GetRCTCopies(void);
 
     void SetOnline(void);
     void SetOffline(void);

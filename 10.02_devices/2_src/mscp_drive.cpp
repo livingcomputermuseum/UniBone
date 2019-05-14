@@ -24,7 +24,7 @@ mscp_drive_c::mscp_drive_c(
 
     // Calculate the unit's ID:
     // drive number in upper 32 bits, class/model in lower.
-    _unitID = (static_cast<uint64_t>(driveNumber + 1) << 32) | 0x02020000;
+    _unitID = (static_cast<uint64_t>(driveNumber + 1) << 32) | 0xffffffff;
 
     // Initialize the RCT area
     _rctData.reset(new uint8_t[GetBlockSize()]);
@@ -66,8 +66,9 @@ uint32_t mscp_drive_c::GetBlockCount()
 uint32_t mscp_drive_c::GetRCTBlockCount()
 {
     //
-    // We provide only a single RCT block, required by the MSCP spec for the volume
-    // write-protect flags.
+    // We provide only a single RCT block.  Per the latest MSCP spec no RCT is required,
+    // however several operating systems appear to expect at least one block be present
+    // for volume write-protect flags.
     //
     return 1;
 }
@@ -80,6 +81,21 @@ uint32_t mscp_drive_c::GetMediaID()
 uint64_t mscp_drive_c::GetUnitID()
 {
     return _unitID;
+}
+
+uint16_t mscp_drive_c::GetRCTSize()
+{
+    return 1;
+}
+
+uint8_t mscp_drive_c::GetRBNs()
+{
+    return 0;
+}
+
+uint8_t mscp_drive_c::GetRCTCopies()
+{
+    return 1;
 }
 
 bool mscp_drive_c::IsAvailable()

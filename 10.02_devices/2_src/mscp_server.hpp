@@ -105,6 +105,16 @@ enum SuccessSubcodes
     STILL_ONLINE = 0x200,
 };
 
+enum UnitOfflineSubcodes
+{
+    UNIT_UNKNOWN = 0x0,
+    NO_VOLUME = 0x1,
+    UNIT_INOPERATIVE = 0x2,
+    DUPLICATE_UNIT = 0x4,
+    UNIT_DISABLED = 0x8,
+    EXCLUSIVE = 0x10,
+};
+
 enum MessageTypes
 {
     Sequential = 0,

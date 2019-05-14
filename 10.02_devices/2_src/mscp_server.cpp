@@ -33,6 +33,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <memory>
+#include <queue>
  
 using namespace std;
 
@@ -130,8 +131,6 @@ mscp_server::Poll(void)
 {
     worker_init_realtime_priority(rt_device);
 
-    timeout_c timer;
-
     while(!_abort_polling)
     {
         //
@@ -159,21 +158,33 @@ mscp_server::Poll(void)
         }
 
         //
-        // Pull commands from the ring until the ring is empty, at which
-        // point we sleep until awoken again.
+        // Read all commands from the ring into a queue; then execute them.
         //
-        while(!_abort_polling && _pollState != PollingState::InitRestart)
+        std::queue<shared_ptr<Message>> messages;
+
+        while (!_abort_polling && _pollState != PollingState::InitRestart)
         {
-           shared_ptr<Message> message(_port->GetNextCommand());
+            shared_ptr<Message> message(_port->GetNextCommand());
 
             if (nullptr == message)
             {
-                DEBUG("Empty command ring; sleeping.");
+                DEBUG("End of command ring; %d messages to be executed.");
                 break;
             }
 
-  
-            DEBUG("Message received.");
+            messages.push(message);
+        } 
+
+        //
+        // Pull commands from the queue until it is empty, at which
+        // point we sleep until awoken again.
+        //
+        while(!messages.empty() && !_abort_polling && _pollState != PollingState::InitRestart)
+        {
+            shared_ptr<Message> message(messages.front());  
+            messages.pop();
+
+            DEBUG("Processing message.");
 
             //
             // Handle the message.  We dispatch on opcodes to the
@@ -184,7 +195,7 @@ mscp_server::Poll(void)
             ControlMessageHeader* header = 
                 reinterpret_cast<ControlMessageHeader*>(message->Message);
 
-            DEBUG("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
+            INFO ("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
                 message->MessageLength,
                 header->Word3.Command.Opcode,
                 header->Word3.Command.Reserved,
@@ -259,7 +270,7 @@ mscp_server::Poll(void)
                     break;
             }
 
-            DEBUG("cmd 0x%x st 0x%x fl 0x%x", cmdStatus, GET_STATUS(cmdStatus), GET_FLAGS(cmdStatus));
+            INFO ("cmd 0x%x st 0x%x fl 0x%x", cmdStatus, GET_STATUS(cmdStatus), GET_FLAGS(cmdStatus));
 
             //
             // Set the endcode and status bits
@@ -307,19 +318,9 @@ mscp_server::Poll(void)
             //
             if(!_port->PostResponse(message.get()))
             {
-                FATAL("no room at the inn.");
+                FATAL("Unexpected: no room in response ring.");
             }
 
-            //
-            // This delay works around an issue in various bootstraps -- unsure of the 
-            // exact cause, it appears to be a race condition exacerbated by the speed
-            // at which we're able to process commands in the ring buffer (we are much
-            // faster than any real MSCP device ever was) and the liberties that bootstrap
-            // code takes with the MSCP spec to save code space.
-            // This is likely a hack, we may be papering over a bug somewhere.
-            // 
-            timer.wait_us(2000);
- 
             //
             // Go around and pick up the next one.
             //
@@ -359,7 +360,7 @@ mscp_server::Abort(
     // them one at a time, sequentially as they appear in the ring buffer,
     // by the time we've gotten this command, the command it's referring
     // to is long gone.
-    // This is legal behavior and it's legal for us to ignore ABORT in this
+    // This is semi-legal behavior and it's legal for us to ignore ABORT in this
     // case.
     //
     // We just return SUCCESS here.
@@ -385,7 +386,7 @@ mscp_server::Available(
     if (nullptr == drive ||
         !drive->IsAvailable())
     {
-        return STATUS(Status::UNIT_OFFLINE, 0x3, 0);
+        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
     }
 
     drive->SetOffline();
@@ -487,8 +488,8 @@ mscp_server::GetUnitStatus(
     #pragma pack(push,1)
     struct GetUnitStatusResponseParameters
     {
-        uint16_t UnitFlags;
         uint16_t MultiUnitCode;
+        uint16_t UnitFlags;
         uint32_t Reserved0;
         uint64_t UnitIdentifier;
         uint32_t MediaTypeIdentifier;
@@ -498,11 +499,13 @@ mscp_server::GetUnitStatus(
         uint16_t GroupSize;
         uint16_t CylinderSize;
         uint16_t Reserved2;   
-        uint32_t RCTStuff;
+        uint16_t RCTSize;
+        uint8_t RBNs;
+        uint8_t Copies;
     };
     #pragma pack(pop)
 
-    DEBUG("MSCP GET UNIT STATUS drive %d", unitNumber);
+    INFO ("MSCP GET UNIT STATUS drive %d", unitNumber);
 
     // Adjust message length for response
     message->MessageLength = sizeof(GetUnitStatusResponseParameters) +
@@ -536,7 +539,7 @@ mscp_server::GetUnitStatus(
         // No such drive
         params->UnitIdentifier = 0;
         params->ShadowUnit = 0;
-        return STATUS(Status::UNIT_OFFLINE, 0x3, 0); // offline; unknown unit.
+        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
     }
 
     if(!drive->IsAvailable())
@@ -545,7 +548,7 @@ mscp_server::GetUnitStatus(
         params->UnitIdentifier = 0;
         params->ShadowUnit = 0;
 
-        return STATUS(Status::UNIT_OFFLINE, 0x23, 0);  // offline; no volume available
+        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::NO_VOLUME, 0);  // offline; no volume available
     }
 
     params->Reserved0 = 0;
@@ -557,14 +560,19 @@ mscp_server::GetUnitStatus(
     params->MediaTypeIdentifier = drive->GetMediaID(); 
     params->ShadowUnit = unitNumber;   // Always equal to unit number
     
-    //
-    // For group, and cylinder size we return 0 -- this is appropriate for the
-    // underlying storage (disk image on flash) since there are no physical tracks
-    // or cylinders to speak of (no seek times, etc.)
+    // From the MSCP spec: "As stated above, the host area of  a  disk  is  structured  as  a
+    //  vector of logical blocks.  From a performance viewpoint, however,
+    //  it  is  more  appropriate  to  view  the  host  area  as  a  four
+    //  dimensional hyper-cube."
+    // This has nothing whatsoever to do with what's going on here but it makes me snicker
+    // every time I read it so I'm including it.
+    // Let's relay some information about our data-tesseract:
+    // Since our underlying storage is an image file on flash memory, we don't need to be concerned
+    // about seek times, so the below is appropriate:
     //
     params->TrackSize = 1;  // one block per track, per aa-l619a-tk.
-    params->GroupSize = 1;
-    params->CylinderSize = 1;
+    params->GroupSize = 1;  // one cylinder per group
+    params->CylinderSize = 1; // one sector per cylinder
 
     //
     // Since we do no bad block replacement (no bad blocks possible in a disk image file)
@@ -572,7 +580,9 @@ mscp_server::GetUnitStatus(
     // There are no replacement blocks, and no duplicate copies of
     // the RCT are present.
     //
-    params->RCTStuff = 0x01000001;
+    params->RCTSize = drive->GetRCTSize();
+    params->RBNs = drive->GetRBNs();
+    params->Copies = drive->GetRCTCopies();
 
     if (drive->IsOnline())
     {
@@ -640,7 +650,7 @@ mscp_server::Online(
     if (nullptr == drive ||
         !drive->IsAvailable())
     {
-        return STATUS(Status::UNIT_OFFLINE, 0x3, 0);  // unknown -- todo move to enum
+        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
     }
   
     bool alreadyOnline = drive->IsOnline();
@@ -681,7 +691,7 @@ mscp_server::Replace(
     if (nullptr == drive ||
         !drive->IsAvailable())
     {
-        return STATUS(Status::UNIT_OFFLINE, 0x3, 0);  // unknown -- todo move to enum
+        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
     }
     else
     {
@@ -729,10 +739,11 @@ mscp_server::SetControllerCharacteristics(
         // At this time we ignore the time and date entirely.
    
         // Prepare the response message 
+        params->Reserved = 0;
         params->ControllerFlags = _controllerFlags & 0xfe;  // Mask off 576 byte sectors bit.
                                                             // it's read-only and we're a 512
                                                             // byte sector shop here. 
-        params->HostTimeout = 0xff;   // Controller timeout: return the max value.
+        params->HostTimeout = 0x10;   // Controller timeout: return the max value.
         params->TimeAndDate = _port->GetControllerIdentifier();  // Controller ID
 
         return STATUS(Status::SUCCESS, 0, 0);
@@ -788,7 +799,7 @@ mscp_server::SetUnitCharacteristics(
     if (nullptr == drive ||
         !drive->IsAvailable())
     {
-        return STATUS(Status::UNIT_OFFLINE, 0x3, 0);
+        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
     }
 
     SetUnitCharacteristicsResponseParameters* params =
@@ -853,9 +864,10 @@ mscp_server::DoDiskTransfer(
     ReadWriteEraseParameters* params =
         reinterpret_cast<ReadWriteEraseParameters*>(GetParameterPointer(message));
 
-    DEBUG("MSCP RWE 0x%x unit %d chan o%o pa o%o count %d lbn %d",
+    INFO ("MSCP RWE 0x%x unit %d mod 0x%x chan o%o pa o%o count %d lbn %d",
         operation,
         unitNumber,
+        modifiers,
         params->BufferPhysicalAddress >> 24,
         params->BufferPhysicalAddress & 0x00ffffff,
         params->ByteCount,
@@ -871,7 +883,7 @@ mscp_server::DoDiskTransfer(
     if (nullptr == drive ||
         !drive->IsAvailable())
     {
-        return STATUS(Status::UNIT_OFFLINE, 0x3, 0);
+        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
     }
 
     // Are we accessing the RCT area?
