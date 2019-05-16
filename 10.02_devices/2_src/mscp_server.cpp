@@ -195,7 +195,7 @@ mscp_server::Poll(void)
             ControlMessageHeader* header = 
                 reinterpret_cast<ControlMessageHeader*>(message->Message);
 
-            INFO ("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
+            DEBUG("Message size 0x%x opcode 0x%x rsvd 0x%x mod 0x%x unit %d, ursvd 0x%x, ref 0x%x", 
                 message->MessageLength,
                 header->Word3.Command.Opcode,
                 header->Word3.Command.Reserved,
@@ -270,7 +270,7 @@ mscp_server::Poll(void)
                     break;
             }
 
-            INFO ("cmd 0x%x st 0x%x fl 0x%x", cmdStatus, GET_STATUS(cmdStatus), GET_FLAGS(cmdStatus));
+            DEBUG("cmd 0x%x st 0x%x fl 0x%x", cmdStatus, GET_STATUS(cmdStatus), GET_FLAGS(cmdStatus));
 
             //
             // Set the endcode and status bits
@@ -491,7 +491,9 @@ mscp_server::GetUnitStatus(
         uint16_t MultiUnitCode;
         uint16_t UnitFlags;
         uint32_t Reserved0;
-        uint64_t UnitIdentifier;
+        uint32_t UnitIdDeviceNumber;
+        uint16_t UnitIdUnused;
+        uint16_t UnitIdClassModel;
         uint32_t MediaTypeIdentifier;
         uint16_t ShadowUnit;
         uint16_t Reserved1;
@@ -505,7 +507,7 @@ mscp_server::GetUnitStatus(
     };
     #pragma pack(pop)
 
-    INFO ("MSCP GET UNIT STATUS drive %d", unitNumber);
+    DEBUG("MSCP GET UNIT STATUS drive %d", unitNumber);
 
     // Adjust message length for response
     message->MessageLength = sizeof(GetUnitStatusResponseParameters) +
@@ -534,21 +536,14 @@ mscp_server::GetUnitStatus(
         reinterpret_cast<GetUnitStatusResponseParameters*>(
             GetParameterPointer(message));
 
-    if (nullptr == drive)
+    if (nullptr == drive || !drive->IsAvailable())
     {
-        // No such drive
-        params->UnitIdentifier = 0;
+        // No such drive or drive image not loaded.
+        params->UnitIdDeviceNumber = 0;
+        params->UnitIdClassModel = 0;
+        params->UnitIdUnused = 0;
         params->ShadowUnit = 0;
         return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
-    }
-
-    if(!drive->IsAvailable())
-    {
-        // Known drive, but not available at this time.
-        params->UnitIdentifier = 0;
-        params->ShadowUnit = 0;
-
-        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::NO_VOLUME, 0);  // offline; no volume available
     }
 
     params->Reserved0 = 0;
@@ -556,7 +551,9 @@ mscp_server::GetUnitStatus(
     params->Reserved2 = 0;
     params->UnitFlags = 0;  // TODO: 0 for now, which is sane.
     params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
-    params->UnitIdentifier = drive->GetUnitID();  
+    params->UnitIdDeviceNumber = drive->GetUnitIDDeviceNumber();      
+    params->UnitIdClassModel = drive->GetUnitIDClassModel();
+    params->UnitIdUnused = 0;
     params->MediaTypeIdentifier = drive->GetMediaID(); 
     params->ShadowUnit = unitNumber;   // Always equal to unit number
     
@@ -631,7 +628,9 @@ mscp_server::Online(
         uint16_t UnitFlags;
         uint16_t MultiUnitCode;
         uint32_t Reserved0;
-        uint64_t UnitIdentifier;
+        uint32_t UnitIdDeviceNumber;
+        uint16_t UnitIdUnused;
+        uint16_t UnitIdClassModel;
         uint32_t MediaTypeIdentifier;
         uint32_t Reserved1;
         uint32_t UnitSize;
@@ -663,7 +662,9 @@ mscp_server::Online(
 
     params->UnitFlags = 0;  // TODO: 0 for now, which is sane.
     params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
-    params->UnitIdentifier = drive->GetUnitID(); 
+    params->UnitIdDeviceNumber = drive->GetUnitIDDeviceNumber();
+    params->UnitIdClassModel = drive->GetUnitIDClassModel();
+    params->UnitIdUnused = 0;
     params->MediaTypeIdentifier = drive->GetMediaID();
     params->UnitSize = drive->GetBlockCount();
     params->VolumeSerialNumber = 1;  // We report no serial
@@ -710,7 +711,16 @@ mscp_server::SetControllerCharacteristics(
         uint16_t ControllerFlags;
         uint16_t HostTimeout;
         uint16_t Reserved;
-        uint64_t TimeAndDate;
+        union
+        {
+            uint64_t TimeAndDate;
+            struct
+            {
+                uint32_t UniqueDeviceNumber;
+                uint16_t Unused;
+                uint16_t ClassModel;
+            } ControllerId;
+        } w;
     };
     #pragma pack(pop)
  
@@ -743,8 +753,10 @@ mscp_server::SetControllerCharacteristics(
         params->ControllerFlags = _controllerFlags & 0xfe;  // Mask off 576 byte sectors bit.
                                                             // it's read-only and we're a 512
                                                             // byte sector shop here. 
-        params->HostTimeout = 0x10;   // Controller timeout: return the max value.
-        params->TimeAndDate = _port->GetControllerIdentifier();  // Controller ID
+        params->HostTimeout = 0xff;   // Controller timeout: return the max value.
+        params->w.ControllerId.UniqueDeviceNumber = _port->GetControllerIdentifier();
+        params->w.ControllerId.ClassModel = _port->GetControllerClassModel();
+        params->w.ControllerId.Unused = 0;
 
         return STATUS(Status::SUCCESS, 0, 0);
     }
@@ -781,7 +793,9 @@ mscp_server::SetUnitCharacteristics(
         uint16_t UnitFlags;
         uint16_t MultiUnitCode;
         uint32_t Reserved0;
-        uint64_t UnitIdentifier;
+        uint32_t UnitIdDeviceNumber;
+        uint16_t UnitIdUnused;
+        uint16_t UnitIdClassModel;
         uint32_t MediaTypeIdentifier;
         uint32_t Reserved1;
         uint16_t ShadowUnit;
@@ -808,7 +822,9 @@ mscp_server::SetUnitCharacteristics(
 
     params->UnitFlags = 0;  // TODO: 0 for now, which is sane.
     params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
-    params->UnitIdentifier = drive->GetUnitID();
+    params->UnitIdDeviceNumber = drive->GetUnitIDDeviceNumber();
+    params->UnitIdClassModel = drive->GetUnitIDClassModel();
+    params->UnitIdUnused = 0;
     params->MediaTypeIdentifier = drive->GetMediaID();
     params->UnitSize = drive->GetBlockCount();
     params->VolumeSerialNumber = 0;  // We report no serial
@@ -864,7 +880,7 @@ mscp_server::DoDiskTransfer(
     ReadWriteEraseParameters* params =
         reinterpret_cast<ReadWriteEraseParameters*>(GetParameterPointer(message));
 
-    INFO ("MSCP RWE 0x%x unit %d mod 0x%x chan o%o pa o%o count %d lbn %d",
+    DEBUG("MSCP RWE 0x%x unit %d mod 0x%x chan o%o pa o%o count %d lbn %d",
         operation,
         unitNumber,
         modifiers,
@@ -884,6 +900,11 @@ mscp_server::DoDiskTransfer(
         !drive->IsAvailable())
     {
         return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
+    }
+
+    if (!drive->IsOnline())
+    {
+        return STATUS(Status::UNIT_AVAILABLE, 0, 0);
     }
 
     // Are we accessing the RCT area?
@@ -967,7 +988,7 @@ mscp_server::DoDiskTransfer(
         case Opcodes::READ:
         {
             unique_ptr<uint8_t> diskBuffer;
-            
+        
             if (rctAccess)
             {
                 diskBuffer.reset(drive->ReadRCTBlock(rctBlockNumber));
@@ -981,6 +1002,7 @@ mscp_server::DoDiskTransfer(
                 params->BufferPhysicalAddress & 0x00ffffff,
                 params->ByteCount,
                 diskBuffer.get());
+
         }
         break;
 

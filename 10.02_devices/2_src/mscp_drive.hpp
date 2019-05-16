@@ -22,7 +22,8 @@ public:
     uint32_t GetBlockCount(void);
     uint32_t GetRCTBlockCount(void);
     uint32_t GetMediaID(void);
-    uint64_t GetUnitID(void);
+    uint32_t GetUnitIDDeviceNumber(void);
+    uint16_t GetUnitIDClassModel(void);
     uint16_t GetRCTSize(void);
     uint8_t GetRBNs(void);
     uint8_t GetRCTCopies(void);
@@ -66,41 +67,50 @@ private:
         char      TypeName[16];
         size_t    BlockCount;
         uint32_t  MediaID;
+        uint8_t   Model;
+        uint16_t  RCTSize;
         bool      Removable;
         bool      ReadOnly;
     };
 
-    DriveInfo g_driveTable[22] 
+    //
+    // TODO: add a lot more drive types.
+    // Does it make sense to support drive types not native to Unibus machines (SCSI types, for example?)
+    // Need to add a ClassID table entry in that eventuality...
+    // Also TODO: RCTSize parameters taken from SIMH rq source; how valid are these?
+    DriveInfo g_driveTable[21] 
     {
-    { "RX50",  800,      0x25658032, true,  false },
-    { "RX33",  2400,     0x25658021, true,  false },
-    { "RD51",  21600,    0x25644033, false, false },
-    { "RD31",  41560,    0x2564401f, false, false },
-    { "RC25",  50902,    0x20643019, true, false },
-    { "RC25F", 50902,    0x20643319, true, false },
-    { "RD52",  60480,    0x25644034, false, false },
-    { "RD32",  83236,    0x25641047, false, false },
-    { "RD53",  138672,   0x25644035, false, false },
-    { "RA80",  237212,   0x20643019, false, false },
-    { "RD54",  311200,   0x25644036, false, false },
-    { "RA60",  400176,   0x22a4103c, true, false },
-    { "RA70",  547041,   0x20643019, false, false },
-    { "RA81",  891072,   0x25641051, false, false },
-    { "RA82",  1216665,  0x25641052, false, false },
-    { "RA71",  1367310,  0x25641047, false, false },
-    { "RRD40", 1331200,  0x25652228, true,  true },
-    { "RA72",  1953300,  0x25641048, false, false },
-    { "RA90",  2376153,  0x2564105a, false, false },
-    { "RA92",  2940951,  0x2564105c, false, false },
-    { "RA73",  3920490,  0x25641049, false, false },
-    { "", 0, 0, false, false }
+//    Name     Blocks    MediaID     Model  RCTSize  Removable  ReadOnly
+    { "RX50",  800,      0x25658032, 7,     0,       true,      false },
+    { "RX33",  2400,     0x25658021, 10,    0,       true,      false },
+    { "RD51",  21600,    0x25644033, 6,     36,      false,     false },
+    { "RD31",  41560,    0x2564401f, 12,    3,       false,     false },
+    { "RC25",  50902,    0x20643019, 2,     0,       true,      false },
+    { "RC25F", 50902,    0x20643319, 3,     0,       true,      false },
+    { "RD52",  60480,    0x25644034, 8,     4,       false,     false },
+    { "RD32",  83236,    0x25641047, 15,    4,       false,     false },
+    { "RD53",  138672,   0x25644035, 9,     5,       false,     false },
+    { "RA80",  237212,   0x20643019, 1,     0,       false,     false },
+    { "RD54",  311200,   0x25644036, 13,    7,       false,     false },
+    { "RA60",  400176,   0x22a4103c, 4,     1008,    true,      false },
+    { "RA70",  547041,   0x20643019, 18,    198,     false,     false },
+    { "RA81",  891072,   0x25641051, 5,     2856,    false,     false },
+    { "RA82",  1216665,  0x25641052, 11,    3420,    false,     false },
+    { "RA71",  1367310,  0x25641047, 40,    1428,    false,     false },
+    { "RA72",  1953300,  0x25641048, 37,    2040,    false,     false },
+    { "RA90",  2376153,  0x2564105a, 19,    1794,    false,     false },
+    { "RA92",  2940951,  0x2564105c, 29,    949,     false,     false },
+    { "RA73",  3920490,  0x25641049, 47,    198,     false,     false },
+    { "", 0, 0, 0, 0, false, false }
     };
 
     bool SetDriveType(const char* typeName);
     void UpdateCapacity(void); 
+    void UpdateMetadata(void);
     DriveInfo _driveInfo;
     bool _online;
-    uint64_t _unitID;
+    uint32_t _unitIDDeviceNumber;
+    uint16_t _unitIDClassModel;
     bool _useImageSize;
 
     //

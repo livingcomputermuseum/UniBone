@@ -68,7 +68,8 @@ public:
     // Returns FALSE if the ring is full.
     bool PostResponse(Message* response);
 
-    uint64_t GetControllerIdentifier(void);
+    uint32_t GetControllerIdentifier(void);
+    uint16_t GetControllerClassModel(void);
    
     uint32_t GetDriveCount(void);
     mscp_drive_c* GetDrive(uint32_t driveNumber);

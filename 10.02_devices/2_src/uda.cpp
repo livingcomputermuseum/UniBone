@@ -715,12 +715,18 @@ uda_c::PostResponse(
     return res;
 }
 
-uint64_t
+uint32_t
 uda_c::GetControllerIdentifier()
 {
     // TODO: make this not hardcoded
-    // ID 0x1234568, device class 1 (mass storage), model 2 (UDA50)
-    return 0x1234567801020000;
+    // ID 0x12345678
+    return 0x12345678;
+}
+
+uint16_t
+uda_c::GetControllerClassModel()
+{
+    return 0x0102;   // Class 1 (mass storage), model 2 (UDA50)
 }
 
 void

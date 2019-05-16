@@ -23,12 +23,7 @@ mscp_drive_c::mscp_drive_c(
     SetOffline();
 
     // Calculate the unit's ID:
-    // drive number in upper 32 bits, class/model in lower.
-    _unitID = (static_cast<uint64_t>(driveNumber + 1) << 32) | 0xffffffff;
-
-    // Initialize the RCT area
-    _rctData.reset(new uint8_t[GetBlockSize()]);
-    memset(reinterpret_cast<void *>(_rctData.get()), 0, GetBlockSize());
+    _unitIDDeviceNumber = driveNumber + 1;
 }
 
 mscp_drive_c::~mscp_drive_c()
@@ -65,12 +60,7 @@ uint32_t mscp_drive_c::GetBlockCount()
 
 uint32_t mscp_drive_c::GetRCTBlockCount()
 {
-    //
-    // We provide only a single RCT block.  Per the latest MSCP spec no RCT is required,
-    // however several operating systems appear to expect at least one block be present
-    // for volume write-protect flags.
-    //
-    return 1;
+    return _driveInfo.RCTSize * GetRCTCopies();
 }
 
 uint32_t mscp_drive_c::GetMediaID()
@@ -78,14 +68,19 @@ uint32_t mscp_drive_c::GetMediaID()
     return _driveInfo.MediaID;
 }
 
-uint64_t mscp_drive_c::GetUnitID()
+uint32_t mscp_drive_c::GetUnitIDDeviceNumber()
 {
-    return _unitID;
+    return _unitIDDeviceNumber;
+}
+
+uint16_t mscp_drive_c::GetUnitIDClassModel()
+{
+    return _unitIDClassModel;
 }
 
 uint16_t mscp_drive_c::GetRCTSize()
 {
-    return 1;
+    return _driveInfo.RCTSize;
 }
 
 uint8_t mscp_drive_c::GetRBNs()
@@ -207,6 +202,17 @@ void mscp_drive_c::UpdateCapacity()
         GetBlockCount() * GetBlockSize();
 }
 
+void mscp_drive_c::UpdateMetadata()
+{
+    _unitIDClassModel = 0x0200 | _driveInfo.Model;
+
+    // Initialize the RCT area
+    size_t rctSize = _driveInfo.RCTSize * GetBlockSize();
+    _rctData.reset(new uint8_t[rctSize]);
+    assert(_rctData != nullptr);
+    memset(reinterpret_cast<void *>(_rctData.get()), 0, rctSize);
+}
+
 bool mscp_drive_c::on_param_changed(
     parameter_c *param)
 {
@@ -253,7 +259,8 @@ bool mscp_drive_c::SetDriveType(const char* typeName)
         {
             _driveInfo = g_driveTable[index];
             type_name.value = _driveInfo.TypeName;
-            UpdateCapacity(); 
+            UpdateCapacity();
+            UpdateMetadata(); 
             return true;
         }
 
