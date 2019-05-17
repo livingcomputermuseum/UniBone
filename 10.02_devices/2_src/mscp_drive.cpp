@@ -1,5 +1,15 @@
 /*
     mscp_drive.cpp: Implementation of MSCP disks.
+  
+    This provides the logic for reads and writes to the data and RCT space
+    for a given drive, as well as configuration for different standard DEC
+    drive types.
+
+    Disk data is backed by an image file on disk.  RCT data exists only in
+    memory and is not saved -- it is provided to satisfy software that
+    expects the RCT area to exist.  Since no bad sectors will ever actually
+    exist, the RCT area has no real purpose, so it is ephemeral in this
+    implementation.
 */
 
 #include <assert.h>
@@ -23,7 +33,7 @@ mscp_drive_c::mscp_drive_c(
     SetOffline();
 
     // Calculate the unit's ID:
-    _unitIDDeviceNumber = driveNumber + 1;
+    _unitDeviceNumber = driveNumber + 1;
 }
 
 mscp_drive_c::~mscp_drive_c()
@@ -34,6 +44,11 @@ mscp_drive_c::~mscp_drive_c()
     }
 }
 
+//
+// GetBlockSize():
+//  Returns the size, in bytes, of a single block on this drive.
+//  This is either 512 or 576 bytes.
+//
 uint32_t mscp_drive_c::GetBlockSize()
 {
     //
@@ -42,6 +57,11 @@ uint32_t mscp_drive_c::GetBlockSize()
     return 512;
 }
 
+//
+// GetBlockCount():
+//  Get the size of the data space (not including RCT area) of this
+//  drive, in blocks.
+//
 uint32_t mscp_drive_c::GetBlockCount()
 {
     if (_useImageSize)
@@ -58,51 +78,95 @@ uint32_t mscp_drive_c::GetBlockCount()
     }
 }
 
+//
+// GetRCTBlockCount():
+//  Returns the total size of the RCT area in blocks.
+//
 uint32_t mscp_drive_c::GetRCTBlockCount()
 {
     return _driveInfo.RCTSize * GetRCTCopies();
 }
 
+//
+// GetMediaID():
+//  Returns the media ID specific to this drive's type.
+//
 uint32_t mscp_drive_c::GetMediaID()
 {
     return _driveInfo.MediaID;
 }
 
-uint32_t mscp_drive_c::GetUnitIDDeviceNumber()
+//
+// GetDeviceNumber():
+//  Returns the unique device number for this drive.
+//
+uint32_t mscp_drive_c::GetDeviceNumber()
 {
-    return _unitIDDeviceNumber;
+    return _unitDeviceNumber;
 }
 
-uint16_t mscp_drive_c::GetUnitIDClassModel()
+//
+// GetClassModel():
+//  Returns the class and model information for this drive.
+//
+uint16_t mscp_drive_c::GetClassModel()
 {
-    return _unitIDClassModel;
+    return _unitClassModel;
 }
 
+//
+// GetRCTSize():
+//  Returns the size of one copy of the RCT.    
+//
 uint16_t mscp_drive_c::GetRCTSize()
 {
     return _driveInfo.RCTSize;
 }
 
+//
+// GetRBNs():
+//  Returns the number of replacement blocks per track for
+//  this drive.
+//
 uint8_t mscp_drive_c::GetRBNs()
 {
     return 0;
 }
 
+//
+// GetRCTCopies():
+//  Returns the number of copies of the RCT present in the RCT
+//  area.
+//
 uint8_t mscp_drive_c::GetRCTCopies()
 {
     return 1;
 }
 
+//
+// IsAvailable():
+//  Indicates whether this drive is available (i.e. has an image
+//  assigned to it and can thus be used by the controller.)
+//
 bool mscp_drive_c::IsAvailable()
 {
     return file_is_open();
 }
 
+//
+// IsOnline():
+//  Indicates whether this drive has been placed into an Online
+//  state (for example by the ONLINE command).     
+//
 bool mscp_drive_c::IsOnline()
 {
     return _online;
 }
 
+//
+// SetOnline():
+//  Brings the drive online.
+//
 void mscp_drive_c::SetOnline()
 {
     _online = true;
@@ -115,6 +179,10 @@ void mscp_drive_c::SetOnline()
     image_filepath.readonly = true;
 }
 
+//
+// SetOffline():
+//  Takes the drive offline.
+//
 void mscp_drive_c::SetOffline()
 {
     _online = false;
@@ -196,15 +264,23 @@ uint8_t* mscp_drive_c::ReadRCTBlock(
     return buffer;
 } 
 
+//
+// UpdateCapacity():
+//  Updates the capacity parameter of the drive based on the block count and block size.
+//
 void mscp_drive_c::UpdateCapacity()
 {
     capacity.value = 
         GetBlockCount() * GetBlockSize();
 }
 
+//
+// UpdateMetadata():
+//  Updates the Unit Class / Model info and RCT area based on the selected drive type.
+//
 void mscp_drive_c::UpdateMetadata()
 {
-    _unitIDClassModel = 0x0200 | _driveInfo.Model;
+    _unitClassModel = 0x0200 | _driveInfo.Model;
 
     // Initialize the RCT area
     size_t rctSize = _driveInfo.RCTSize * GetBlockSize();
@@ -213,6 +289,10 @@ void mscp_drive_c::UpdateMetadata()
     memset(reinterpret_cast<void *>(_rctData.get()), 0, rctSize);
 }
 
+//
+// on_param_changed():
+//  Handles configuration parameter changes.
+//
 bool mscp_drive_c::on_param_changed(
     parameter_c *param)
 {
@@ -246,6 +326,14 @@ bool mscp_drive_c::on_param_changed(
    return false;
 }
 
+//
+// SetDriveType():
+//  Updates this drive's type to the specified type (i.e.
+//  RA90 or RD54).
+//  If the specified type is not found in our list of known
+//  drive types, the drive's type is not changed and false
+//  is returned.
+//
 bool mscp_drive_c::SetDriveType(const char* typeName)
 {
     //
@@ -271,17 +359,28 @@ bool mscp_drive_c::SetDriveType(const char* typeName)
     return false;
 }
 
+//
+// worker():
+//  worker method for this drive.  No work is necessary.
+//
 void mscp_drive_c::worker(void)
 {
     // Nothing to do here at the moment.
 }
 
+//
+// on_power_changed():
+//  Handle power change notifications.
+//
 void mscp_drive_c::on_power_changed(void)
 {
     // Take the drive offline due to power change
     SetOffline();
 }
 
+//
+// on_init_changed():
+//  Handle INIT signal.
 void mscp_drive_c::on_init_changed(void)
 {
     // Take the drive offline due to reset

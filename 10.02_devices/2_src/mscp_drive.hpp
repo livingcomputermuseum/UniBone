@@ -22,8 +22,8 @@ public:
     uint32_t GetBlockCount(void);
     uint32_t GetRCTBlockCount(void);
     uint32_t GetMediaID(void);
-    uint32_t GetUnitIDDeviceNumber(void);
-    uint16_t GetUnitIDClassModel(void);
+    uint32_t GetDeviceNumber(void);
+    uint16_t GetClassModel(void);
     uint16_t GetRCTSize(void);
     uint8_t GetRBNs(void);
     uint8_t GetRCTCopies(void);
@@ -109,16 +109,16 @@ private:
     void UpdateMetadata(void);
     DriveInfo _driveInfo;
     bool _online;
-    uint32_t _unitIDDeviceNumber;
-    uint16_t _unitIDClassModel;
+    uint32_t _unitDeviceNumber;
+    uint16_t _unitClassModel;
     bool _useImageSize;
 
     //
     // RCT ("Replacement and Caching Table") data:
-    // At this time we provide the minimum required by the MSCP spec,
-    // a single block used to provide the volume write-protect flags.
-    // We do not require additional RCT space because the underlying media
-    // (an image file) doesn't have bad sectors.       
+    // The size of this area varies depending on the drive.  This is
+    // provided only to appease software that expects the RCT to exist --
+    // since there will never be any bad sectors in our disk images
+    // there is no other purpose.
     // This data is not persisted to disk as it is unnecessary.
     //
     unique_ptr<uint8_t> _rctData;

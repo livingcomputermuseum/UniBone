@@ -1,7 +1,6 @@
 /*
     mscp_server.cpp: Implementation a simple MSCP server.
 
-
     This provides an implementation of the Minimal MSCP subset outlined
     in AA-L619A-TK (Chapter 6).  It takes a few liberties and errs on 
     the side of implementation simplicity.
@@ -18,7 +17,7 @@
          there's no good reason to make it more complex:  real MSCP
          controllers (like the original UDA50) would resequence commands
          to allow optimal throughput across multiple units, etc.  On the
-         unibone, the underlying storage and the execution speed of the
+         Unibone, the underlying storage and the execution speed of the
          processor is orders of magnitude faster, so even a brute-force
          braindead implementation like this can saturate the Unibus.
 
@@ -44,16 +43,17 @@ using namespace std;
 #include "mscp_server.hpp"
 #include "uda.hpp"
 
+//
+// polling_worker():
+//  Runs the main MSCP polling thread.
+//
 void* polling_worker(
     void *context)
 {
     mscp_server* server = reinterpret_cast<mscp_server*>(context);
-
     server->Poll();
-
     return nullptr;
 }
-
 
 mscp_server::mscp_server(
     uda_c *port) :
@@ -66,7 +66,7 @@ mscp_server::mscp_server(
         polling_mutex(PTHREAD_MUTEX_INITIALIZER),
         _credits(INIT_CREDITS) 
 {
-    // Alias the port pointer.  We do not own the port, merely reference it.
+    // Alias the port pointer.  We do not own the port, we merely reference it.
     _port = port;
 
     StartPollingThread();
@@ -78,6 +78,10 @@ mscp_server::~mscp_server()
     AbortPollingThread();
 }
 
+//
+// StartPollingThread():
+//  Initializes the MSCP polling thread and starts it running.
+// 
 void
 mscp_server::StartPollingThread(void)
 {
@@ -105,6 +109,10 @@ mscp_server::StartPollingThread(void)
     DEBUG("Polling thread created.");
 }
 
+//
+// AbortPollingThread():
+//  Stops the MSCP polling thread.
+//
 void
 mscp_server::AbortPollingThread(void)
 {
@@ -126,6 +134,14 @@ mscp_server::AbortPollingThread(void)
     DEBUG("Polling thread aborted.");  
 }
 
+//
+// Poll():
+//  The MSCP polling thread.  
+//  This thread waits to be awoken, then pulls messages from the MSCP command
+//  ring and executes them.  When no work is left to be done, it goes back to
+//  sleep.
+//  This is awoken by a write to the UDA IP register.
+//
 void
 mscp_server::Poll(void)
 {
@@ -176,8 +192,7 @@ mscp_server::Poll(void)
         } 
 
         //
-        // Pull commands from the queue until it is empty, at which
-        // point we sleep until awoken again.
+        // Pull commands from the queue until it is empty or we're told to quit.
         //
         while(!messages.empty() && !_abort_polling && _pollState != PollingState::InitRestart)
         {
@@ -210,7 +225,7 @@ mscp_server::Poll(void)
             switch (header->Word3.Command.Opcode)
             {
                 case Opcodes::ABORT:
-                    cmdStatus = Abort(message);
+                    cmdStatus = Abort();
                     break;
 
                 case Opcodes::ACCESS:
@@ -218,7 +233,7 @@ mscp_server::Poll(void)
                     break;
 
                 case Opcodes::AVAILABLE:
-                    cmdStatus = Available(message, header->UnitNumber, modifiers);
+                    cmdStatus = Available(header->UnitNumber, modifiers);
                     break;
 
                 case Opcodes::COMPARE_HOST_DATA:
@@ -226,7 +241,7 @@ mscp_server::Poll(void)
                     break;
 
                 case Opcodes::DETERMINE_ACCESS_PATHS:
-                    cmdStatus = DetermineAccessPaths(message, header->UnitNumber);
+                    cmdStatus = DetermineAccessPaths(header->UnitNumber);
                     break;
 
                 case Opcodes::ERASE:
@@ -295,13 +310,10 @@ mscp_server::Poll(void)
                 header->Word3.End.Endcode & Endcodes::END)
             {
                 //
-                // We steal the hack from simh:
+                // We steal the credits hack from simh:
                 // The controller gives all of its credits to the host,
                 // thereafter it supplies one credit for every response
                 // packet sent.
-                //
-                // Max 14 credits, also C++ is flaming garbage, thanks for replacing "min"
-                // with something so incredibly annoying to use.
                 // 
                 uint8_t grantedCredits = min(_credits, static_cast<uint8_t>(MAX_CREDITS));
                 _credits -= grantedCredits;
@@ -315,6 +327,7 @@ mscp_server::Poll(void)
 
             //
             // Post the response to the port's response ring.
+            // If everything is working properly, there should always be room.
             //
             if(!_port->PostResponse(message.get()))
             {
@@ -326,6 +339,11 @@ mscp_server::Poll(void)
             //
         }
 
+        //
+        // Go back to sleep.  If a UDA reset is pending, we need to signal
+        // the Reset() call so it knows we've completed our poll and are
+        // returning to sleep (i.e. the polling thread is now reset.)
+        //
         pthread_mutex_lock(&polling_mutex); 
         if (_pollState == PollingState::InitRestart)
         {
@@ -349,9 +367,12 @@ mscp_server::Poll(void)
     DEBUG("MSCP Polling thread exiting."); 
 }
 
+//
+// The following are all implementations of the MSCP commands we support.
+//
+ 
 uint32_t
-mscp_server::Abort(
-    shared_ptr<Message> message)
+mscp_server::Abort()
 {
     INFO("MSCP ABORT");
 
@@ -367,18 +388,16 @@ mscp_server::Abort(
     return STATUS(Status::SUCCESS, 0, 0);
 }
 
-
 uint32_t
 mscp_server::Available(
-    shared_ptr<Message> message,
     uint16_t unitNumber,
     uint16_t modifiers)
 {
+    UNUSED(modifiers);
+
     // Message has no message-specific data.
-    // We don't do much with this now...
     // Just set the specified drive as Available if appropriate.
     // We do nothing with the spin-down modifier.
-
     DEBUG("MSCP AVAILABLE");
 
     mscp_drive_c* drive = GetDrive(unitNumber);
@@ -423,7 +442,6 @@ mscp_server::CompareHostData(
 
 uint32_t
 mscp_server::DetermineAccessPaths(
-    shared_ptr<Message> message,
     uint16_t unitNumber)
 {
     DEBUG("MSCP DETERMINE ACCESS PATHS drive %d", unitNumber);
@@ -432,7 +450,16 @@ mscp_server::DetermineAccessPaths(
     //  if the unit is incapable of being connected to more than one
     //  controller." That's us!
 
-    return STATUS(Status::SUCCESS, 0, 0);
+    mscp_drive_c* drive = GetDrive(unitNumber); 
+    if (nullptr == drive ||
+        !drive->IsAvailable())
+    {
+        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
+    }
+    else
+    {
+        return STATUS(Status::SUCCESS, 0, 0);
+    }
 }
 
 uint32_t
@@ -465,7 +492,6 @@ mscp_server::GetCommandStatus(
     message->MessageLength = sizeof(GetCommandStatusResponseParameters)
         + HEADER_SIZE;
 
-    
     GetCommandStatusResponseParameters* params = 
         reinterpret_cast<GetCommandStatusResponseParameters*>(
             GetParameterPointer(message));
@@ -513,7 +539,6 @@ mscp_server::GetUnitStatus(
     message->MessageLength = sizeof(GetUnitStatusResponseParameters) +
         HEADER_SIZE;
 
-
     ControlMessageHeader* header =
         reinterpret_cast<ControlMessageHeader*>(message->Message);
 
@@ -551,8 +576,8 @@ mscp_server::GetUnitStatus(
     params->Reserved2 = 0;
     params->UnitFlags = 0;  // TODO: 0 for now, which is sane.
     params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
-    params->UnitIdDeviceNumber = drive->GetUnitIDDeviceNumber();      
-    params->UnitIdClassModel = drive->GetUnitIDClassModel();
+    params->UnitIdDeviceNumber = drive->GetDeviceNumber();      
+    params->UnitIdClassModel = drive->GetClassModel();
     params->UnitIdUnused = 0;
     params->MediaTypeIdentifier = drive->GetMediaID(); 
     params->ShadowUnit = unitNumber;   // Always equal to unit number
@@ -618,61 +643,9 @@ mscp_server::Online(
     // host-settable flags we can't support.
     //
 
-    // TODO: "The ONLINE command performs a SET UNIT CHARACTERISTICS
+    // "The ONLINE command performs a SET UNIT CHARACTERISTICS
     // operation after bringing a unit 'Unit-Online'"
-    // This code could be refactored w/th S_U_C handler.
-    //
-    #pragma pack(push,1)
-    struct OnlineResponseParameters
-    {
-        uint16_t UnitFlags;
-        uint16_t MultiUnitCode;
-        uint32_t Reserved0;
-        uint32_t UnitIdDeviceNumber;
-        uint16_t UnitIdUnused;
-        uint16_t UnitIdClassModel;
-        uint32_t MediaTypeIdentifier;
-        uint32_t Reserved1;
-        uint32_t UnitSize;
-        uint32_t VolumeSerialNumber;
-    };
-    #pragma pack(pop)
-
-    DEBUG("MSCP ONLINE drive %d", unitNumber);
-
-    // Adjust message length for response
-    message->MessageLength = sizeof(OnlineResponseParameters) +
-        HEADER_SIZE;
-
-    mscp_drive_c* drive = GetDrive(unitNumber);
-
-    if (nullptr == drive ||
-        !drive->IsAvailable())
-    {
-        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
-    }
-  
-    bool alreadyOnline = drive->IsOnline();
- 
-    drive->SetOnline();
-
-    OnlineResponseParameters* params =
-        reinterpret_cast<OnlineResponseParameters*>(
-            GetParameterPointer(message));
-
-    params->UnitFlags = 0;  // TODO: 0 for now, which is sane.
-    params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
-    params->UnitIdDeviceNumber = drive->GetUnitIDDeviceNumber();
-    params->UnitIdClassModel = drive->GetUnitIDClassModel();
-    params->UnitIdUnused = 0;
-    params->MediaTypeIdentifier = drive->GetMediaID();
-    params->UnitSize = drive->GetBlockCount();
-    params->VolumeSerialNumber = 1;  // We report no serial
-    params->Reserved0 = 0;
-    params->Reserved1 = 0;
-
-    return STATUS(Status::SUCCESS | 
-        (alreadyOnline ? SuccessSubcodes::ALREADY_ONLINE : SuccessSubcodes::NORMAL), 0, 0); 
+    return SetUnitCharacteristicsInternal(message, unitNumber, modifiers, true /*bring online*/);
 }
 
 uint32_t
@@ -786,50 +759,7 @@ mscp_server::SetUnitCharacteristics(
 
     DEBUG("MSCP SET UNIT CHARACTERISTICS drive %d", unitNumber);
 
-    // TODO: mostly same as Online command: should share logic.
-    #pragma pack(push,1)
-    struct SetUnitCharacteristicsResponseParameters
-    {
-        uint16_t UnitFlags;
-        uint16_t MultiUnitCode;
-        uint32_t Reserved0;
-        uint32_t UnitIdDeviceNumber;
-        uint16_t UnitIdUnused;
-        uint16_t UnitIdClassModel;
-        uint32_t MediaTypeIdentifier;
-        uint32_t Reserved1;
-        uint16_t ShadowUnit;
-        uint32_t UnitSize;
-        uint32_t VolumeSerialNumber;
-    };
-    #pragma pack(pop)
-
-    // Adjust message length for response
-    message->MessageLength = sizeof(SetUnitCharacteristicsResponseParameters) +
-        HEADER_SIZE;
-
-    mscp_drive_c* drive = GetDrive(unitNumber);
-    // Check unit
-    if (nullptr == drive ||
-        !drive->IsAvailable())
-    {
-        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
-    }
-
-    SetUnitCharacteristicsResponseParameters* params =
-        reinterpret_cast<SetUnitCharacteristicsResponseParameters*>(
-            GetParameterPointer(message));
-
-    params->UnitFlags = 0;  // TODO: 0 for now, which is sane.
-    params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
-    params->UnitIdDeviceNumber = drive->GetUnitIDDeviceNumber();
-    params->UnitIdClassModel = drive->GetUnitIDClassModel();
-    params->UnitIdUnused = 0;
-    params->MediaTypeIdentifier = drive->GetMediaID();
-    params->UnitSize = drive->GetBlockCount();
-    params->VolumeSerialNumber = 0;  // We report no serial
-
-    return STATUS(Status::SUCCESS, 0, 0); 
+    return SetUnitCharacteristicsInternal(message, unitNumber, modifiers, false);
 }
 
 
@@ -859,6 +789,80 @@ mscp_server::Write(
         modifiers);
 }
 
+//
+// SetUnitCharacteristicsInternal():
+//  Logic common to both ONLINE and SET UNIT CHARACTERISTICS commands.
+//
+uint32_t
+mscp_server::SetUnitCharacteristicsInternal(
+    shared_ptr<Message> message,
+    uint16_t unitNumber,
+    uint16_t modifiers,
+    bool bringOnline)
+{
+    UNUSED(modifiers);
+    // TODO: handle Set Write Protect modifier
+
+    #pragma pack(push,1)
+    struct SetUnitCharacteristicsResponseParameters
+    {
+        uint16_t UnitFlags;
+        uint16_t MultiUnitCode;
+        uint32_t Reserved0;
+        uint32_t UnitIdDeviceNumber;
+        uint16_t UnitIdUnused;
+        uint16_t UnitIdClassModel;
+        uint32_t MediaTypeIdentifier;
+        uint32_t Reserved1;
+        uint32_t UnitSize;
+        uint32_t VolumeSerialNumber;
+    };
+    #pragma pack(pop)
+
+    // Adjust message length for response
+    message->MessageLength = sizeof(SetUnitCharacteristicsResponseParameters) +
+        HEADER_SIZE;
+
+    mscp_drive_c* drive = GetDrive(unitNumber);
+    // Check unit
+    if (nullptr == drive ||
+        !drive->IsAvailable())
+    {
+        return STATUS(Status::UNIT_OFFLINE, UnitOfflineSubcodes::UNIT_UNKNOWN, 0);
+    }
+
+    SetUnitCharacteristicsResponseParameters* params =
+        reinterpret_cast<SetUnitCharacteristicsResponseParameters*>(
+            GetParameterPointer(message));
+
+    params->UnitFlags = 0;  // TODO: 0 for now, which is sane.
+    params->MultiUnitCode = 0; // Controller dependent, we don't support multi-unit drives.
+    params->UnitIdDeviceNumber = drive->GetDeviceNumber();
+    params->UnitIdClassModel = drive->GetClassModel();
+    params->UnitIdUnused = 0;
+    params->MediaTypeIdentifier = drive->GetMediaID();
+    params->UnitSize = drive->GetBlockCount();
+    params->VolumeSerialNumber = 0;
+    params->Reserved0 = 0;
+    params->Reserved1 = 0;
+
+    if (bringOnline)
+    {
+        bool alreadyOnline = drive->IsOnline();
+        drive->SetOnline();
+        return STATUS(Status::SUCCESS | 
+            (alreadyOnline ? SuccessSubcodes::ALREADY_ONLINE : SuccessSubcodes::NORMAL), 0, 0); 
+    }
+    else
+    {
+        return STATUS(Status::SUCCESS, 0, 0);
+    }
+}
+
+//
+// DoDiskTransfer():
+//  Common transfer logic for READ, WRITE, ERASE, COMPARE HOST DATA and ACCCESS commands.
+//
 uint32_t
 mscp_server::DoDiskTransfer(
     uint16_t operation,
@@ -1042,13 +1046,27 @@ mscp_server::DoDiskTransfer(
     return STATUS(Status::SUCCESS, 0, 0);
 }
 
+//
+// GetParameterPointer():
+//  Returns a pointer to the Parameter text in the given Message.
+//
 uint8_t*
 mscp_server::GetParameterPointer(
     shared_ptr<Message> message)
 {
+    // We silence a strict aliasing warning here; this is safe (if perhaps not recommended
+    // the general case.)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
     return reinterpret_cast<ControlMessageHeader*>(message->Message)->Parameters;
+#pragma GCC diagnostic pop
 }
 
+//
+// GetDrive():
+//  Returns the mscp_drive_c object for the specified unit number,
+//  or nullptr if no such object exists.
+//
 mscp_drive_c*
 mscp_server::GetDrive(
     uint32_t unitNumber)
@@ -1062,6 +1080,12 @@ mscp_server::GetDrive(
     return drive;
 }
 
+//
+// Reset():
+//  Resets the MSCP server:
+//   - Waits for the polling thread to finish its current work
+//   - Releases all drives into the Available state
+//
 void 
 mscp_server::Reset(void)
 {
@@ -1084,13 +1108,16 @@ mscp_server::Reset(void)
     _credits = INIT_CREDITS;
 
     // Release all drives
-    for (int i=0;i<_port->GetDriveCount();i++)
+    for (uint32_t i=0;i<_port->GetDriveCount();i++)
     {
         GetDrive(i)->SetOffline();
     }
 }
 
-
+//
+// InitPolling():
+//  Wakes the polling thread.
+//
 void 
 mscp_server::InitPolling(void)
 {
@@ -1098,16 +1125,9 @@ mscp_server::InitPolling(void)
     // Wake the polling thread if not already awoken.
     //
     pthread_mutex_lock(&polling_mutex);
-    if (true) //!_continue_polling)
-    {
         DEBUG("Waking polling thread.");
         _pollState = PollingState::InitRun;
        	pthread_cond_signal(&polling_cond);
-    }
-    else
-    {
-        DEBUG("Polling already active.");
-    }
     pthread_mutex_unlock(&polling_mutex);
 }
 

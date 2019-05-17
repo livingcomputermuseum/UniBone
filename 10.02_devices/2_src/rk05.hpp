@@ -52,14 +52,10 @@ private:
 
         volatile bool _scp;          // Indicates the completion of a seek
 
-        std::string _currentFilePath; // Currently loaded disk image if any
-
         uint64_t get_disk_byte_offset(
             uint32_t cylinder,
             uint32_t surface,
             uint32_t sector);
-
-        void load_image(std::string path);
      
 public:
         Geometry get_geometry(void);
@@ -91,8 +87,8 @@ public:
 
 	rk05_c(storagecontroller_c *controller);
 
+        bool on_param_changed(parameter_c* param) override;
 	void on_power_changed(void) override;
-
 	void on_init_changed(void) override;
 
 	// background worker function

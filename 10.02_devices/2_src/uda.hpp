@@ -11,6 +11,20 @@
 #include "mscp_server.hpp"
 #include "mscp_drive.hpp"
 
+// The number of drives supported by the controller.
+// This is arbitrarily fixed at 8 but could be set to any
+// value up to 65535.
+#define DRIVE_COUNT 8
+
+// The control/microcode version info returned by SA in the fourth intialization step.
+// This indicates a UDA50 controller, which makes RSTS happy.
+#define UDA50_ID 0x4063
+
+// The maximum message length we can handle.  This is provided as a sanity check
+// to prvent parsing clearly invalid commands.
+#define MAX_MESSAGE_LENGTH 0x1000
+
+
 // TODO: this currently assumes a little-endian machine!
 #pragma pack(push,1)
 struct Message

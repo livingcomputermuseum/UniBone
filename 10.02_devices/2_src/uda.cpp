@@ -5,7 +5,12 @@
     the four-step initialization handshake, DMA transfers to and
     from the Unibus, and the command/response ring protocols.
 
-    At this time it acts as the port for an MSCP controller.  
+    While the name "UDA" is used here, this is not a strict emulation
+    of a real UDA50 -- it is a general MSCP implementation and can be
+    thought of as the equivalent of the third-party MSCP controllers
+    from Emulex, CMD, etc. that were available. 
+
+    At this time this class acts as the port for an MSCP controller.  
     It would be trivial to extend this to TMSCP at a future date.
 */
 
@@ -64,7 +69,7 @@ uda_c::uda_c() :
     //
     // Initialize drives.  We support up to eight attached drives.
     //
-    drivecount = 8;
+    drivecount = DRIVE_COUNT;
     for (uint32_t i=0; i<drivecount; i++)
     {
         mscp_drive_c *drive = new mscp_drive_c(this, i);
@@ -86,6 +91,12 @@ uda_c::~uda_c()
     storagedrives.clear();
 }
 
+//
+// Reset():
+//  Resets the UDA controller state.
+//  Resets the attached MSCP server, which may take
+//  significant time.
+//
 void uda_c::Reset(void)
 {
     DEBUG("UDA reset");
@@ -103,11 +114,20 @@ void uda_c::Reset(void)
     _purgeInterruptEnable = false;
 }
 
+//
+// GetDriveCount():
+//  Returns the number of drives that can be attached to this controller.
+//
 uint32_t uda_c::GetDriveCount(void)
 {
     return drivecount;
 }
-    
+   
+//
+// GetDrive():
+//  Returns a pointer to an mscp_drive_c object for the specified drive number.
+//  This pointer is owned by the UDA class.
+// 
 mscp_drive_c* uda_c::GetDrive(
     uint32_t driveNumber)
 {
@@ -116,6 +136,11 @@ mscp_drive_c* uda_c::GetDrive(
     return dynamic_cast<mscp_drive_c*>(storagedrives[driveNumber]);
 }
 
+//
+// StateTransition():
+//  Transitions the UDA initialization state machine to the specified step,
+//  atomically.
+//
 void uda_c::StateTransition(
     InitializationStep nextStep)
 {
@@ -126,6 +151,10 @@ void uda_c::StateTransition(
     pthread_mutex_unlock(&on_after_register_access_mutex);
 }
 
+//
+// worker():
+//  Implements the initialization state machine.
+//
 void uda_c::worker(void)
 {
     worker_init_realtime_priority(rt_device); 
@@ -162,7 +191,6 @@ void uda_c::worker(void)
                  break;                
 
             case InitializationStep::Step1:
-                 // Wait 100uS, set SA.
                  timeout.wait_us(500);  
 
                  DEBUG("Transition to Init state S1.");
@@ -176,9 +204,10 @@ void uda_c::worker(void)
                  break;
 
             case InitializationStep::Step2:
-                 DEBUG("Transition to Init state S2.");
                  timeout.wait_us(500); 
-                 // update the SA read value for step 2:
+                 DEBUG("Transition to Init state S2.");
+                
+                 // Update the SA read value for step 2:
                  // S2 is set, unibus port type (0),  SA bits 15-8 written
                  // by the host in step 1.
                  update_SA(0x1000 | ((_step1Value >> 8) & 0xff));
@@ -186,7 +215,6 @@ void uda_c::worker(void)
                  break;
 
             case InitializationStep::Step3:
-                 // Wait 100uS, set SA.
                  timeout.wait_us(500); 
 
                  DEBUG("Transition to Init state S3.");
@@ -233,7 +261,7 @@ void uda_c::worker(void)
                  DEBUG("Transition to Init state S4, comm area initialized.");
                  // Update the SA read value for step 4:
                  // Bits 7-0 indicating our control microcode version.
-                 update_SA(0x4063);  // UDA50 ID, makes RSTS happy
+                 update_SA(UDA50_ID);  // UDA50 ID, makes RSTS happy
                  Interrupt();
                  break;
 
@@ -245,6 +273,10 @@ void uda_c::worker(void)
 }
 
 
+//
+// on_after_register_access():
+//  Handles register accesses for the IP and SA registers.
+//
 void
 uda_c::on_after_register_access(
     unibusdevice_register_t *device_reg,
@@ -253,7 +285,7 @@ uda_c::on_after_register_access(
 {
     switch (device_reg->index)
     {
-        case 0:  // IP
+        case 0:  // IP - read / write
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
                 // "When written with any value, it causes a hard initialization
@@ -366,7 +398,7 @@ uda_c::on_after_register_access(
                     // |    reserved   |    burst  |L|G| 
                     // |               |           |F|O| 
                     // +---------------+-----------+-+-+ 
-                    // burst is one less than the max. number of longwords
+                    // Burst is one less than the max. number of longwords
                     // the host is willing to allow per DMA transfer.
                     // If zero, the port uses its default burst count.
                     //
@@ -418,6 +450,10 @@ uda_c::on_after_register_access(
     }
 }
 
+//
+// update_SA():
+//  Updates the SA register value exposed by the Unibone.
+//
 void
 uda_c::update_SA(uint16_t value)
 {
@@ -427,6 +463,16 @@ uda_c::update_SA(uint16_t value)
         "update_SA"); 
 } 
 
+//
+// GetNextCommand():
+//  Attempts to pull the next command from the command ring, if any
+//  are available.
+//  If successful, returns a pointer to a Message struct; this pointer
+//  is owned by the caller.
+//  On failure, nullptr is returned.  This indicates that the ring is
+//  empty or that an attempt to access non-existent memory occurred.
+//  TODO: Need to handle NXM cases properly. 
+//
 Message*
 uda_c::GetNextCommand(void)
 {
@@ -440,14 +486,12 @@ uda_c::GetNextCommand(void)
         _commandRingPointer, 
         descriptorAddress);
 
-
     std::unique_ptr<Descriptor> cmdDescriptor(
         reinterpret_cast<Descriptor*>(
             DMARead(
                 descriptorAddress,
                 sizeof(Descriptor),
                 sizeof(Descriptor))));
-
 
     // TODO: if NULL is returned after retry assume a bus error and handle it appropriately.
     assert(cmdDescriptor != nullptr);
@@ -474,10 +518,8 @@ uda_c::GetNextCommand(void)
                 messageAddress - 4,
                 success);
         
-        //
-        // TODO: sanity check message length (what is the max length we
-        // can expect to see?)
-        //
+        assert(messageLength > 0 && messageLength < MAX_MESSAGE_LENGTH);
+        
         std::unique_ptr<Message> cmdMessage(
             reinterpret_cast<Message*>(
                 DMARead(
@@ -547,13 +589,7 @@ uda_c::GetNextCommand(void)
             //
             // Set ring base - 4 to non-zero to indicate a transition.
             //
-            DMAWriteWord(
-                _ringBase - 4,
-                0x1);
-
-            //
-            // Raise the interrupt
-            //
+            DMAWriteWord(_ringBase - 4, 0x1);
             Interrupt();
         }
 
@@ -566,6 +602,12 @@ uda_c::GetNextCommand(void)
     return nullptr;
 }
 
+//
+// PostResponse():
+//  Posts the provided Message to the response ring.
+//  Returns true on success, false otherwise.
+//  TODO: Need to handle NXM, as above.
+//
 bool
 uda_c::PostResponse(
     Message* response
@@ -598,10 +640,21 @@ uda_c::PostResponse(
             (cmdDescriptor->Word1.Fields.EnvelopeHigh << 16);
 
         //
-        // Read the buffer length the host has allocated for this response;
-        // if it is shorter than the buffer we're writing then we will need to
-        // split the response into multiple responses.
-        //        
+        // Read the buffer length the host has allocated for this response.
+        //
+        // TODO:
+        // If it is shorter than the buffer we're writing then we will need to
+        // split the response into multiple responses.  I have never seen this happen,
+        // however and I'm curious if the documentation (AA-L621A-TK) is simply incorrect:
+        // "Note that if a controller's responses are less than or equal to 60 bytes, 
+        //  then the controller need not check the size of the response slot."
+        // All of the MSCP response messages are shorter than 60 bytes, so this is always
+        // the case.  I'll also note that the spec states "The minimum acceptable size
+        // is 60 bytes of message text" for the response buffer set up by the host and this
+        // is *definitely* not followed by host drivers.
+        //
+        // The doc is also not exactly clear what a fragmented set of responses looks like...
+        // 
         // Message length is at messageAddress - 4 -- this is the size of the command
         // not including the two header words.
         //
@@ -613,33 +666,35 @@ uda_c::PostResponse(
 
         DEBUG("response address o%o length o%o", messageAddress, response->MessageLength);
 
-        if (reinterpret_cast<uint16_t*>(response)[0] == 0)
+        assert(reinterpret_cast<uint16_t*>(response)[0] > 0);
+
+        if (messageLength == 0)
+        { 
+            // A lot of bootstraps appear to set up response buffers of length 0.
+            // We just log the behavior.
+            DEBUG("Host response buffer size is zero.");
+        }
+        else if (messageLength < response->MessageLength)
         {
-            ERROR("Writing zero length response!");
+            //
+            // If this happens it's likely fatal since we're not fragmenting responses (see the big comment
+            // block above).  So eat flaming death.     
+            //
+            FATAL("Response buffer 0x%x > host buffer length 0x%x", response->MessageLength, messageLength);
         }
 
-        if (messageLength < response->MessageLength)
-        {
-            // TODO: A lot of bootstraps appear to set up response buffers of length 0...
-            ERROR("Response buffer %x > message length %x", response->MessageLength, messageLength);
-        }
-        // else
-        {
-            //
-            // This will fit; simply copy the response message over the top
-            // of the buffer allocated on the host -- this updates the header fields
-            // as necessary and provides the actual response data to the host.
-            //
-            DMAWrite(
-                messageAddress - 4,
-                response->MessageLength + 4,
-                reinterpret_cast<uint8_t*>(response));
-        }
+        //
+        // This will fit; simply copy the response message over the top
+        // of the buffer allocated on the host -- this updates the header fields
+        // as necessary and provides the actual response data to the host.
+        //
+        DMAWrite(
+            messageAddress - 4,
+            response->MessageLength + 4,
+            reinterpret_cast<uint8_t*>(response));
 
         //
         // Check if a transition from empty to non-empty occurred, interrupt if requested.
-        //
-        // TODO: factor this code out as it's basically identical to the code in GetNextCommand.
         //
         // If the previous entry in the ring is owned by the Port then that indicates
         // that the ring was previously empty (i.e. the descriptor we're now returning
@@ -696,13 +751,7 @@ uda_c::PostResponse(
             //
             // Set ring base - 2 to non-zero to indicate a transition.
             //
-            DMAWriteWord(
-                _ringBase - 2,
-                0x1);
-
-            //
-            // Raise the interrupt
-            //
+            DMAWriteWord(_ringBase - 2, 0x1);
             Interrupt();
         }
 
@@ -715,6 +764,11 @@ uda_c::PostResponse(
     return res;
 }
 
+//
+// GetControllerIdentifier():
+//  Returns the ID used by SET CONTROLLER CHARACTERISTICS.
+//  This should be unique per controller.
+//
 uint32_t
 uda_c::GetControllerIdentifier()
 {
@@ -723,12 +777,21 @@ uda_c::GetControllerIdentifier()
     return 0x12345678;
 }
 
+//
+// GetControllerClassModel():
+//  Returns the Class and Model information used by SET CONTROLLER CHARACTERISTICS.
+//
 uint16_t
 uda_c::GetControllerClassModel()
 {
     return 0x0102;   // Class 1 (mass storage), model 2 (UDA50)
 }
 
+//
+// Interrupt():
+//  Invokes a Unibus interrupt if interrupts are enabled and the interrupt
+//  vector is non-zero.
+//
 void
 uda_c::Interrupt(void)
 {
@@ -738,6 +801,10 @@ uda_c::Interrupt(void)
     }
 }
 
+//
+// on_power_changed():
+//  Resets the controller and all attached drives.
+//
 void
 uda_c::on_power_changed(void)
 {
@@ -750,6 +817,10 @@ uda_c::on_power_changed(void)
     }
 }
 
+//
+// on_init_changed():
+//  Resets the controller and all attached drives.
+//
 void
 uda_c::on_init_changed(void)
 {
@@ -762,21 +833,33 @@ uda_c::on_init_changed(void)
     storagecontroller_c::on_init_changed();
 }
 
+//
+// on_drive_status_changed():
+//  A no-op.  The controller doesn't require any drive notifications.
+//
 void
 uda_c::on_drive_status_changed(storagedrive_c *drive)
 {
-    
+    UNUSED(drive);    
 }
 
+//
+// GetCommandDescriptorAddress():
+//  Returns the address of the given command descriptor in the command ring.
+//
 uint32_t 
 uda_c::GetCommandDescriptorAddress(
     size_t index
 )
 {
-    return  _ringBase + _responseRingLength * sizeof(Descriptor) +
+    return _ringBase + _responseRingLength * sizeof(Descriptor) +
             index * sizeof(Descriptor);
 }
 
+//
+// GetResponseDescriptorAddress():
+//  Returns the address of the given response descriptor in the response ring.
+//
 uint32_t
 uda_c::GetResponseDescriptorAddress(
     size_t index
@@ -785,10 +868,11 @@ uda_c::GetResponseDescriptorAddress(
     return  _ringBase + index * sizeof(Descriptor);
 }
 
-/* 
-   Write a single word to Unibus memory.  Returns true 
-   on success; if false is returned this is due to an NXM condition.
-*/
+//
+// DMAWriteWord():
+//  Writes a single word to Unibus memory.  Returns true 
+//  on success; if false is returned this is due to an NXM condition.
+//
 bool
 uda_c::DMAWriteWord(
     uint32_t address,
@@ -800,10 +884,11 @@ uda_c::DMAWriteWord(
         reinterpret_cast<uint8_t*>(&word));
 }
 
-/*
-   Read a single word from Unibus memory.  Returns the word read on success.
-   the success field indicates the success or failure of the read.
-*/
+//
+// DMAReadWord():
+//  Read a single word from Unibus memory.  Returns the word read on success.
+//  the success field indicates the success or failure of the read.
+//
 uint16_t
 uda_c::DMAReadWord(
     uint32_t address,
@@ -829,10 +914,13 @@ uda_c::DMAReadWord(
 }
 
 
-/*
-   Write data from buffer to Unibus memory.  Returns true
-   on success; if false is returned this is due to an NXM condition.
-*/
+//
+// DMAWrite():
+//  Write data from the provided buffer to Unibus memory.  Returns true
+//  on success; if false is returned this is due to an NXM condition.
+//  The address specified in 'address' must be word-aligned and the
+//  length must be even.
+//
 bool
 uda_c::DMAWrite(
     uint32_t address,
@@ -849,11 +937,14 @@ uda_c::DMAWrite(
             lengthInBytes >> 1);
 }
 
-/*
-   Read data from Unibus memory into the returned buffer.
-   Buffer returned is nullptr if memory could not be read.
-   Caller is responsible for freeing the buffer when done.
-*/
+//
+// DMARead():
+// Read data from Unibus memory into the returned buffer.
+// Buffer returned is nullptr if memory could not be read.
+// Caller is responsible for freeing the buffer when done.
+// The address specified in 'address' must be word-aligned
+// and the length must be even.
+//
 uint8_t*
 uda_c::DMARead(
     uint32_t address,
