@@ -1,5 +1,8 @@
 /*
-    mscp_server.cpp: Implementation a simple MSCP server.
+    mscp_server.cpp: Implementation of a simple MSCP server.
+
+    Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
+    Contributed under the BSD 2-clause license.
 
     This provides an implementation of the Minimal MSCP subset outlined
     in AA-L619A-TK (Chapter 6).  It takes a few liberties and errs on 
@@ -592,16 +595,10 @@ mscp_server::GetUnitStatus(
     // Since our underlying storage is an image file on flash memory, we don't need to be concerned
     // about seek times, so the below is appropriate:
     //
-    params->TrackSize = 1;  // one block per track, per aa-l619a-tk.
-    params->GroupSize = 1;  // one cylinder per group
-    params->CylinderSize = 1; // one sector per cylinder
+    params->TrackSize = 1;  
+    params->GroupSize = 1;  
+    params->CylinderSize = 1; 
 
-    //
-    // Since we do no bad block replacement (no bad blocks possible in a disk image file)
-    // the RCT size is one block as required for the volume write protect information.
-    // There are no replacement blocks, and no duplicate copies of
-    // the RCT are present.
-    //
     params->RCTSize = drive->GetRCTSize();
     params->RBNs = drive->GetRBNs();
     params->Copies = drive->GetRCTCopies();

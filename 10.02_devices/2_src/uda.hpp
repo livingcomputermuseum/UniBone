@@ -1,5 +1,8 @@
 /*
-   uda.hpp: MSCP controller port (UDA50)
+    uda.hpp: MSCP controller port (UDA50)
+
+    Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
+    Contributed under the BSD 2-clause license.
 */
 
 #pragma once

@@ -1,6 +1,9 @@
 /*
     uda.cpp: Implementation of the MSCP port (unibus interface).
 
+    Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
+    Contributed under the BSD 2-clause license.
+
     This provides logic for the UDA50's SA and IP registers, 
     the four-step initialization handshake, DMA transfers to and
     from the Unibus, and the command/response ring protocols.

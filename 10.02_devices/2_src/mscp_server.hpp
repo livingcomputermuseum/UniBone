@@ -1,3 +1,10 @@
+/*
+    mscp_server.hpp: Implementation of a simple MSCP server.
+
+    Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
+    Contributed under the BSD 2-clause license.
+*/
+
 #pragma once
 
 #include <stdint.h>

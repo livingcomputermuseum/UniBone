@@ -1,5 +1,8 @@
 /*
     mscp_drive.cpp: Implementation of MSCP disks.
+
+    Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
+    Contributed under the BSD 2-clause license.
   
     This provides the logic for reads and writes to the data and RCT space
     for a given drive, as well as configuration for different standard DEC

@@ -1,4 +1,8 @@
-/* rk05.cpp: implementation of RK05 disk drive, attached to RK11D controller
+/* 
+    rk05.cpp: implementation of RK05 disk drive, attached to RK11D controller
+
+    Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
+    Contributed under the BSD 2-clause license.
 
 */
 
