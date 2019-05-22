@@ -682,8 +682,9 @@ uda_c::PostResponse(
             //
             // If this happens it's likely fatal since we're not fragmenting responses (see the big comment
             // block above).  So eat flaming death.     
+            // Note: the VMS bootstrap does this, so we'll just log the issue.
             //
-            FATAL("Response buffer 0x%x > host buffer length 0x%x", response->MessageLength, messageLength);
+            DEBUG("Response buffer 0x%x > host buffer length 0x%x", response->MessageLength, messageLength);
         }
 
         //
@@ -798,7 +799,7 @@ uda_c::GetControllerClassModel()
 void
 uda_c::Interrupt(void)
 {
-    if (_interruptEnable && _interruptVector != 0)
+    if ((_interruptEnable || _initStep == InitializationStep::Complete) && _interruptVector != 0)
     {
         interrupt();
     }

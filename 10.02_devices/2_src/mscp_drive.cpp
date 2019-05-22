@@ -178,8 +178,8 @@ void mscp_drive_c::SetOnline()
     // Once online, the drive's type and image cannot be changed until
     // the drive is offline.
     //
-    type_name.readonly = true;
-    image_filepath.readonly = true;
+    // type_name.readonly = true;
+    // image_filepath.readonly = true;
 }
 
 //
