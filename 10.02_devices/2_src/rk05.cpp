@@ -1,4 +1,8 @@
-/* rk05.cpp: implementation of RK05 disk drive, attached to RK11D controller
+/* 
+    rk05.cpp: implementation of RK05 disk drive, attached to RK11D controller
+
+    Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
+    Contributed under the BSD 2-clause license.
 
 */
 
@@ -26,6 +30,7 @@ rk05_c::rk05_c(storagecontroller_c *controller) :
     _dpl(false),
     _scp(false) 
 {
+	type_name.value = "RK05" ;
     log_label = "RK05"; 
     _geometry.Cylinders = 203;   // Standard RK05
     _geometry.Heads = 2;
@@ -89,6 +94,23 @@ bool rk05_c::get_search_complete(void)
     return scp;
 }
 
+bool rk05_c::on_param_changed(
+   parameter_c *param)
+{
+   if (&image_filepath == param)
+   {
+      if (file_open(image_filepath.new_value, true))
+      {
+          _dry = true;
+          controller->on_drive_status_changed(this);
+          image_filepath.value = image_filepath.new_value;
+          return true;
+      }
+   }
+
+   return false;
+}
+
 //
 // Reset / Power handlers
 //
@@ -110,15 +132,6 @@ void rk05_c::on_init_changed(void)
     if (init_asserted) 
     {
         drive_reset();
-
-        if (!file_is_open())
-        {
-            load_image(image_filepath.value);
-
-            file_open(image_filepath.value, true);
-            _dry = file_is_open();
-            controller->on_drive_status_changed(this);
-        }
     }
 }
 
@@ -228,6 +241,8 @@ void rk05_c::seek(
 
 void rk05_c::set_write_protect(bool protect)
 {
+    UNUSED(protect);
+
     // Not implemented at the moment.
     _scp = false;
 }
@@ -288,12 +303,6 @@ void rk05_c::worker(void)
                _sok = true;
                controller->on_drive_status_changed(this);
            }
-
-           // Crude: Check for disk image change; if changed we load the new image.
-           if (image_filepath.value != _currentFilePath)
-           {
-               load_image(image_filepath.value);
-           } 
        }
     }
 }
@@ -307,12 +316,4 @@ uint64_t rk05_c::get_disk_byte_offset(
         ((cylinder * _geometry.Heads * _geometry.Sectors) + 
          (surface * _geometry.Sectors) + 
           sector);
-}
-
-void rk05_c::load_image(std::string path)
-{
-    file_open(image_filepath.value, true);
-    _dry = file_is_open();
-    controller->on_drive_status_changed(this);
-    _currentFilePath = path;
 }

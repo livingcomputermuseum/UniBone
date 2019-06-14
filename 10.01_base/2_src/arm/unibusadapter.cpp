@@ -50,6 +50,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <assert.h>
+#include <queue>
 
 // TEST
 //#include <unistd.h> // sleep()
@@ -66,11 +67,59 @@ using namespace std;
 #include "iopageregister.h"
 #include "unibusadapter.hpp"
 
+dma_request_c::dma_request_c(
+	uint8_t unibus_control,
+	uint32_t unibus_addr,
+	uint16_t* buffer,
+	uint32_t wordcount) :
+		_unibus_control(unibus_control),
+		_unibus_start_addr(unibus_addr),
+                _unibus_end_addr(0),
+		_buffer(buffer),
+		_wordcount(wordcount),
+		_isComplete(false),
+		_success(false)
+{
+
+}
+
+dma_request_c::~dma_request_c()
+{
+
+}
+
+irq_request_c::irq_request_c(
+	unsigned level,
+	unsigned vector) :
+		_level(level),
+		_vector(vector),
+		_isComplete(false)
+{
+
+}
+
+irq_request_c::~irq_request_c()
+{
+
+}
+
+void* bus_worker(
+	void *context)
+{
+	unibusadapter_c* bus = reinterpret_cast<unibusadapter_c*>(context);
+        bus->dma_worker();
+	return nullptr;
+}
+
 unibusadapter_c *unibusadapter; // another Singleton
 // is registered in device_c.list<devices> ... order of static constructor calls ???
 
 unibusadapter_c::unibusadapter_c() :
-		device_c() {
+		device_c(),
+		_busWakeup_cond(PTHREAD_COND_INITIALIZER),
+		_requestFinished_cond(PTHREAD_COND_INITIALIZER),
+                _busWorker_mutex(PTHREAD_MUTEX_INITIALIZER)
+    {
 	unsigned i;
 	log_label = "UNAPT";
 
@@ -82,14 +131,33 @@ unibusadapter_c::unibusadapter_c() :
 	line_INIT = false;
 	line_DCLO = false;
 
+	//
+	// Start bus worker thread
+	//
+	pthread_attr_t attribs;
+	pthread_attr_init(&attribs);
+
+	int status = pthread_create(
+		&_busWorker_pthread,
+		&attribs,
+		&bus_worker,
+		reinterpret_cast<void*>(this));
+
+	if (status != 0)
+	{
+		FATAL("Failed to start unibus worker thread.  Status 0x%x", status);
+	}
 }
+
 
 bool unibusadapter_c::on_param_changed(parameter_c *param) {
 	UNUSED(param);
 	return true ;
 }
 
-void unibusadapter_c::on_power_changed(void) {
+void unibusadapter_c::on_power_changed(void) 
+{
+
 }
 
 void unibusadapter_c::on_init_changed(void) {
@@ -106,6 +174,10 @@ void unibusadapter_c::worker_init_event() {
 			device->init_asserted = line_INIT;
 			device->on_init_changed();
 		}
+
+
+ 	// Clear bus request queues
+        rundown_bus_requests();
 }
 
 void unibusadapter_c::worker_power_event() {
@@ -118,6 +190,9 @@ void unibusadapter_c::worker_power_event() {
 			device->power_down = line_DCLO;
 			device->on_power_changed();
 		}
+
+	// Clear bus request queues
+	rundown_bus_requests();
 }
 
 // process DATI/DATO access to active device registers
@@ -441,7 +516,9 @@ void unibusadapter_c::unregister_device(unibusdevice_c& device) {
 // false: UNIBUS DMA or INTR pending or in progress
 // true: new DMA or INTR may be started
 bool unibusadapter_c::request_DMA_active(const char *error_info) {
-	if (mailbox->arm2pru_req == ARM2PRU_DMA) {
+	if (mailbox->arm2pru_req == ARM2PRU_DMA_ARB_NONE
+			|| mailbox->arm2pru_req == ARM2PRU_DMA_ARB_CLIENT
+			|| mailbox->arm2pru_req == ARM2PRU_DMA_ARB_MASTER) {
 		if (error_info)
 			ERROR("%s: DMA requests active!", error_info);
 		return true;
@@ -463,110 +540,279 @@ bool unibusadapter_c::request_INTR_active(const char *error_info) {
 	return false;
 }
 
-// request a DMA cycle.
+// Request a DMA cycle from Arbitrator.
 // unibus_control = UNIBUS_CONTROL_DATI or _DATO
-void unibusadapter_c::request_DMA(unibusdevice_c *device, uint8_t unibus_control,
-		uint32_t unibus_addr, uint16_t *buffer, unsigned wordcount) {
-// TODO: if another DMA or INTR is active: put request in queue
-	UNUSED(device);
-	if (request_DMA_active(__func__) || request_INTR_active(__func__))
-		return;
+// unibus_end_addr = last accessed address (success or timeout) and timeout condition
+// result: false on UNIBUS timeout
+bool unibusadapter_c::request_client_DMA(
+	uint8_t unibus_control,
+	uint32_t unibus_addr, 
+	uint16_t *buffer, 
+	uint32_t wordcount,
+	uint32_t *unibus_end_addr) {
 
-	mailbox->dma.startaddr = unibus_addr;
-	mailbox->dma.control = unibus_control;
-	mailbox->dma.wordcount = wordcount;
+	//
+	// Acquire bus mutex; append new request to queue.
+	// bus worker will wake and service the request in due time.
+	//
+        dma_request_c request(
+		unibus_control,
+		unibus_addr,
+		buffer,
+		wordcount);
 
-	// save params of current transaction
-	cur_DMA_unibus_control = unibus_control;
-	cur_DMA_buffer = buffer;
-	cur_DMA_wordcount = wordcount;
+        pthread_mutex_lock(&_busWorker_mutex);
+        _dmaRequests.push(&request);
+        pthread_cond_signal(&_busWakeup_cond);
+        pthread_mutex_unlock(&_busWorker_mutex);
 
-	if (unibus_control == UNIBUS_CONTROL_DATO) {
-		// copy data into mailbox->DMA buffer
-		memcpy((void*) mailbox->dma.words, buffer, 2 * wordcount);
-	}
 	DEBUG("DMA start: %s @ %06o, len=%d", unibus->control2text(unibus_control), unibus_addr,
 			wordcount);
 
-	// start!
-	mailbox->arm2pru_req = ARM2PRU_DMA;
-	// PRU now changes state
-}
-
-void unibusadapter_c::request_INTR(unibusdevice_c *device, unsigned level, unsigned vector) {
-// TODO: if another DMA or INTR is active: put request in queue
-	UNUSED(device);
-
-	// it is not an error if the INTR  (at same level) is still pending
-	// a device may re-raise its interrupt, an interrupt may remain pending for years.
-	if (request_DMA_active(__func__))
-		return;
-	if (request_INTR_active(NULL))
-		return;
-
-	switch (level) {
-	case 4:
-		mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B4;
-		break;
-	case 5:
-		mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B5;
-		break;
-	case 6:
-		mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B6;
-		break;
-	case 7:
-		mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B7;
-		break;
-	default:
-		ERROR("Request_INTR(): Illegal priority %u, aborting", level);
-		return;
+	//
+	// Wait for request to finish.
+	//
+	pthread_mutex_lock(&_busWorker_mutex);
+	while (!request.IsComplete())
+	{
+		pthread_cond_wait(&_requestFinished_cond, &_busWorker_mutex);		
 	}
-	mailbox->intr.vector = vector;
+	pthread_mutex_unlock(&_busWorker_mutex);
 
-	// start!
-	mailbox->arm2pru_req = ARM2PRU_INTR;
-	// PRU now changes state
+	if (unibus_end_addr)
+		*unibus_end_addr = request.GetUnibusEndAddr() ;
 
+	return request.GetSuccess() ;
 }
 
-// device wants to know state of its requests
-// also checks for completion if the single current DMA or INTR.
-// to be called by device.worker()
-// result: false = not yet finished, true = complete,
-// error: return NXM status
-bool unibusadapter_c::complete_DMA(unibusdevice_c *device, uint32_t *unibus_end_addr,
-bool *error) {
-// TODO: access correct request in queue
-	UNUSED(device);
+void unibusadapter_c::dma_worker()
+{
+	//worker_init_realtime_priority(rt_device);
+	while(true)
+	{
+		dma_request_c* dmaReq = nullptr;
+                irq_request_c* irqReq = nullptr;
+ 
+		//
+		// Wait for the next request.
+		//
+		pthread_mutex_lock(&_busWorker_mutex);
+		while(_dmaRequests.empty() && _irqRequests.empty())
+		{
+			pthread_cond_wait(
+				&_busWakeup_cond,
+				&_busWorker_mutex);
+		}
 
-	// rely on RL11 to check for completion and sorting DMA/INTR requests.
-	if (request_DMA_active(NULL))
-		return false;
+		//
+		// We have a request: prioritize IRQ over DMA, dequeue from the requisite
+		// queue and get to work.
+		//
+                if (!_irqRequests.empty())
+		{
+			irqReq = _irqRequests.front();
+			_irqRequests.pop();
+		}
+		else
+		{
+                	dmaReq = _dmaRequests.front();
+			_dmaRequests.pop();
+		}
+		pthread_mutex_unlock(&_busWorker_mutex);
 
-	if (cur_DMA_unibus_control == UNIBUS_CONTROL_DATI) {
-		// data were read
-		// copy result cur_DMA_wordcount from mailbox->DMA bufuffer to cur_DMA_buffer
-		memcpy(cur_DMA_buffer, (void *) mailbox->dma.words, 2 * cur_DMA_wordcount);
+                
+		// Sanity check: Should be no active DMA or interrupt requests on the PRU.
+		assert (!request_DMA_active(nullptr) && !request_INTR_active(nullptr));
+
+		if (dmaReq)
+		{
+			// We do the DMA transfer in chunks so we can handle arbitrary buffer sizes.
+			// (the PRU mailbox has limited space available.)
+			// Configure the DMA transfer.
+
+			uint32_t maxTransferSize = 512;
+
+			uint32_t wordCount = dmaReq->GetWordCount();
+			uint32_t unibusAddr = dmaReq->GetUnibusStartAddr();
+			uint32_t bufferOffset = 0;
+
+
+			while (wordCount > 0)
+			{
+				uint32_t chunkSize = std::min(maxTransferSize, wordCount);
+
+				mailbox->dma.startaddr = unibusAddr + bufferOffset * 2;
+				mailbox->dma.control = dmaReq->GetUnibusControl();
+				mailbox->dma.wordcount = chunkSize; 
+
+				// Copy outgoing data into maibox DMA buffer
+				if (dmaReq->GetUnibusControl() == UNIBUS_CONTROL_DATO)
+				{
+					memcpy(
+						(void*)mailbox->dma.words, 
+						dmaReq->GetBuffer() + bufferOffset, 
+						2 * chunkSize);
+				}
+
+				//
+				// Start the PRU:
+				mailbox->arm2pru_req = ARM2PRU_DMA_ARB_CLIENT;
+
+				//
+				// Wait for the transfer to complete.
+				// TODO: we're polling the mailbox; is there a more efficient way to do this?
+				timeout_c timeout;
+                                int retries = 0;
+				while (request_DMA_active(nullptr) && retries < 10000)
+				{
+					timeout.wait_us(50);
+                                        retries++;
+				}
+
+				//
+				// TODO: this should not be necessary.  There are rare occasions
+				// where it appears that the PRU dma transfer is interrupted
+				// but never clears the DMA active flag, so we hang in the loop above
+				// forever.
+				// Nothing to do in that case but give up.
+				// And log the issue.  Should get to the root of this..
+				//
+                                if (retries == 10000) 
+				{
+					ERROR("dma timeout");
+				}
+	
+				if (dmaReq->GetUnibusControl() == UNIBUS_CONTROL_DATI)
+				{
+					// Copy data read from mailbox to user's buffer.
+					memcpy(
+						dmaReq->GetBuffer() + bufferOffset, 
+						(void *)mailbox->dma.words, 
+						2 * chunkSize);
+				}
+				wordCount -= chunkSize;
+				bufferOffset += chunkSize;
+			}
+
+			dmaReq->SetUnibusEndAddr(mailbox->dma.cur_addr);
+			dmaReq->SetSuccess(mailbox->dma.cur_status == DMA_STATE_READY);
+			// no success: UnibusEndAddr is first failed address
+
+			assert(dmaReq->GetUnibusStartAddr() + dmaReq->GetWordCount() * 2 ==
+				mailbox->dma.cur_addr + 2);
+
+			//
+			// Signal that the request is complete.
+			//
+			pthread_mutex_lock(&_busWorker_mutex);
+			dmaReq->SetComplete();
+			pthread_cond_signal(&_requestFinished_cond);
+			pthread_mutex_unlock(&_busWorker_mutex);
+		}
+		else
+		{
+			// Handle interrupt request
+			switch(irqReq->GetInterruptLevel())
+			{
+				case 4:
+				mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B4;
+				break;
+
+				case 5:
+				mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B5;
+				break;
+
+				case 6:
+				mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B6;
+				break;
+	
+				case 7:
+				mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B7;
+				break;
+		
+				default:
+				ERROR("Request_INTR(): Illegal priority %u, aborting", irqReq->GetInterruptLevel());
+				return;
+			}
+
+			mailbox->intr.vector = irqReq->GetVector();
+
+			// start!
+			mailbox->arm2pru_req = ARM2PRU_INTR;
+			// PRU now changes state
+
+			// Signal that the request has been raised.
+			pthread_mutex_lock(&_busWorker_mutex);
+			irqReq->SetComplete();
+			pthread_cond_signal(&_requestFinished_cond);
+			pthread_mutex_unlock(&_busWorker_mutex);
+
+                        // Wait for the transfer to complete.
+                        // TODO: we're polling the mailbox; is there a more efficient way to
+			// do this? (as w/dma)
+                        timeout_c timeout;
+                        while(request_INTR_active(nullptr))
+                        {
+                       		timeout.wait_us(50);
+                        }
+		}	
 	}
-
-	*unibus_end_addr = mailbox->dma.cur_addr;
-
-	*error = mailbox->dma.cur_status != DMA_STATE_READY;
-	DEBUG("DMA ready: %s @ %06o..%06o, wordcount %d, data=%06o, %06o, ... %s",
-			unibus->control2text(mailbox->dma.control), mailbox->dma.startaddr,
-			mailbox->dma.cur_addr, mailbox->dma.wordcount, mailbox->dma.words[0],
-			mailbox->dma.words[1], *error ? "TIMEOUT" : "OK");
-
-	return true;
 }
 
-// result: false = not yet finished, true = complete,
-bool unibusadapter_c::complete_INTR(unibusdevice_c *device) {
-// TODO: access correct request in queue
-	UNUSED(device);
+void unibusadapter_c::rundown_bus_requests()
+{
+	//
+	// Cancel all pending DMA and IRQ requests, freeing threads waiting
+	// on completion.
+	//
+	pthread_mutex_lock(&_busWorker_mutex);
+        while (!_dmaRequests.empty()) 
+	{
+		dma_request_c* dmaReq = _dmaRequests.front();
+		dmaReq->SetSuccess(false);
+		dmaReq->SetComplete();
+		pthread_cond_signal(&_requestFinished_cond);
+		_dmaRequests.pop();
+	}
+        while (!_irqRequests.empty())
+	{
+		irq_request_c* irqReq = _irqRequests.front();
+		irqReq->SetComplete();
+		pthread_cond_signal(&_requestFinished_cond);
+		_irqRequests.pop();
+	}
+        pthread_mutex_unlock(&_busWorker_mutex);
 
-	// rely on RL11 to check for completion and sorting DMA/INTR requests.
-	return request_INTR_active(NULL);
+}
+
+
+void unibusadapter_c::request_INTR(uint32_t level, uint32_t vector) {
+        //
+        // Acquire bus mutex; append new request to queue.
+        // bus worker will wake and service the request in due time.
+        //
+        irq_request_c request(
+                level,
+                vector);
+
+        pthread_mutex_lock(&_busWorker_mutex);
+        _irqRequests.push(&request);
+        pthread_cond_signal(&_busWakeup_cond);
+        pthread_mutex_unlock(&_busWorker_mutex);
+
+        //
+        // Wait for request to finish.
+        //
+        pthread_mutex_lock(&_busWorker_mutex);
+        while (!request.IsComplete())
+        {
+                pthread_cond_wait(&_requestFinished_cond, &_busWorker_mutex);
+        }
+        pthread_mutex_unlock(&_busWorker_mutex);
+
+	//
+	// And we're done.
+	//
 }
 
 // debugging: print PRU sharead regsster map

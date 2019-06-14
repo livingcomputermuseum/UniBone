@@ -30,21 +30,24 @@
 
 #include "inputline.h"
 #include "mcout.h"
-#include "menus.hpp" // own
+#include "application.hpp" // own
 
 #include "gpios.hpp"
+#include "pru.hpp"
 #include "ddrmem.h"
 
 /**********************************************
  * DDRMEM
  * function to read, write, test shared DDR memory
  * */
-void menus_c::menu_ddrmem_slave_only() {
+void application_c::menu_ddrmem_slave_only() {
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	char *s_choice;
 	char s_opcode[256], s_param[2][256];
 	bool ready;
 	int n_fields;
+
+	hardware_startup(pru_c::PRUCODE_UNIBUS) ;
 
 	ready = false;
 	while (!ready) {
@@ -114,5 +117,7 @@ void menus_c::menu_ddrmem_slave_only() {
 			show_help = true;
 		}
 	}
+	hardware_shutdown() ;
+	
 }
 

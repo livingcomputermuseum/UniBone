@@ -52,17 +52,34 @@ list<device_c *> device_c::mydevices;
 
 // argument is a device_c
 // called reentrant in parallel for all different devices
-void *worker_pthread_wrapper(void *context) {
+
+// called on cancel and exit()
+static void device_worker_pthread_cleanup_handler(void *context) {
 	device_c *device = (device_c *) context;
+#define this device // make INFO work
+	device->worker_terminate = false;
+	device->worker_terminated = true; // ended on its own or on worker_terminate
+	INFO("Worker terminated for device %s.", device->name.value.c_str());
+	device->worker_terminate = false;
+	device->worker_terminated = true; // ended on its own or on worker_terminate
+//	printf("cleanup for device %s\n", device->name.value.c_str()) ;
+#undef this
+}
+
+static void *device_worker_pthread_wrapper(void *context) {
+	device_c *device = (device_c *) context;
+	int	oldstate ; // not used
 #define this device // make INFO work
 	// call real worker
 	INFO("%s::worker() started", device->name.value.c_str());
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &oldstate) ;
+	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldstate) ; //ASYNCH not allowed!
 	device->worker_terminate = false;
 	device->worker_terminated = false;
+	pthread_cleanup_push(device_worker_pthread_cleanup_handler, device) ;
 	device->worker();
-	INFO("%s::worker() terminated", device->name.value.c_str());
-	device->worker_terminate = false;
-	device->worker_terminated = true; // ended on its own or on worker_terminate
+	pthread_cleanup_pop(1) ; // call cleanup_handler on regular exit
+	// not reached on pthread_cancel()
 #undef this
 	return NULL;
 }
@@ -245,11 +262,12 @@ void device_c::worker_start(void) {
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
 		// pthread_attr_setstacksize(&attr, 1024*1024);
-		int status = pthread_create(&worker_pthread, &attr, &worker_pthread_wrapper,
+		int status = pthread_create(&worker_pthread, &attr, &device_worker_pthread_wrapper,
 				(void *) this);
 		if (status != 0) {
 			FATAL("Failed to create pthread with status = %d", status);
 		}
+		pthread_attr_destroy(&attr) ; // why?
 	}
 }
 
@@ -257,20 +275,24 @@ void device_c::worker_stop(void) {
 	timeout_c timeout;
 	int status;
 	if (worker_terminated) {
-		DEBUG("%s.worker_stop(): already termianted.", name.name.c_str());
+		DEBUG("%s.worker_stop(): already terminated.", name.name.c_str());
 		return;
 	}
-	INFO("Waiting for %s.worker() to stop ...", name.name.c_str());
+	INFO("Waiting for %s.worker() to stop ...", name.value.c_str());
 	worker_terminate = true;
 	// 100ms
 	timeout.wait_ms(100);
 	// worker_wrapper must do "worker_terminated = true;" on exit
 	if (!worker_terminated) {
-		// if thread is hanging in pthread_cond_wait()
-		pthread_cancel(worker_pthread);
+		// if thread is hanging in pthread_cond_wait(): send a cancellation request
+		status = pthread_cancel(worker_pthread);
+		if (status != 0)
+			FATAL("Failed to send cancellation request to worker_pthread with status = %d", status);
 	}
 
-	// !!! this crashes for unibusadapter if realtime priority SCHED_FIFO is set !!!
+	// !! If crosscompling: this causes a crash in the worker thread
+	// !! at pthread_cond_wait() or other cancellation points.
+	// !! No problem for compiles build on BBB itself.
 	status = pthread_join(worker_pthread, NULL);
 	if (status != 0) {
 		FATAL("Failed to join worker_pthread with status = %d", status);

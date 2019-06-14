@@ -119,6 +119,17 @@ http://theembeddedkitchen.net/beaglelogic-building-a-logic-analyzer-with-the-pru
 		__R30 &= ~(1 << 12) ;	\
 } while(0)
 
+#ifdef TRASH
+// set DEBUG PIN and value to PRU0 outputs
+// output appear delayed by PRU0!
+#define DEBUG_OUT(val) do {	\
+		__R30 |= (1 << 12) ;	\
+		buslatches_pru0_dataout(val) ; \
+		__R30 &= ~(1 << 12) ;	\
+	} while(0)
+#endif	
+
+
 
 // To signal the host that we're done, we set bit 5 in our R31
 // simultaneously with putting the number of the signal we want

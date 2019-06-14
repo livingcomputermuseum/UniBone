@@ -45,7 +45,6 @@
 #include <assert.h>
 
 #include "logger.hpp"
-#include "main.h" // own
 #include "memoryimage.hpp" // own
 
 // single multi purpose memory image buffer
@@ -130,12 +129,10 @@ void memoryimage_c::put_byte(unsigned addr, unsigned b) {
  */
 bool memoryimage_c::load_binary(const char *fname) {
 	FILE *fin;
-	char linebuff[1024];
 	unsigned wordidx, n;
 	fin = fopen(fname, "rb");
 	if (!fin) {
-		sprintf(linebuff, "Error opening file %s for read", fname);
-		perror(linebuff);
+		printf("%s\n",fileErrorText("Error opening file %s for read", fname));
 		return false;
 	}
 	// try to read max address range, shorter files are OK
@@ -148,13 +145,11 @@ bool memoryimage_c::load_binary(const char *fname) {
 
 void memoryimage_c::save_binary(const char *fname, unsigned bytecount) {
 	FILE *fout;
-	char linebuff[1024];
 	unsigned wordcount = (bytecount + 1) / 2;
 	unsigned n;
 	fout = fopen(fname, "wb");
 	if (!fout) {
-		sprintf(linebuff, "Error opening file %s for write", fname);
-		perror(linebuff);
+		printf("%s\n",fileErrorText("Error opening file %s for write", fname));
 		return;
 	}
 	// try to read max address range, shorter files are OK
@@ -209,8 +204,7 @@ bool memoryimage_c::load_addr_value_text(const char *fname) {
 
 	fin = fopen(fname, "r");
 	if (!fin) {
-		sprintf(linebuff, "Error opening file %s", fname);
-		perror(linebuff);
+		printf("%s\n", fileErrorText("Error opening file %s for write", fname)) ;		
 		return false;
 	}
 	entry_address = MEMORY_ADDRESS_INVALID; // not known
@@ -446,8 +440,7 @@ bool memoryimage_c::load_macro11_listing(const char *fname, const char *entrylab
 
 	fin = fopen(fname, "r");
 	if (!fin) {
-		sprintf(linebuff, "Error opening file %s", fname);
-		perror(linebuff);
+		printf("%s\n", fileErrorText("Error opening file %s", fname));
 		return false;
 	}
 	entry_address = MEMORY_ADDRESS_INVALID; // not (yet) known
@@ -538,9 +531,7 @@ bool memoryimage_c::load_papertape(const char *fname) {
 
 	fin = fopen(fname, "r");
 	if (!fin) {
-		char buff[1024];
-		sprintf(buff, "Error opening file %s", fname);
-		perror(buff);
+		printf("%s\n", fileErrorText("Error opening file %s for read", fname));
 		return false;
 	}
 

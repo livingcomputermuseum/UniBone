@@ -117,21 +117,24 @@ public:
 	void test_loopback(void);
 };
 
+
+#define BUSLATCHES_COUNT	8
+
 // save current state uf gpios and registers,
 // to suppress redundant write accesses
 typedef struct {
 	// # of bits in each register connected bidirectionally to UNIBUS
 	// ( for example, LTC ignored)
-	unsigned bidi_bitwidth[8]; // # of bits in each
-	unsigned bidi_bitmask[8]; // mask with valid bits
+	unsigned bidi_bitwidth[BUSLATCHES_COUNT]; // # of bits in each
+	unsigned bidi_bitmask[BUSLATCHES_COUNT]; // mask with valid bits
 
-	bool read_inverted[8]; // true:  read back inverted with respect to write levels
+	bool read_inverted[BUSLATCHES_COUNT]; // true:  read back inverted with respect to write levels
 
 	// current signal state, used for optimization
 	unsigned cur_output_enable; // state of ENABLE
 	unsigned cur_reg_sel; // state of SEL A0,A1,A2
 
-	unsigned cur_reg_val[8]; // content of output latches
+	unsigned cur_reg_val[BUSLATCHES_COUNT]; // content of output latches
 } buslatches_t;
 
 extern gpios_c *gpios; // singleton
@@ -160,6 +163,7 @@ extern buslatches_t buslatches;
  	: (!! ( *((gpio)->bank->datain_addr) & (gpio)->pin_in_bank_mask ) )	\
 	)
 
+// raw 1 bit signal traces
 typedef struct {
 	unsigned reg_sel;
 	unsigned bit_nr;
@@ -167,21 +171,71 @@ typedef struct {
 	unsigned is_inverted; // only BG*_OUT
 	const char *unibus_name; // UNIBUS signal name
 	const char *path; // long info with net list
-} buslatches_signal_info_t;
+} buslatches_wire_info_t;
 
-extern buslatches_signal_info_t buslatches_signal_info[];
+extern buslatches_wire_info_t buslatches_wire_info[];
+
+// compound unibus signals
+
+class unibus_signal_info_c {
+public:
+	enum id_enum {
+		ub_address, ub_data, ub_control, // c1,c0
+		ub_msyn,
+		ub_ssyn,
+		ub_pa,
+		ub_pb,
+		ub_intr,
+		ub_br4,
+		ub_br5,
+		ub_br6,
+		ub_br7,
+		ub_bg4,
+		ub_bg5,
+		ub_bg6,
+		ub_bg7,
+		ub_npr,
+		ub_npg,
+		ub_sack,
+		ub_bbsy,
+		ub_init,
+		ub_aclo,
+		ub_dclo
+	};
+
+	id_enum id;
+	string name;
+	unsigned bitwidth;
+	unibus_signal_info_c() {
+	}
+	;
+	unibus_signal_info_c(id_enum id, string name, unsigned bitwidth);
+};
+
+class unibus_signals_c {
+public:
+	unibus_signals_c();
+	vector<unibus_signal_info_c> signals;
+	unsigned max_name_len();
+	unsigned size();
+
+	void set_val(enum unibus_signal_info_c::id_enum id, unsigned value);
+	unsigned get_val(enum unibus_signal_info_c::id_enum id);
+};
+
+extern unibus_signals_c *unibus_signals; // singleton
 
 void buslatches_output_enable(bool enable);
-void buslatches_init(void);
-buslatches_signal_info_t *buslatches_get_signal_info(const char * unibus_name,
-		unsigned is_input);
+void buslatches_register(void);
+void buslatches_pru_reset(void);
+
+buslatches_wire_info_t *buslatches_get_wire_info(const char * unibus_name, unsigned is_input);
 
 void buslatches_setval(unsigned reg_sel, unsigned bitmask, unsigned val);
 unsigned buslatches_getval(unsigned reg_sel);
 
 void buslatches_test_simple_pattern(unsigned pattern, unsigned reg_sel);
-void buslatches_test_simple_pattern_multi(unsigned reg_first, unsigned reg_last,
-		unsigned pattern);
+void buslatches_test_simple_pattern_multi(		unsigned pattern);
 
 void buslatches_test_timing(uint8_t addr_0_7, uint8_t addr_8_15, uint8_t data_0_7,
 		uint8_t data_8_15);

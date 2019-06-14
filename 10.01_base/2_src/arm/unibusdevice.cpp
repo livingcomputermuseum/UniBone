@@ -135,7 +135,7 @@ void unibusdevice_c::reset_unibus_registers() {
 // set an UNIBUS interrupt condition with intr_vector and intr_level
 void unibusdevice_c::interrupt(void) {
 	// delegate to unibusadapter_c
-	unibusadapter->request_INTR(this, intr_level.value, intr_vector.value);
+	unibusadapter->request_INTR(intr_level.value, intr_vector.value);
 	// WARNING("unibusdevice_c::interrupt() TODO: generated interrupt!");
 }
 

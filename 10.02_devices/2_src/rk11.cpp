@@ -1,4 +1,8 @@
-/* rk11_cpp: RK11 UNIBUS controller 
+/* 
+    rk11_cpp: RK11 UNIBUS controller 
+
+    Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
+    Contributed under the BSD 2-clause license.
 
  */
 
@@ -88,6 +92,8 @@ rk11_c::rk11_c() :
     RKDB_reg->reset_value = 0;
     RKDB_reg->writable_bits = 0x0000; // read only
 
+    _rkda_drive = 0;
+
     //
     // Drive configuration: up to eight drives.
     //
@@ -127,24 +133,23 @@ void rk11_c::dma_transfer(DMARequest &request)
         {
             // Write FROM buffer TO unibus memory, IBA on:
             // We only need to write the last word in the buffer to memory.
-            unibusadapter->request_DMA(
-                this,
+            request.timeout = !unibusadapter->request_client_DMA(
                 UNIBUS_CONTROL_DATO,
                 request.address,
                 request.buffer + request.count - 1,
-                1);
+                1, NULL);
         }
         else
         {
             // Read FROM unibus memory TO buffer, IBA on:
             // We read a single word from the unibus and fill the
             // entire buffer with this value. 
-            unibusadapter->request_DMA(
-                this,
+            request.timeout = !unibusadapter->request_client_DMA(
                 UNIBUS_CONTROL_DATI,
                 request.address,
                 request.buffer,
-                1);
+                1, 
+                NULL);
         } 
     }
     else
@@ -153,38 +158,25 @@ void rk11_c::dma_transfer(DMARequest &request)
         if (request.write)
         {
             // Write FROM buffer TO unibus memory
-            unibusadapter->request_DMA(
-                this,
+            request.timeout = !unibusadapter->request_client_DMA(
                 UNIBUS_CONTROL_DATO,
                 request.address,
                 request.buffer,
-                request.count);
+                request.count, 
+                NULL);
         }
         else
         {
             // Read FROM unibus memory TO buffer
-            unibusadapter->request_DMA(
-                this, 
+            request.timeout = !unibusadapter->request_client_DMA(
                 UNIBUS_CONTROL_DATI, 
                 request.address,
                 request.buffer,
-                request.count);
+                request.count, 
+                NULL);
         }
     }
 
-    // And wait for completion. 
-    while(true)
-    {
-        timeout.wait_us(50);    // Stolen from RL11
-        uint32_t last_address = 0;
-        if (unibusadapter->complete_DMA(
-               this, 
-               &last_address, 
-               &request.timeout))
-        {
-            break;   
-        }
-    }
 
     // If an IBA DMA read from memory, we need to fill the request buffer
     // with the single word returned from memory by the DMA operation.
@@ -215,7 +207,8 @@ void rk11_c::worker(void)
         {
             case Worker_Idle:
                 {
-                    pthread_mutex_lock(&on_after_register_access_mutex);
+                	pthread_mutex_lock(&on_after_register_access_mutex);
+
                     while (!_new_command_ready)
                     {
                         pthread_cond_wait(

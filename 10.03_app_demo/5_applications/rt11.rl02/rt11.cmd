@@ -44,4 +44,10 @@ p runstopbutton 1	# press RUN/STOP, will start
 .wait	6000		# wait until drive spins up
 p                       # show all params of RL1
 
+m ll dl.lst
+.print RL11 boot loader installed.
+.print Start 10000 to boot from drive 0, 10010 for drive 1, ...
+.print Reload with "m ll"
+
+
 

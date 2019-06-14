@@ -77,7 +77,9 @@ static uint8_t sm_powercycle_state_1() {
 	TIMEOUT_SET(MILLISECS(POWERCYCLE_DELAY_MS))
 	; // wait for DC power shutdown
 	sm_powercycle.state = &sm_powercycle_state_2;
+	// DEBUG_OUT(0x01) ;
 	do_event_initializationsignals() ;
+	// DEBUG_OUT(0x02) ;
 	return 0;
 }
 
@@ -89,7 +91,9 @@ static uint8_t sm_powercycle_state_2() {
 	TIMEOUT_SET(MILLISECS(POWERCYCLE_DELAY_MS))
 	; // system powered off
 	sm_powercycle.state = &sm_powercycle_state_3;
+	// DEBUG_OUT(0x03) ;
 	do_event_initializationsignals() ;
+	// DEBUG_OUT(0x04) ;
 	return 0;
 }
 

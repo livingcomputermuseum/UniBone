@@ -1,3 +1,3 @@
 # start xxdp with "demo" application
-cd ~
+cd ~/10.03_app_demo/5_applications/xxdp.rl02
 ~/10.03_app_demo/4_deploy/demo --arbitration_active 1 --verbose    --debug  --cmdfile xxdp.cmd

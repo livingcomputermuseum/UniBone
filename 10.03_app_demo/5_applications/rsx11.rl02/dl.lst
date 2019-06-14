@@ -1,0 +1,92 @@
+       1                                	.title	M9312 'DL' BOOT prom for RL11 controller
+       2                                
+       3                                	; This source code is a modified copyof the DEC M9312 23-751A9 boot PROM.
+       4                                	;
+       5                                	; This boot PROM is for the RL11 controller with RL01/RL02 drives.
+       6                                	;
+       7                                	; Multiple units and/or CSR addresses are supported via different entry points.
+       8                                	;
+       9                                
+      10 174400                         rlcsr	=174400 			; std RL11 csrbase
+      11                                
+      12 000000                         rlcs	=+0				; control/status
+      13 000002                         rlba	=+2				; bus address
+      14 000004                         rlda	=+4				; disk address
+      15 000006                         rlmp	=+6				; multipurpose
+      16                                
+      17 000004                         cmstat	=2*2				; get status
+      18 000006                         cmseek	=3*2				; seek
+      19 000010                         cmrdhd	=4*2				; read header
+      20 000014                         cmrdda	=6*2				; read data
+      21                                
+      22                                	.asect
+      23 010000                         	.=10000 			;  arbitrary position > 3000
+      24                                
+      25                                	; --------------------------------------------------
+      26                                
+      27                                start:
+      28                                	; 4 unit numbers => 4 entry addresses
+      29                                start0:
+      30 010000 012700  000000          	mov	#0,r0
+      31 010004 000413                  	br	dlnr
+      32 010006 000240                  	nop
+      33                                start1:
+      34 010010 012700  000001          	mov	#1,r0
+      35 010014 000407                  	br	dlnr
+      36 010016 000240                  	nop
+      37                                start2:
+      38 010020 012700  000002          	mov	#2,r0
+      39 010024 000403                  	br	dlnr
+      40 010026 000240                  	nop
+      41                                start3:
+      42 010030 012700  000003          	mov	#3,r0
+      43                                
+      44                                dlnr:
+      45 010034 012701  174400          	mov	#rlcsr,r1		; boot std csr, unit <R0>
+      46                                
+      47                                	; --------------------------------------------------
+      48                                
+      49 010040 010003                  	mov	r0,r3			; save unit number
+      50 010042 000303                  	swab	r3			; unit number in upper byte
+      51 010044 010311                  	mov	r3,(r1) 		; set unit, NOP cmd
+      52                                
+      53 010046 012761  000013  000004  	mov	#013,rlda(r1)		; subcmd reset+getstatus
+      54 010054 052703  000004          	bis	#cmstat,r3		; get status cmd (r3lo is 0)
+      55 010060 010311                  	mov	r3,(r1) 		; execute
+      56 010062 105711                  1$:	tstb	(r1)			; test for ready
+      57 010064 100376                  	bpl	1$			; wait
+      58                                
+      59 010066 105003                  	clrb	r3			; unit number in upper byte
+      60 010070 052703  000010          	bis	#cmrdhd,r3		; read header cmd
+      61 010074 010311                  	mov	r3,(r1) 		; execute
+      62 010076 105711                  2$:	tstb	(r1)			; test for ready
+      63 010100 100376                  	bpl	2$			; wait
+      64                                
+      65 010102 016102  000006          	mov	rlmp(r1),r2		; retrieve cyl/head/sector
+      66 010106 042702  000077          	bic	#77,r2			; set sector to zero
+      67 010112 005202                  	inc	r2			; set head 0, seek to cyl 0
+      68 010114 010261  000004          	mov	r2,rlda(r1)		; into da for seek
+      69 010120 105003                  	clrb	r3			; unit number in upper byte
+      70 010122 052703  000006          	bis	#cmseek,r3		; seek cmd
+      71 010126 010311                  	mov	r3,(r1) 		; execute
+      72 010130 105711                  3$:	tstb	(r1)			; test for ready
+      73 010132 100376                  	bpl	3$			; wait
+      74                                
+      75 010134 005061  000004          	clr	rlda(r1)		; select cyl0/head0/sector0
+      76 010140 012761  177000  000006  	mov	#-512.,rlmp(r1) 	; set word count
+      77 010146 105003                  	clrb	r3			; unit number in upper byte
+      78 010150 052703  000014          	bis	#cmrdda,r3		; read data cmd
+      79 010154 010311                  	mov	r3,(r1) 		; execute
+      80 010156 105711                  4$:	tstb	(r1)			; test for ready
+      81 010160 100376                  	bpl	4$			; wait
+      82                                
+      83 010162 005711                  	tst	(r1)			; test for error
+      84 010164 100002                  	bpl	5$			; br if ok
+      85 010166 000005                  	reset				; ERROR - reset the world
+      86 010170 000721                  	br     dlnr			; retry. r0 unchanged
+      87                                
+      88 010172 042711  000377          5$:	bic	#377,(r1)		; execute nop cmd
+      89 010176 005007                  	clr	pc			; jump to bootstrap at zero
+      90                                
+      91                                	.end
+      91                                

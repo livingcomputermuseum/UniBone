@@ -1,28 +1,28 @@
 /* unibus.cpp: utilities to handle UNIBUS functions
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   12-nov-2018  JH      entered beta phase
-*/
+ 12-nov-2018  JH      entered beta phase
+ */
 
 #define _UNIBUS_CPP_
 
@@ -33,6 +33,7 @@
 #include <time.h>
 #include <assert.h>
 
+#include "pru.hpp"
 #include "logger.hpp"
 #include "gpios.hpp"
 #include "bitcalc.h"
@@ -46,7 +47,6 @@ unibus_c *unibus;
 
 unibus_c::unibus_c() {
 	log_label = "UNIBUS";
-	emulation_logic_started = false;
 	dma_bandwidth_percent = 50;
 	dma_wordcount = MAX_DMA_WORDCOUNT;
 }
@@ -96,24 +96,19 @@ void unibus_c::init(void) {
 	 timeout.wait_ms(duration_ms);
 	 buslatches_setval(7, BIT(3), 0);
 	 */
-	if (arbitration_active)
-		mailbox_execute(ARM2PRU_INITPULSE, ARM2PRU_EMULATION);
-	else
-		mailbox_execute(ARM2PRU_INITPULSE, ARM2PRU_NONE);
+	mailbox_execute(ARM2PRU_INITPULSE, ARM2PRU_NONE);
 }
 
 /* Simulate a power cycle
  */
 void unibus_c::powercycle(void) {
-	if (arbitration_active)
-		mailbox_execute(ARM2PRU_POWERCYCLE, ARM2PRU_EMULATION);
-	else
-		mailbox_execute(ARM2PRU_POWERCYCLE, ARM2PRU_NONE);
+	mailbox_execute(ARM2PRU_POWERCYCLE, ARM2PRU_NONE);
 }
 
-// do an UNIBUS INTR transaction with arbitration
+// do an UNIBUS INTR transaction with Arbitration by PDP-11 CPU
+// todo: ARBITRATOR_MASTER?
 void unibus_c::interrupt(uint8_t priority, uint16_t vector) {
-	assert(emulation_logic_started);
+	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
 	switch (priority) {
 	case 4:
 		mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B4;
@@ -134,26 +129,45 @@ void unibus_c::interrupt(uint8_t priority, uint16_t vector) {
 	mailbox->intr.vector = vector;
 	// mail last infinite, if processor priority above "priority"
 	// timeout ??
-	mailbox_execute(ARM2PRU_INTR, ARM2PRU_EMULATION);
+	mailbox_execute(ARM2PRU_INTR, ARM2PRU_NONE);
 }
 
-// do a DMA transaction with or without abritration (arbitration_active)
+// do a DMA transaction with or without abritration (arbitration_client)
 // mailbox.dma.words already filled
 // if result = timeout: =
 // 0 = bus time, error address =  mailbox->dma.cur_addr
 // 1 = all transfered
-bool unibus_c::dma(uint8_t control, uint32_t startaddr, unsigned blocksize) {
+bool unibus_c::dma(enum unibus_c::arbitration_mode_enum arbitration_mode, uint8_t control,
+		uint32_t startaddr, unsigned blocksize) {
 	uint64_t dmatime_ns, totaltime_ns;
-	assert(!arbitration_active || emulation_logic_started);
+	uint8_t dma_opcode;
+
+	// can access bus with DMA when there's a Bus Arbitrator
+	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
+// TODO: assert pru->prucode_features & (PRUCODE_FEATURE_DMA) ???
+	// TODO: Arbitration Master waits for SACK, 11/34 blocks?
+
 	mailbox->dma.startaddr = startaddr;
 	mailbox->dma.control = control;
 	mailbox->dma.wordcount = blocksize;
 	timeout.start(0); // no timeout, just running timer
-	if (arbitration_active)
-		// wait until _EMULATION again
-		mailbox_execute(ARM2PRU_DMA, ARM2PRU_EMULATION);
-	else
-		mailbox_execute(ARM2PRU_DMA, ARM2PRU_NONE);
+
+	switch (arbitration_mode) {
+	case unibus_c::ARBITRATION_MODE_NONE:
+		dma_opcode = ARM2PRU_DMA_ARB_NONE;
+		break;
+	case unibus_c::ARBITRATION_MODE_CLIENT:
+		dma_opcode = ARM2PRU_DMA_ARB_CLIENT;
+		break;
+	case unibus_c::ARBITRATION_MODE_MASTER:
+		dma_opcode = ARM2PRU_DMA_ARB_MASTER;
+		break;
+	default:
+		FATAL("Illegal arbitration_mode");
+	}
+	// wait until PRU ready
+	mailbox_execute(dma_opcode, ARM2PRU_NONE);
+
 	dmatime_ns = timeout.elapsed_ns();
 	// wait before next transaction, to reduce Unibus bandwidth
 	// calc required total time for DMA time + wait
@@ -174,18 +188,18 @@ bool unibus_c::dma(uint8_t control, uint32_t startaddr, unsigned blocksize) {
  * return 0: no memory found at all
  * arbitration_active: if 1, perform NPR/NPG/SACK arbitration before mem accesses
  */
-uint32_t unibus_c::test_sizer(void) {
+uint32_t unibus_c::test_sizer(enum unibus_c::arbitration_mode_enum arbitration_mode) {
 	// tests chunks of 128 word
 	bool timeout;
 	unsigned addr = 0;
-
-	assert(!arbitration_active || emulation_logic_started);
-
+	//SET_DEBUG_PIN0(0) ;
 	do {
 		// printf("unibus_test_sizer(): %06o..%06o\n", addr, addr+2*unibus_dma_wordcount-2) ;
-		timeout = !dma(UNIBUS_CONTROL_DATI, addr, dma_wordcount);
+		timeout = !dma(arbitration_mode, UNIBUS_CONTROL_DATI, addr, dma_wordcount);
 		addr += 2 * dma_wordcount; // prep for next round
 	} while (!timeout);
+	//SET_DEBUG_PIN0(1) ; // signal end
+	//SET_DEBUG_PIN0(0) ;
 	return mailbox->dma.cur_addr; // first non implemented address
 }
 
@@ -198,13 +212,12 @@ uint32_t unibus_c::test_sizer(void) {
 // all words from start_addr to including end_addr
 //
 // DMA blocksize can be choosen arbitrarily
-// arbitration_active: if 1, perform NPR/NPG/SACK arbitration before mem accesses
-void unibus_c::mem_write(uint16_t *words, unsigned start_addr, unsigned end_addr,
-		unsigned block_wordcount,
+void unibus_c::mem_write(enum unibus_c::arbitration_mode_enum arbitration_mode, uint16_t *words,
+		unsigned start_addr, unsigned end_addr, unsigned block_wordcount,
 		bool *timeout) {
 	unsigned block_start_addr = 0;
 	unsigned n;
-	assert(!arbitration_active || emulation_logic_started);
+	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
 	assert(block_wordcount <= MAX_DMA_WORDCOUNT);
 	*timeout = 0;
 	for (block_start_addr = start_addr; !*timeout && block_start_addr <= end_addr;
@@ -220,7 +233,8 @@ void unibus_c::mem_write(uint16_t *words, unsigned start_addr, unsigned end_addr
 		 cur_addr = block_start_addr + 2 * n;
 		 mailbox->dma.words[n] = words[cur_addr / 2];
 		 }
-		 */*timeout = !dma(UNIBUS_CONTROL_DATO, block_start_addr, block_wordcount);
+		 */*timeout = !dma(arbitration_mode, UNIBUS_CONTROL_DATO, block_start_addr,
+				block_wordcount);
 		if (*timeout) {
 			printf("\nWrite timeout @ 0%6o\n", mailbox->dma.cur_addr);
 			return;
@@ -232,13 +246,12 @@ void unibus_c::mem_write(uint16_t *words, unsigned start_addr, unsigned end_addr
 // all words from start_addr to including end_addr
 // DMA blocksize can be choosen arbitrarily
 // arbitration_active: if 1, perform NPR/NPG/SACK arbitration before mem accesses
-void unibus_c::mem_read(uint16_t *words, uint32_t start_addr, uint32_t end_addr,
-		unsigned block_wordcount,
+void unibus_c::mem_read(enum unibus_c::arbitration_mode_enum arbitration_mode, uint16_t *words,
+		uint32_t start_addr, uint32_t end_addr, unsigned block_wordcount,
 		bool *timeout) {
 	unsigned block_start_addr = 0;
 	unsigned n;
-
-	assert(!arbitration_active || emulation_logic_started);
+	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
 	assert(block_wordcount <= MAX_DMA_WORDCOUNT);
 
 	*timeout = 0;
@@ -248,7 +261,8 @@ void unibus_c::mem_read(uint16_t *words, uint32_t start_addr, uint32_t end_addr,
 		n = (end_addr - block_start_addr) / 2 + 1; // words left until memend
 		if (n < block_wordcount)
 			block_wordcount = n; //trunc last buffer
-		*timeout = !dma(UNIBUS_CONTROL_DATI, block_start_addr, block_wordcount);
+		*timeout = !dma(arbitration_mode, UNIBUS_CONTROL_DATI, block_start_addr,
+				block_wordcount);
 		if (*timeout) {
 			printf("\nRead timeout @ 0%6o\n", mailbox->dma.cur_addr);
 			return;
@@ -264,7 +278,8 @@ void unibus_c::mem_read(uint16_t *words, uint32_t start_addr, uint32_t end_addr,
 }
 
 // arbitration_active: if 1, perform NPR/NPG/SACK arbitration before mem accesses
-void unibus_c::test_mem(uint32_t start_addr, uint32_t end_addr, unsigned mode) {
+void unibus_c::test_mem(enum unibus_c::arbitration_mode_enum arbitration_mode,
+		uint32_t start_addr, uint32_t end_addr, unsigned mode) {
 #define MAX_ERROR_COUNT	8
 	progress_c progress = progress_c(80);
 	bool timeout = 0, mismatch = 0;
@@ -272,7 +287,7 @@ void unibus_c::test_mem(uint32_t start_addr, uint32_t end_addr, unsigned mode) {
 	uint32_t cur_test_addr;
 	unsigned block_wordcount;
 
-	assert(!arbitration_active || emulation_logic_started);
+	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
 
 	// Setup ^C catcher
 	SIGINTcatchnext();
@@ -284,19 +299,25 @@ void unibus_c::test_mem(uint32_t start_addr, uint32_t end_addr, unsigned mode) {
 		/**** 2. Write memory ****/
 		progress.put("W");  //info : full memory write
 		block_wordcount = 113; // something queer
-		mem_write(testwords, start_addr, end_addr, block_wordcount, &timeout);
+		mem_write(arbitration_mode, testwords, start_addr, end_addr, block_wordcount, &timeout);
 
 		/**** 3. read until ^C ****/
 		while (!SIGINTreceived && !timeout && !mismatch_count) {
 			progress.put("R");
 			block_wordcount = 67; // something queer
 			// read back into unibus_membuffer[]
-			mem_read(membuffer->data.words, start_addr, end_addr, block_wordcount, &timeout);
+			mem_read(arbitration_mode, membuffer->data.words, start_addr, end_addr,
+					block_wordcount, &timeout);
 			// compare
+			SET_DEBUG_PIN0(0) ;
 			for (mismatch_count = 0, cur_test_addr = start_addr; cur_test_addr <= end_addr;
 					cur_test_addr += 2) {
 				uint16_t cur_mem_val = membuffer->data.words[cur_test_addr / 2];
 				mismatch = (testwords[cur_test_addr / 2] != cur_mem_val);
+				if (mismatch) {
+					SET_DEBUG_PIN0(1) ; // trigger
+					SET_DEBUG_PIN0(0) ;
+				}
 				if (mismatch && ++mismatch_count <= MAX_ERROR_COUNT) // print only first errors
 					printf(
 							"\nMemory mismatch #%d at %06o: expected %06o, found %06o, diff mask = %06o.  ",
@@ -313,7 +334,8 @@ void unibus_c::test_mem(uint32_t start_addr, uint32_t end_addr, unsigned mode) {
 				testwords[cur_test_addr / 2] = random24() & 0xffff;
 			progress.put("W");  //info : full memory write
 			block_wordcount = 97; // something queer
-			mem_write(testwords, start_addr, end_addr, block_wordcount, &timeout);
+			mem_write(arbitration_mode, testwords, start_addr, end_addr, block_wordcount,
+					&timeout);
 
 			if (SIGINTreceived || timeout)
 				break; // leave loop
@@ -322,12 +344,18 @@ void unibus_c::test_mem(uint32_t start_addr, uint32_t end_addr, unsigned mode) {
 			progress.put("R");  //info : full memory write
 			block_wordcount = 111; // something queer
 			// read back into unibus_membuffer[]
-			mem_read(membuffer->data.words, start_addr, end_addr, block_wordcount, &timeout);
+			mem_read(arbitration_mode, membuffer->data.words, start_addr, end_addr,
+					block_wordcount, &timeout);
 			// compare
+			SET_DEBUG_PIN0(0) ;
 			for (mismatch_count = 0, cur_test_addr = start_addr; cur_test_addr <= end_addr;
 					cur_test_addr += 2) {
 				uint16_t cur_mem_val = membuffer->data.words[cur_test_addr / 2];
 				mismatch = (testwords[cur_test_addr / 2] != cur_mem_val);
+				if (mismatch) {
+					SET_DEBUG_PIN0(1) ; // trigger
+					SET_DEBUG_PIN0(0) ;
+				}
 				if (mismatch && ++mismatch_count <= MAX_ERROR_COUNT) // print only first errors
 					printf(
 							"\nMemory mismatch at %06o: expected %06o, found %06o, diff mask = %06o.  ",
@@ -382,30 +410,4 @@ void unibus_c::savetofile(char *fname, uint16_t *words, unsigned bytecount) {
 	INFO("Wrote %d bytes to \"%s\".", n, fname);
 }
 #endif
-
-/* start full UNIBUS master/slave logic on PRU
- * PRU is active UNIBUS node now.
- * - evaluates NPG/BG* lines and forwards them.
- * - watches for DATI/DATO access to emulated device registers,
- *   generates events to unibusadapter_c.
- * - memory is emulated from startaddr to endaddr.
- * - Memory DATI/DATZO access done with NPR/NPG/SACK
- * - INTR possible
- */
-
-void unibus_c::emulation_logic_start() {
-	// set PRU in ARM2PRU_EMULATION loop
-	assert(!emulation_logic_started);
-	__sync_synchronize();
-	mailbox->arm2pru_req = ARM2PRU_EMULATION; // go!
-	emulation_logic_started = true;
-}
-
-/* stop execution of full master/slave logic
- */
-void unibus_c::emulation_logic_stop() {
-	assert(emulation_logic_started);
-	mailbox_execute(ARM2PRU_EMULATION_STOP, ARM2PRU_NONE);
-	emulation_logic_started = false;
-}
 

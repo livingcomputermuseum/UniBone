@@ -4,8 +4,6 @@
 # modified for cross compile and remote debugging on BBB
 
 PROG = demo
-PRU0_CODE=pru0_config.c
-PRU1_CODE=pru1_config.c
 # UNIBONE_DIR from environment
 UNIBONE_ROOT = $(UNIBONE_DIR)
 
@@ -60,14 +58,26 @@ CCFLAGS= \
 	-I$(SHARED_SRC_DIR)	\
 	-I$(COMMON_SRC_DIR)	\
 	-I$(BASE_SRC_DIR)	\
-	-I$(PRU_DEPLOY_DIR)	\
 	-I$(DEVICE_SRC_DIR)	\
 	-I$(DEVEXER_SRC_DIR)	\
 	-I$(OBJDIR)	\
+	-I$(PRU_DEPLOY_DIR)	\
 	-c	\
 	$(CCDEFS) $(CC_DBG_FLAGS) $(OS_CCDEFS)
 # OBJDIR in includes because of $(PRU_CODE)
 # no -std=c99
+
+
+# PRU program code library. Binaries as C arrays
+# ! Path to PRU_DEPLOY_DIR MUST NOT CONTAIn SPACES !
+# ! dont use wildcards, as .../4_deply/.. may be empty !
+PRU0_CODE_LIST=	\
+	$(PRU_DEPLOY_DIR)/pru0_code_all_array.c
+
+PRU1_CODE_LIST= \
+	$(PRU_DEPLOY_DIR)/pru1_code_unibus_array.c	\
+	$(PRU_DEPLOY_DIR)/pru1_code_test_array.c
+
 
 
 OBJECTS = $(OBJDIR)/application.o	\
@@ -77,6 +87,7 @@ OBJECTS = $(OBJDIR)/application.o	\
 	$(OBJDIR)/menu_panel.o	\
 	$(OBJDIR)/menu_mailbox.o	\
 	$(OBJDIR)/menu_buslatches.o	\
+	$(OBJDIR)/menu_unibus_signals.o	\
 	$(OBJDIR)/menu_masterslave.o	\
 	$(OBJDIR)/menu_interrupts.o	\
 	$(OBJDIR)/menu_ddrmem_slave_only.o \
@@ -88,16 +99,19 @@ OBJECTS = $(OBJDIR)/application.o	\
 	$(OBJDIR)/cpu.o	\
 	$(OBJDIR)/ka11.o	\
 	$(OBJDIR)/rl0102.o	\
-        $(OBJDIR)/rl11.o	\
-        $(OBJDIR)/rk11.o        \
-        $(OBJDIR)/rk05.o        \
+    $(OBJDIR)/rl11.o	\
+    $(OBJDIR)/rk11.o        \
+    $(OBJDIR)/rk05.o        \
+	$(OBJDIR)/uda.o         \
+	$(OBJDIR)/mscp_server.o \
+	$(OBJDIR)/mscp_drive.o \
 	$(OBJDIR)/storagedrive.o	\
-        $(OBJDIR)/storagecontroller.o	\
-        $(OBJDIR)/demo_io.o	\
-        $(OBJDIR)/demo_regs.o	\
-        $(OBJDIR)/unibusdevice.o	\
-        $(OBJDIR)/device.o	\
-        $(OBJDIR)/parameter.o	\
+    $(OBJDIR)/storagecontroller.o	\
+    $(OBJDIR)/demo_io.o	\
+    $(OBJDIR)/demo_regs.o	\
+    $(OBJDIR)/unibusdevice.o	\
+    $(OBJDIR)/device.o	\
+    $(OBJDIR)/parameter.o	\
 	$(OBJDIR)/panel.o	\
 	$(OBJDIR)/unibusadapter.o	\
 	$(OBJDIR)/unibus.o	\
@@ -107,8 +121,6 @@ OBJECTS = $(OBJDIR)/application.o	\
 	$(OBJDIR)/inputline.o	\
 	$(OBJDIR)/bitcalc.o	\
 	$(OBJDIR)/pru.o \
-	$(OBJDIR)/pru0_config.o \
-	$(OBJDIR)/pru1_config.o \
 	$(OBJDIR)/mailbox.o	\
 	$(OBJDIR)/ddrmem.o	\
 	$(OBJDIR)/iopageregister.o	\
@@ -120,54 +132,72 @@ OBJECTS = $(OBJDIR)/application.o	\
 # create needed directories
 $(shell   mkdir -p $(PRU_DEPLOY_DIR) $(OBJDIR))
 
+# rule to print a variable.
+# use: make print-VARIALBE
+print-%  : ; @echo $* = $($*)
 
-# executable depends on its objects AND the PRU objects
-$(OBJDIR)/$(PROG) : $(OBJECTS)
-	$(CC) -o $@ $(OBJECTS) $(LDFLAGS)
-	# force recompile
-	rm -f $(OBJDIR)/compile_timestamp.o
-	file $@
 
-all:	$(OBJDIR)/$(PROG) $(PRU_DEPLOY_DIR)/$(PRU0_CODE) $(PRU_DEPLOY_DIR)/$(PRU1_CODE)
+
+all:	$(OBJDIR)/$(PROG)
+
+pru:	$(PRU0_CODE_LIST) $(PRU1_CODE_LIST)
 
 clean:
 	rm -f $(OBJDIR)/$(PROG) $(OBJECTS) $(OBJDIR)/* $(PRU_DEPLOY_DIR)/*
 
+.PHONY: all pru clean
 
 
-$(OBJDIR)/application.o :  application.cpp $(PRU_DEPLOY_DIR)/$(PRU0_CODE) $(PRU_DEPLOY_DIR)/$(PRU1_CODE)
+# TODO
+# uato dependcies
+# http://scottmcpeak.com/autodepend/autodepend.html
+#	gcc -MM $(CCFLAGS) $< >$(OBJDIR)*.c > ***.d
+
+# executable depends on its objects AND the PRU objects
+$(OBJDIR)/$(PROG) : pru $(OBJECTS)
+	$(CC) -o $@ $(OBJECTS) $(LDFLAGS)
+	# force recompile on next build
+	rm -f $(OBJDIR)/compile_timestamp.o
+	file $@
+
+
+$(OBJDIR)/application.o :  application.cpp application.hpp $(PRU_DEPLOY_DIR)/$(PRU0_CODE) $(PRU_DEPLOY_DIR)/$(PRU1_CODE)
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/menus.o :  menus.cpp menus.hpp
+
+$(OBJDIR)/menus.o :  menus.cpp application.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/menu_gpio.o :  menu_gpio.cpp menus.hpp
+$(OBJDIR)/menu_gpio.o :  menu_gpio.cpp application.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/menu_panel.o :  menu_panel.cpp menus.hpp
+$(OBJDIR)/menu_panel.o :  menu_panel.cpp application.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/menu_mailbox.o :  menu_mailbox.cpp menus.hpp
+$(OBJDIR)/menu_mailbox.o :  menu_mailbox.cpp application.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/menu_buslatches.o :  menu_buslatches.cpp menus.hpp
+$(OBJDIR)/menu_buslatches.o :  menu_buslatches.cpp application.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/menu_masterslave.o :  menu_masterslave.cpp menus.hpp
+$(OBJDIR)/menu_unibus_signals.o :  menu_unibus_signals.cpp application.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/menu_interrupts.o :  menu_interrupts.cpp menus.hpp
+$(OBJDIR)/menu_masterslave.o :  menu_masterslave.cpp application.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/menu_devices.o :  menu_devices.cpp menus.hpp
-	$(CC) $(CCFLAGS) $< -o $@
-	
-$(OBJDIR)/menu_device_exercisers.o :  menu_device_exercisers.cpp menus.hpp
+$(OBJDIR)/menu_interrupts.o :  menu_interrupts.cpp application.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/menu_ddrmem_slave_only.o :  menu_ddrmem_slave_only.cpp menus.hpp
+$(OBJDIR)/menu_devices.o :  menu_devices.cpp application.hpp
 	$(CC) $(CCFLAGS) $< -o $@
-	
+
+$(OBJDIR)/menu_device_exercisers.o :  menu_device_exercisers.cpp application.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/menu_ddrmem_slave_only.o :  menu_ddrmem_slave_only.cpp application.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
 $(OBJDIR)/memoryimage.o :  $(BASE_SRC_DIR)/memoryimage.cpp $(BASE_SRC_DIR)/memoryimage.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
@@ -193,7 +223,16 @@ $(OBJDIR)/rk05.o :  $(DEVICE_SRC_DIR)/rk05.cpp $(DEVICE_SRC_DIR)/rk05.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/rk11.o :  $(DEVICE_SRC_DIR)/rk11.cpp $(DEVICE_SRC_DIR)/rk11.hpp
+	$(CC) $(CCFLAGS) -Wno-missing-field-initializers $< -o $@
+
+$(OBJDIR)/uda.o :   $(DEVICE_SRC_DIR)/uda.cpp $(DEVICE_SRC_DIR)/uda.hpp
 	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/mscp_server.o :   $(DEVICE_SRC_DIR)/mscp_server.cpp $(DEVICE_SRC_DIR)/mscp_server.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/mscp_drive.o :   $(DEVICE_SRC_DIR)/mscp_drive.cpp $(DEVICE_SRC_DIR)/mscp_drive.hpp
+	$(CC) $(CCFLAGS) $< -o $@	
 
 $(OBJDIR)/storagedrive.o :  $(BASE_SRC_DIR)/storagedrive.cpp $(BASE_SRC_DIR)/storagedrive.hpp
 	$(CC) $(CCFLAGS) $< -o $@
@@ -252,7 +291,7 @@ $(OBJDIR)/utils.o :  $(BASE_SRC_DIR)/utils.cpp $(BASE_SRC_DIR)/utils.hpp
 $(OBJDIR)/compile_timestamp.o :  $(COMMON_SRC_DIR)/compile_timestamp.cpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/pru.o :  $(BASE_SRC_DIR)/pru.cpp $(BASE_SRC_DIR)/pru.hpp
+$(OBJDIR)/pru.o :  $(BASE_SRC_DIR)/pru.cpp $(BASE_SRC_DIR)/pru.hpp $(PRU0_CODE_LIST) $(PRU1_CODE_LIST)
 	$(CC) $(CCFLAGS) $< -o $@
 
 # files with PRU code and addresses
@@ -262,7 +301,7 @@ $(OBJDIR)/pru0_config.o :  $(PRU_DEPLOY_DIR)/$(PRU0_CODE)
 $(OBJDIR)/pru1_config.o :  $(PRU_DEPLOY_DIR)/$(PRU1_CODE)
 	$(CC) $(CCFLAGS) -xc++ $< -o $@
 
-$(OBJDIR)/mailbox.o :  $(BASE_SRC_DIR)/mailbox.cpp $(OBJDIR)/$(PRU_CODE) $(SHARED_SRC_DIR)/mailbox.h
+$(OBJDIR)/mailbox.o :  $(BASE_SRC_DIR)/mailbox.cpp $(SHARED_SRC_DIR)/mailbox.h
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/ddrmem.o :  $(BASE_SRC_DIR)/ddrmem.cpp $(SHARED_SRC_DIR)/ddrmem.h
@@ -274,15 +313,17 @@ $(OBJDIR)/iopageregister.o :  $(BASE_SRC_DIR)/iopageregister.cpp $(SHARED_SRC_DI
 $(OBJDIR)/unibusadapter.o :  $(BASE_SRC_DIR)/unibusadapter.cpp $(BASE_SRC_DIR)/unibusadapter.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-# the binary image for each of the 2 PRUs is generated with the clrpu compiler
-# and converted to a C array source code
-#
-$(PRU_DEPLOY_DIR)/$(PRU0_CODE): $(PRU0_BASE_SRC_DIR)/*.c
-	$(MAKE) -C $(PRU0_BASE_SRC_DIR) $(PRU_DEPLOY_DIR)/$(PRU0_CODE)
-	echo PRU codefile $(PRU0_CODE) and *.h are create in $(PRU_DEPLOY_DIR)
+# the binary images for each of the 2 PRUs is generated with the clpru compiler
+# and converted to a C array source code by hexpru -- array
+#  $(SHARED_SRC_DIR)/*.h $(SHARED_SRC_DIR)/*.c
+$(PRU0_CODE_LIST): $(PRU0_BASE_SRC_DIR)/*.h $(PRU0_BASE_SRC_DIR)/*.c $(SHARED_SRC_DIR)/*.h
+	$(MAKE) -C $(PRU0_BASE_SRC_DIR) $@
+	echo PRU0 codefile $@ created
 #	cp $(PRU_DEPLOY_DIR)/$(PRU0_CODE).[hc]
 
-$(PRU_DEPLOY_DIR)/$(PRU1_CODE): $(PRU1_BASE_SRC_DIR)/*.c
-	$(MAKE) -C $(PRU1_BASE_SRC_DIR) $(PRU_DEPLOY_DIR)/$(PRU1_CODE)
-	echo PRU codefile $(PRU1_CODE) and *.h are create in $(PRU_DEPLOY_DIR)
+$(PRU1_CODE_LIST): $(PRU1_BASE_SRC_DIR)/*.h $(PRU1_BASE_SRC_DIR)/*.c $(SHARED_SRC_DIR)/*.h
+	$(MAKE) -C $(PRU1_BASE_SRC_DIR) $@
+	echo PRU1 codefile $@ created
+#	cp $(PRU_DEPLOY_DIR)/$(PRU0_CODE).[hc]
+
 

@@ -99,7 +99,7 @@ void sm_arb_start(uint8_t priority_bit) {
 // pass BGIN[4-7],NPGIN to next device , if DMA engine idle
 uint8_t sm_arb_state_idle() {
 	uint8_t tmpval;
-	tmpval = buslatches_get(0);
+	tmpval = buslatches_getbyte(0);
 	// forward all 5 GRANT IN inverted to GRANT OUT
 	buslatches_setbits(0, ARBITRATION_PRIORITY_MASK, ~tmpval)
 	;
@@ -111,7 +111,7 @@ uint8_t sm_arb_state_idle() {
 // execute in parallel with slave!
 static uint8_t sm_arb_state_1() {
 	uint8_t tmpval;
-	tmpval = buslatches_get(0);
+	tmpval = buslatches_getbyte(0);
 	// forward all lines, until idle
 	buslatches_setbits(0, ARBITRATION_PRIORITY_MASK, ~tmpval) ;
 		// wait for GRANT idle, other cycle in progress?
@@ -130,14 +130,14 @@ static uint8_t sm_arb_state_1() {
 static uint8_t sm_arb_state_2() {
 	uint8_t tmpval;
 
-	if (buslatches_get(7) & BIT(3)) { // INIT stops transaction: latch[7], bit 3
+	if (buslatches_getbyte(7) & BIT(3)) { // INIT stops transaction: latch[7], bit 3
 		// cleanup: clear all REQUESTS and SACK
 		buslatches_setbits(1, ARBITRATION_PRIORITY_MASK| BIT(5), 0);
 		// Todo: signal INIT to ARM!
 		sm_arb.state = &sm_arb_state_idle;
 		return 0 ;
 	}
-	tmpval = buslatches_get(0);
+	tmpval = buslatches_getbyte(0);
 	// forward all other BG lines
 	// preceding arbitration must see BG removed by master on SACK
 
@@ -157,20 +157,20 @@ static uint8_t sm_arb_state_2() {
 // then become bus master
 // Forwarding of other GRANTs not necessary ... arbitrator granted us.
 static uint8_t sm_arb_state_3() {
-	if (buslatches_get(7) & BIT(3)) { // INIT stops transaction: latch[7], bit 3
+	if (buslatches_getbyte(7) & BIT(3)) { // INIT stops transaction: latch[7], bit 3
 		// cleanup: clear all REQUESTS and SACk
 		buslatches_setbits(1, ARBITRATION_PRIORITY_MASK| BIT(5), 0);
 		// Todo: signal INIT to ARM!
 		sm_arb.state = &sm_arb_state_idle;
 		return 1;
 	}
-	if (buslatches_get(0) & sm_arb.priority_bit) // wait for GRANT IN to be deasserted
+	if (buslatches_getbyte(0) & sm_arb.priority_bit) // wait for GRANT IN to be deasserted
 		return 0;
 	// wait until old bus master cleared BBSY
-	if (buslatches_get(1) & BIT(6))
+	if (buslatches_getbyte(1) & BIT(6))
 		return 0;
 	// wait until SSYN deasserted by old slave
-	if (buslatches_get(4) & BIT(5))
+	if (buslatches_getbyte(4) & BIT(5))
 		return 0;
 	// now become new bus master: Set BBSY, Clear REQUEST
 	// BBSY= bit 6
@@ -207,7 +207,7 @@ set all Reqest lines in latch 1, which have bits set in mailbox.arb_request
 		if grants for us:
 		set SACK
 		wait for active GRANT line going LOW
-		wait until BBSY=== && SSYN==0 && active GRANT==0 free (long time!)
+		wait until BBSY==0 && SSYN==0 && active GRANT==0 free (long time!)
 		set BBSY
 		set SACK low
 		NO: SHOULD BE "BEFORE LAST DATA TRAMSFER BY CURRENT MASTER"

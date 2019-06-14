@@ -1,4 +1,8 @@
-/* rk05.cpp: implementation of RK05 disk drive, used with RK11D controller
+/* 
+    rk05.hpp: implementation of RK05 disk drive, used with RK11D controller
+
+    Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
+    Contributed under the BSD 2-clause license.
 
 */
 #ifndef _RK05_HPP_
@@ -52,14 +56,12 @@ private:
 
         volatile bool _scp;          // Indicates the completion of a seek
 
-        std::string _currentFilePath; // Currently loaded disk image if any
 
         uint64_t get_disk_byte_offset(
             uint32_t cylinder,
             uint32_t surface,
             uint32_t sector);
 
-        void load_image(std::string path);
      
 public:
         Geometry get_geometry(void);
@@ -90,6 +92,8 @@ public:
 	DriveType _drivetype; 
 
 	rk05_c(storagecontroller_c *controller);
+
+        bool on_param_changed(parameter_c* param) override;
 
 	void on_power_changed(void) override;
 

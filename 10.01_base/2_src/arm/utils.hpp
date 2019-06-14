@@ -93,6 +93,8 @@ char *cur_time_text(void) ;
 
 bool fileExists(const std::string& filename) ;
 
+char * fileErrorText(const char *msgfmt, const char *fname) ;
+
 //ool caseInsCompare(const std::string& s1, const std::string& s2) ;
 
 

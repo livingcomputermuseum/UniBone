@@ -69,7 +69,7 @@ extern "C" {
 int cpu_dato(unsigned addr, unsigned data) {
 	bool timeout;
 	mailbox->dma.words[0] = data;
-	timeout = !unibus->dma(UNIBUS_CONTROL_DATO, addr, 1);
+	timeout = !unibus->dma(unibus_c::ARBITRATION_MODE_NONE, UNIBUS_CONTROL_DATO, addr, 1);
 	return !timeout;
 
 }
@@ -78,7 +78,7 @@ int cpu_datob(unsigned addr, unsigned data) {
 	// TODO DATOB als 1 byte-DMA !
 	bool timeout;
 	mailbox->dma.words[0] = data;
-	timeout = !unibus->dma(UNIBUS_CONTROL_DATOB, addr, 1);
+	timeout = !unibus->dma(unibus_c::ARBITRATION_MODE_NONE, UNIBUS_CONTROL_DATOB, addr, 1);
 	return !timeout;
 
 }
@@ -86,7 +86,7 @@ int cpu_datob(unsigned addr, unsigned data) {
 int cpu_dati(unsigned addr, unsigned *data) {
 	bool timeout;
 
-	timeout = !unibus->dma(UNIBUS_CONTROL_DATI, addr, 1);
+	timeout = !unibus->dma(unibus_c::ARBITRATION_MODE_NONE, UNIBUS_CONTROL_DATI, addr, 1);
 	*data = mailbox->dma.words[0];
 	return !timeout;
 }

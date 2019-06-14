@@ -28,18 +28,21 @@
 #define _MAILBOX_CPP_
 
 #include <stdio.h>
+#include <string.h>
 #include "prussdrv.h"
 
+#include "pru.hpp"
 #include "logger.hpp"
 #include "ddrmem.h"
 #include "mailbox.h"
 
-#include "pru1_config.h"
-
 // is located in PRU 12kb shared memory.
 // address symbol "" fetched from linker map
+
 volatile mailbox_t *mailbox;
 
+
+// Init all fields, most to 0's
 int mailbox_connect(void) {
 	void *pru_shared_dataram;
 	// get pointer to RAM
@@ -54,11 +57,15 @@ int mailbox_connect(void) {
 
 	// now ARM and PRU can access the mailbox
 
+	memset((void*)mailbox, 0, sizeof(mailbox_t)) ;
+
 	// tell PRU location of shared DDR RAM
 	mailbox->ddrmem_base_physical = (ddrmem_t *) ddrmem->base_physical;
 
 	return 0;
 }
+
+
 
 void mailbox_print(void) {
 	printf("INFO: Content of mailbox to PRU:\n"
@@ -98,10 +105,19 @@ void mailbox_test1() {
 /* start cmd to PRU via mailbox. Wait until ready
  * mailbox union members must have been filled
  */
+uint32_t xxx ;
 void mailbox_execute(uint8_t request, uint8_t stopcode) {
 // write to arm2pru_req must be last memory operation
 	__sync_synchronize();
 	mailbox->arm2pru_req = request; // go!
+	do {
+			xxx = mailbox-> arm2pru_req ;
+if (mailbox->events.eventmask) {
+	// event not processed? will hang DMA.
+//	printf("WARNING: Unprocessed mailbox.events.eventmask = 0x%x\n", (unsigned) mailbox->events.eventmask) ;
+//	mailbox->events.eventmask = 0 ;
+}
+	} while (xxx != stopcode) ;
 	while (mailbox->arm2pru_req != stopcode)
 		; // wait until processed
 }

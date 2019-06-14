@@ -30,14 +30,15 @@
 
 #include "inputline.h"
 #include "mcout.h"
-#include "menus.hpp" // own
+#include "application.hpp" // own
 
 #include "panel.hpp"
 
 /**********************************************
  * Test input and outputs on I2C connected MC23017s.
+ * no active PRU needed
  * */
-void menus_c::menu_panel() {
+void application_c::menu_panel() {
 	mcout_t mcout; // Multi Column OUTput
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	bool ready = false;
@@ -66,7 +67,7 @@ void menus_c::menu_panel() {
 			mcout_printf(&mcout, "%2d) %-*s = %d", controlno, name_len, pc->full_name().c_str(),
 					pc->value);
 		}
-		mcout_flush(&mcout, stdout, linewidth, "  ||  ", /*first_col_then_row*/0);
+		mcout_flush(&mcout, stdout, opt_linewidth, "  ||  ", /*first_col_then_row*/0);
 
 		if (show_help) {
 			show_help = false; // only once

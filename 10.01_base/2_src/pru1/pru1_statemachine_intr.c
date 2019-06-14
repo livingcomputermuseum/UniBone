@@ -81,7 +81,7 @@ static uint8_t sm_intr_state_1() {
 
 // wait for SSYN
 static uint8_t sm_intr_state_2() {
-	if (!(buslatches_get(4) & BIT(5)))
+	if (!(buslatches_getbyte(4) & BIT(5)))
 		return 0;
 	// received SSYN
 

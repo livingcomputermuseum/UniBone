@@ -28,8 +28,9 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "prussdrv.h"
-#include "pru1_config.h"
+#include "pru.hpp"
+
+//#include "pru1_config.h"
 #include "iopageregister.h"
 
 // Device register struct shared between PRU and ARM.

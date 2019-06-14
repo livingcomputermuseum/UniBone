@@ -33,9 +33,10 @@
 
 #include "inputline.h"
 #include "mcout.h"
-#include "menus.hpp" // own.cpp: user sub menu "panel"
+#include "application.hpp" // own
 
 #include "gpios.hpp"
+#include "pru.hpp"
 #include "iopageregister.h"
 #include "ddrmem.h"
 #include "unibus.h"
@@ -47,7 +48,7 @@
 
 // "arbitration_active": operate in an environment without
 // arbitration and interrupt fielding?
-void menus_c::menu_masterslave(void) {
+void application_c::menu_masterslave(enum unibus_c::arbitration_mode_enum arbitration_mode) {
 	// UniBone uses this test controller:
 	// memory cells at start of IO page, can be tested with ZKMA
 	demo_regs_c demo_regs;
@@ -61,19 +62,26 @@ void menus_c::menu_masterslave(void) {
 	char s_opcode[256], s_param[5][256];
 	int n_fields;
 
-	iopageregisters_init(); // erase all devices from PRU
+//	iopageregisters_init(); // erase all devices from PRU
 
-	// These test need active bus drivers
+	// These test need active PRUs
+	//TODO: rewrite.
+	hardware_startup(pru_c::PRUCODE_UNIBUS);
 	buslatches_output_enable(true);
 
+	// PRUCODE_UNIBUS can raise events (INIT,ACLO,DCLO) 
+	// handle & clear these
+	unibusadapter->worker_start() ;
+
 	ready = false;
+
 	while (!ready) {
 		// sync pagetable
 		ddrmem->set_range(emulated_memory_start_addr, emulated_memory_end_addr);
 		if (show_help) {
 			show_help = false; // only once
 			printf("\n");
-			print_arbitration_info("    ");
+			print_arbitration_info(arbitration_mode, "    ");
 			if (emulated_memory_start_addr > emulated_memory_end_addr)
 				printf("    UniBone does not emulate memory.\n");
 			else
@@ -81,12 +89,11 @@ void menus_c::menu_masterslave(void) {
 						emulated_memory_start_addr, emulated_memory_end_addr);
 			printf("    DMA uses %u%% of Unibus band width. DMA block size is %u words.\n",
 					unibus->dma_bandwidth_percent, unibus->dma_wordcount);
-			if (unibus->arbitration_active && !active) {
+			if (arbitration_mode == unibus_c::ARBITRATION_MODE_CLIENT && !active) {
+				// Old: physical PDP_11 CPU -> test of demo_regs?
 				printf("***\n");
 				printf("*** Starting full UNIBUS master/slave logic on PRU\n");
 				printf("***\n");
-				unibusadapter->worker_start();
-				unibus->emulation_logic_start();
 				if (testcontroller_enabled) {
 					demo_regs.install();
 					demo_regs.worker_start();
@@ -145,12 +152,8 @@ void menus_c::menu_masterslave(void) {
 		} else if (!strcasecmp(s_opcode, "<")) {
 			if (inputline_fopen(s_param[0]))
 				printf("Now executing command from file \"%s\"\n", s_param[0]);
-			else {
-				char cwd[PATH_MAX];
-				printf("Error opening command file \"%s\"!\n", s_param[0]);
-				if (getcwd(cwd, sizeof(cwd)) != NULL)
-					printf("Current working dir is \"%s\"\n", cwd);
-			}
+			else
+				printf("%s\n", fileErrorText("Error opening command file \"%s\"!", s_param[0]));
 		} else if (!strcasecmp(s_opcode, "init")) {
 			unibus->init();
 		} else if (!strcasecmp(s_opcode, "i")) {
@@ -179,42 +182,42 @@ void menus_c::menu_masterslave(void) {
 						emulated_memory_start_addr, emulated_memory_end_addr);
 			}
 		} else if (!strcasecmp(s_opcode, "m") && n_fields == 1) {
-			emulate_memory();
+			emulate_memory(arbitration_mode);
 		} else if (!strcasecmp(s_opcode, "sz")) {
-			uint32_t first_invalid_addr = unibus->test_sizer();
+			uint32_t first_invalid_addr = unibus->test_sizer(arbitration_mode);
 			if (first_invalid_addr == 0)
 				printf("Address [0] invalid\n");
 			else
 				printf("Found valid addresses in range %06o..%06o.\n", 0,
 						first_invalid_addr - 2);
 		} else if (!strcasecmp(s_opcode, "ta") && n_fields == 1) {
-			uint32_t end_addr = unibus->test_sizer() - 2; // well, may be invalid
+			uint32_t end_addr = unibus->test_sizer(arbitration_mode) - 2; // well, may be invalid
 			printf(
 					"Testing %06o..%06o linear with \"address\" data pattern (stop with ^C) ...\n",
 					0, end_addr);
-			unibus->test_mem(0, end_addr, 1);
+			unibus->test_mem(arbitration_mode, 0, end_addr, 1);
 		} else if (!strcasecmp(s_opcode, "ta") && n_fields == 3) {
 			uint32_t start_addr = strtol(s_param[0], NULL, 8);
 			uint32_t end_addr = strtol(s_param[1], NULL, 8);
-			uint32_t last_addr = unibus->test_sizer() - 2;
+			uint32_t last_addr = unibus->test_sizer(arbitration_mode) - 2;
 			if (end_addr > last_addr)
 				end_addr = last_addr; // trunc to memory size
 			printf(
 					"Testing %06o..%06o linear with \"address\" data pattern (stop with ^C) ...\n",
 					start_addr, end_addr);
-			unibus->test_mem(start_addr, end_addr, 1);
+			unibus->test_mem(arbitration_mode, start_addr, end_addr, 1);
 		} else if (!strcasecmp(s_opcode, "tr") && n_fields == 1) {
-			uint32_t end_addr = unibus->test_sizer() - 2; // well, may be invalid
+			uint32_t end_addr = unibus->test_sizer(arbitration_mode) - 2; // well, may be invalid
 			printf("Testing %06o..%06o randomly (stop with ^C) ...\n", 0, end_addr);
-			unibus->test_mem(0, end_addr, 2);
+			unibus->test_mem(arbitration_mode, 0, end_addr, 2);
 		} else if (!strcasecmp(s_opcode, "tr") && n_fields == 3) {
 			uint32_t start_addr = strtol(s_param[0], NULL, 8);
 			uint32_t end_addr = strtol(s_param[1], NULL, 8);
-			uint32_t last_addr = unibus->test_sizer() - 2;
+			uint32_t last_addr = unibus->test_sizer(arbitration_mode) - 2;
 			if (end_addr > last_addr)
 				end_addr = last_addr; // trunc to memory size
 			printf("Testing %06o..%06o randomly (stop with ^C) ...\n", start_addr, end_addr);
-			unibus->test_mem(start_addr, end_addr, 2);
+			unibus->test_mem(arbitration_mode, start_addr, end_addr, 2);
 		} else if (!strcasecmp(s_opcode, "e")) {
 			unsigned blocksize = 1;
 			unsigned i;
@@ -229,7 +232,7 @@ void menus_c::menu_masterslave(void) {
 				cur_addr = strtol(s_param[0], NULL, 8) & 0777777;
 				blocksize = strtol(s_param[1], NULL, 8);
 			}
-			timeout = !unibus->dma(UNIBUS_CONTROL_DATI, cur_addr, blocksize);
+			timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATI, cur_addr, blocksize);
 			for (i = 0; cur_addr <= mailbox->dma.cur_addr; i++, cur_addr += 2)
 				printf("EXAM %06o -> %06o\n", cur_addr, mailbox->dma.words[i]);
 			cur_addr = mailbox->dma.cur_addr;
@@ -275,7 +278,7 @@ void menus_c::menu_masterslave(void) {
 				mailbox->dma.words[0] = strtol(s_param[0], NULL, 8);
 				blocksize = 1;
 			}
-			timeout = !unibus->dma(UNIBUS_CONTROL_DATO, cur_addr, blocksize);
+			timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATO, cur_addr, blocksize);
 			for (i = 0; cur_addr <= mailbox->dma.cur_addr; i++, cur_addr += 2)
 				printf("DEPOSIT %06o <- %06o\n", cur_addr, mailbox->dma.words[i]);
 			cur_addr = mailbox->dma.cur_addr;
@@ -344,16 +347,16 @@ void menus_c::menu_masterslave(void) {
 				printf(
 						"Loaded %u words, writing UNIBUS memory[%06o:%06o] with blocksize %u words\n",
 						wordcount, startaddr, endaddr, unibus->dma_wordcount);
-				unibus->mem_write(membuffer->data.words, startaddr, endaddr,
+				unibus->mem_write(arbitration_mode, membuffer->data.words, startaddr, endaddr,
 						unibus->dma_wordcount, &timeout);
 			}
 		} else if (!strcasecmp(s_opcode, "s") && (n_fields == 2)) {
 			bool timeout;
-			uint32_t end_addr = unibus->test_sizer() - 2;
+			uint32_t end_addr = unibus->test_sizer(arbitration_mode) - 2;
 			printf("Reading UNIBUS memory[0:%06o] with DMA blocks of %u words\n", end_addr,
 					unibus->dma_wordcount);
-			unibus->mem_read(membuffer->data.words, 0, end_addr, unibus->dma_wordcount,
-					&timeout);
+			unibus->mem_read(arbitration_mode, membuffer->data.words, 0, end_addr,
+					unibus->dma_wordcount, &timeout);
 			printf("Saving to file %s\n", s_param[0]);
 			membuffer->save_binary(s_param[0], end_addr + 2);
 		} else {
@@ -362,7 +365,7 @@ void menus_c::menu_masterslave(void) {
 		}
 	}
 
-	if (unibus->arbitration_active && active) {
+	if (arbitration_mode == unibus_c::ARBITRATION_MODE_CLIENT && active) {
 		printf("***\n");
 		printf("*** Stopping UNIBUS logic on PRU\n");
 		printf("***\n");
@@ -371,12 +374,12 @@ void menus_c::menu_masterslave(void) {
 			demo_regs.worker_stop();
 			demo_regs.uninstall();
 		}
-		unibus->emulation_logic_stop();
-		unibusadapter->worker_stop();
 		active = false;
 	}
+	unibusadapter->worker_stop();
 
 	// Switch off bus drivers
 	buslatches_output_enable(false);
+	hardware_shutdown();
 }
 
