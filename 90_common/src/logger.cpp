@@ -344,7 +344,8 @@ void logger_c::log(logsource_c *logsource, unsigned msglevel, const char *srcfil
 	if (msglevel <= life_level) {
 		char msgtext[LOGMESSAGE_TEXT_SIZE];
 		message_render(msgtext, sizeof(msgtext), &msg, RENDER_STYLE_CONSOLE);
-		cout << string(msgtext) << "\n";
+		cout << msgtext << "\n";
+		// cout << string(msgtext) << "\n"; // not thread safe???
 	}
 
 	va_end(args);

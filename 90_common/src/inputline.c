@@ -94,9 +94,13 @@ static int inputline_internal(char *line) {
 		printf("<<<\n");
 		return 1;
 	} else if (!strncasecmp(line, ".print", 6)) {
-		printf("<<<\n");
-		printf("<<<Input: %s >>>\n", line + 7);
+		printf("<<< %s\n", line + 7);
 		return 1;
+	} else if (!strncasecmp(line, ".input", 6)) {
+		char buffer[100] ;
+		printf("<<< Press ENTER to continue.\n");
+		fgets(buffer, sizeof(buffer), stdin) ;
+		return 1 ;
 	} else if (!strncasecmp(line, ".end", 3)) {
 		// close input file
 		fclose(inputline_file);
@@ -106,7 +110,7 @@ static int inputline_internal(char *line) {
 	return 0;
 }
 
-char *inputline(char *buffer, int buffer_size) {
+char *inputline(char *buffer, int buffer_size, const char *prompt) {
 	char *s;
 	if (inputline_file != NULL) {
 		// read from file
@@ -149,6 +153,8 @@ char *inputline(char *buffer, int buffer_size) {
 	}
 	if (inputline_file == NULL) {
 		/*** read interactive ***/
+		if (prompt && *prompt)
+			printf("%s", prompt);
 		fgets(buffer, buffer_size, stdin);
 		// remove terminating "\n"
 		for (s = buffer; *s; s++)

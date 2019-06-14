@@ -31,6 +31,6 @@
 
 void inputline_init(void) ;
 bool inputline_fopen(char *filename) ;
-char *inputline(char *buffer, int buffer_size) ;
+char *inputline(char *buffer, int buffer_size, const char *prompt) ;
 
 #endif /* INPUTLINE_H_ */
