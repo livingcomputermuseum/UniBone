@@ -30,15 +30,16 @@
 
 #include "inputline.h"
 #include "mcout.h"
-#include "menus.hpp" // own
+#include "application.hpp" // own
 
 #include "gpios.hpp"
 
 /**********************************************
  * select a single GPIO pin for set/clear
  * and high speed toggle
+ * no PRU activity
  * */
-void menus_c::menu_gpio() {
+void application_c::menu_gpio() {
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	mcout_t mcout; // Multi Column OUTput
 	unsigned name_len;
@@ -66,7 +67,7 @@ void menus_c::menu_gpio() {
 				gpio->tag = i + 1; // remember label in menu
 			}
 		}
-		mcout_flush(&mcout, stdout, linewidth, "  ||  ", /*first_col_then_row*/0);
+		mcout_flush(&mcout, stdout, opt_linewidth, "  ||  ", /*first_col_then_row*/0);
 		if (show_help) {
 			printf("\n");
 			printf("*** Test single GPIO pins.\n");

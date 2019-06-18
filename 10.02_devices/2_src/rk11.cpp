@@ -133,22 +133,23 @@ void rk11_c::dma_transfer(DMARequest &request)
         {
             // Write FROM buffer TO unibus memory, IBA on:
             // We only need to write the last word in the buffer to memory.
-            request.timeout = !unibusadapter->request_DMA(
+            request.timeout = !unibusadapter->request_client_DMA(
                 UNIBUS_CONTROL_DATO,
                 request.address,
                 request.buffer + request.count - 1,
-                1);
+                1, NULL);
         }
         else
         {
             // Read FROM unibus memory TO buffer, IBA on:
             // We read a single word from the unibus and fill the
             // entire buffer with this value. 
-            request.timeout = !unibusadapter->request_DMA(
+            request.timeout = !unibusadapter->request_client_DMA(
                 UNIBUS_CONTROL_DATI,
                 request.address,
                 request.buffer,
-                1);
+                1, 
+                NULL);
         } 
     }
     else
@@ -157,20 +158,22 @@ void rk11_c::dma_transfer(DMARequest &request)
         if (request.write)
         {
             // Write FROM buffer TO unibus memory
-            request.timeout = !unibusadapter->request_DMA(
+            request.timeout = !unibusadapter->request_client_DMA(
                 UNIBUS_CONTROL_DATO,
                 request.address,
                 request.buffer,
-                request.count);
+                request.count, 
+                NULL);
         }
         else
         {
             // Read FROM unibus memory TO buffer
-            request.timeout = !unibusadapter->request_DMA(
+            request.timeout = !unibusadapter->request_client_DMA(
                 UNIBUS_CONTROL_DATI, 
                 request.address,
                 request.buffer,
-                request.count);
+                request.count, 
+                NULL);
         }
     }
 
@@ -203,7 +206,8 @@ void rk11_c::worker(void)
         {
             case Worker_Idle:
                 {
-                    pthread_mutex_lock(&on_after_register_access_mutex);
+                	pthread_mutex_lock(&on_after_register_access_mutex);
+
                     while (!_new_command_ready)
                     {
                         pthread_cond_wait(

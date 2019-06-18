@@ -45,7 +45,7 @@ public:
     ~dma_request_c();
 
     uint8_t GetUnibusControl() { return _unibus_control; }
-    uint32_t GetUnibusAddr() { return _unibus_addr; } 
+    uint32_t GetUnibusStartAddr() { return _unibus_start_addr; } 
     uint16_t* GetBuffer() { return _buffer; }
     uint32_t  GetWordCount() { return _wordcount; }
     uint32_t GetUnibusEndAddr() { return _unibus_end_addr; }
@@ -60,7 +60,7 @@ public:
 private:
 
     uint8_t         _unibus_control;
-    uint32_t        _unibus_addr;
+    uint32_t        _unibus_start_addr;
     uint32_t        _unibus_end_addr;
     uint16_t*       _buffer;
     uint32_t        _wordcount;
@@ -120,9 +120,8 @@ public:
 
 	bool request_DMA_active(const char *error_info) ;
 	bool request_INTR_active(const char *error_info) ;
-
-	bool request_DMA(uint8_t unibus_control, uint32_t unibus_addr,
-			uint16_t *buffer, uint32_t wordcount);
+	bool request_client_DMA(uint8_t unibus_control, uint32_t unibus_addr,
+			uint16_t *buffer, uint32_t wordcount, uint32_t *unibus_end_addr);
 	void request_INTR(uint32_t level, uint32_t vector);
         void rundown_bus_requests(void);
 

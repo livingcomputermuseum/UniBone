@@ -934,11 +934,11 @@ uda_c::DMAWrite(
     assert ((lengthInBytes % 2) == 0);
     assert (address < 0x40000);
 
-    return unibusadapter->request_DMA(
+    return unibusadapter->request_client_DMA(
             UNIBUS_CONTROL_DATO,
             address,
             reinterpret_cast<uint16_t*>(buffer),
-            lengthInBytes >> 1);
+            lengthInBytes >> 1, NULL);
 }
 
 //
@@ -965,11 +965,11 @@ uda_c::DMARead(
 
     memset(reinterpret_cast<uint8_t*>(buffer), 0xc3, bufferSize);
 
-    bool success = unibusadapter->request_DMA(
+    bool success = unibusadapter->request_client_DMA(
                 UNIBUS_CONTROL_DATI,
                 address,
                 buffer,
-                lengthInBytes >> 1);
+                lengthInBytes >> 1, NULL);
 
     if (success)
     { 

@@ -34,6 +34,7 @@
 
 #define UNIBUS_WORDCOUNT	0x20000	// 128KiW = 256 KiB
 
+
 // bus transaction. can be directly assigned to lines C1,C0
 #define UNIBUS_CONTROL_DATI	0x00 // 16 bit word from slave to master
 #define UNIBUS_CONTROL_DATIP	0x01 // DATI, inhibts core restore. DATO must follow.
@@ -64,22 +65,19 @@ typedef struct {
 
 // parameter and functions for low level UNIBUS control
 class unibus_c: public logsource_c {
-private:
+public:
+enum arbitration_mode_enum {
+ARBITRATION_MODE_NONE = 0,	// no BR*/BG*, NR/NPG SACK protocoll
+ARBITRATION_MODE_CLIENT	= 1,	// external Arbitrator (running PDP-11 CPU) required
+ARBITRATION_MODE_MASTER	= 2	// implmenet Arbitrator
+// with or without physical CPU for arbitration
+} ;
 
-	bool emulation_logic_started = false;
-	// save required test values for control on read back
+private:
 
 	timeout_c timeout;
 
 public:
-	/* Global flag describing PDP-11 condition:
-	 * Is there a PDP-11 CPU doing NPR or INTR arbitration?
-	 * "false", if
-	 *	- no CPU plugged in,
-	 *	- or CPU HALTED and console processor inhibts arbitration with SACK.
-	 * INTR tests needs a PDP-11 CPU for arbitration.
-	 */
-	bool arbitration_active = false;
 
 	// percent of time to be used for DMA master cycles
 	unsigned dma_bandwidth_percent ;
@@ -95,23 +93,21 @@ public:
 	void powercycle(void) ;
 
 	void interrupt(uint8_t priority, uint16_t vector) ;
-	bool dma(uint8_t control, uint32_t startaddr,
+	bool dma(enum unibus_c::arbitration_mode_enum arbitration_mode, uint8_t control, uint32_t startaddr,
 			unsigned blocksize);
 
-	void mem_read(uint16_t *words, uint32_t start_addr,
+	void mem_read(enum unibus_c::arbitration_mode_enum arbitration_mode, 
+			uint16_t *words, uint32_t start_addr,
 			uint32_t end_addr, unsigned blocksize, bool *timeout) ;
-	void mem_write(uint16_t *words, unsigned start_addr,
+	void mem_write(enum unibus_c::arbitration_mode_enum arbitration_mode, 
+			uint16_t *words, unsigned start_addr,
 			unsigned end_addr, unsigned blocksize, bool *timeout) ;
 
-	uint32_t test_sizer(void) ;
+	uint32_t test_sizer(enum unibus_c::arbitration_mode_enum arbitration_mode) ;
 
 	uint16_t testwords[UNIBUS_WORDCOUNT];
 
-	void test_mem(uint32_t start_addr, uint32_t end_addr, unsigned mode) ;
-
-
-	void emulation_logic_start(void) ;
-	void emulation_logic_stop(void) ;
+	void test_mem(enum unibus_c::arbitration_mode_enum arbitration_mode, uint32_t start_addr, uint32_t end_addr, unsigned mode) ;
 
 };
 

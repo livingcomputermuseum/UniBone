@@ -73,7 +73,7 @@ dma_request_c::dma_request_c(
 	uint16_t* buffer,
 	uint32_t wordcount) :
 		_unibus_control(unibus_control),
-		_unibus_addr(unibus_addr),
+		_unibus_start_addr(unibus_addr),
                 _unibus_end_addr(0),
 		_buffer(buffer),
 		_wordcount(wordcount),
@@ -516,7 +516,9 @@ void unibusadapter_c::unregister_device(unibusdevice_c& device) {
 // false: UNIBUS DMA or INTR pending or in progress
 // true: new DMA or INTR may be started
 bool unibusadapter_c::request_DMA_active(const char *error_info) {
-	if (mailbox->arm2pru_req == ARM2PRU_DMA) {
+	if (mailbox->arm2pru_req == ARM2PRU_DMA_ARB_NONE
+			|| mailbox->arm2pru_req == ARM2PRU_DMA_ARB_CLIENT
+			|| mailbox->arm2pru_req == ARM2PRU_DMA_ARB_MASTER) {
 		if (error_info)
 			ERROR("%s: DMA requests active!", error_info);
 		return true;
@@ -538,13 +540,16 @@ bool unibusadapter_c::request_INTR_active(const char *error_info) {
 	return false;
 }
 
-// Invoke a DMA transfer.  
+// Request a DMA cycle from Arbitrator.
 // unibus_control = UNIBUS_CONTROL_DATI or _DATO
-bool unibusadapter_c::request_DMA(
+// unibus_end_addr = last accessed address (success or timeout) and timeout condition
+// result: false on UNIBUS timeout
+bool unibusadapter_c::request_client_DMA(
 	uint8_t unibus_control,
 	uint32_t unibus_addr, 
 	uint16_t *buffer, 
-	uint32_t wordcount) {
+	uint32_t wordcount,
+	uint32_t *unibus_end_addr) {
 
 	//
 	// Acquire bus mutex; append new request to queue.
@@ -574,7 +579,10 @@ bool unibusadapter_c::request_DMA(
 	}
 	pthread_mutex_unlock(&_busWorker_mutex);
 
-	return request.GetSuccess();
+	if (unibus_end_addr)
+		*unibus_end_addr = request.GetUnibusEndAddr() ;
+
+	return request.GetSuccess() ;
 }
 
 void unibusadapter_c::dma_worker()
@@ -625,8 +633,9 @@ void unibusadapter_c::dma_worker()
 			uint32_t maxTransferSize = 512;
 
 			uint32_t wordCount = dmaReq->GetWordCount();
-			uint32_t unibusAddr = dmaReq->GetUnibusAddr();
+			uint32_t unibusAddr = dmaReq->GetUnibusStartAddr();
 			uint32_t bufferOffset = 0;
+
 
 			while (wordCount > 0)
 			{
@@ -647,7 +656,7 @@ void unibusadapter_c::dma_worker()
 
 				//
 				// Start the PRU:
-				mailbox->arm2pru_req = ARM2PRU_DMA;
+				mailbox->arm2pru_req = ARM2PRU_DMA_ARB_CLIENT;
 
 				//
 				// Wait for the transfer to complete.
@@ -670,7 +679,7 @@ void unibusadapter_c::dma_worker()
 				//
                                 if (retries == 10000) 
 				{
-					INFO("dma timeout");
+					ERROR("dma timeout");
 				}
 	
 				if (dmaReq->GetUnibusControl() == UNIBUS_CONTROL_DATI)
@@ -681,15 +690,15 @@ void unibusadapter_c::dma_worker()
 						(void *)mailbox->dma.words, 
 						2 * chunkSize);
 				}
-
 				wordCount -= chunkSize;
 				bufferOffset += chunkSize;
 			}
 
 			dmaReq->SetUnibusEndAddr(mailbox->dma.cur_addr);
 			dmaReq->SetSuccess(mailbox->dma.cur_status == DMA_STATE_READY);
+			// no success: UnibusEndAddr is first failed address
 
-			assert(dmaReq->GetUnibusAddr() + dmaReq->GetWordCount() * 2 == 
+			assert(dmaReq->GetUnibusStartAddr() + dmaReq->GetWordCount() * 2 ==
 				mailbox->dma.cur_addr + 2);
 
 			//

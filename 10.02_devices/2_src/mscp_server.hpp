@@ -22,7 +22,7 @@ class mscp_drive_c;
 #define GET_FLAGS(status) (((status) >> 8) & 0xff)
 
 #define MAX_CREDITS 14
-#define INIT_CREDITS 1 
+#define INIT_CREDITS 1
 
 //
 // ControlMessageHeader encapsulates the standard MSCP control
@@ -32,7 +32,7 @@ class mscp_drive_c;
 // little-endian byte orderings.  Probably not a big deal unless this
 // someday runs on something other than a Beaglebone.
 //
-#pragma pack(push,1) 
+#pragma pack(push,1)
 struct ControlMessageHeader
 {
     uint32_t ReferenceNumber;
@@ -56,7 +56,10 @@ struct ControlMessageHeader
         } End;
     } Word3;
 
-    uint8_t Parameters[512];  
+    // M9312 DU boot loader writes invalid big messages sizes.
+    // Temporary patch: enlarge buffer behind all reasonable limits.
+    // uint8_t Parameters[512];
+    uint8_t Parameters[10240];	// overkill
 };
 #pragma pack(pop)
 
@@ -78,7 +81,7 @@ enum Opcodes
     REPLACE = 0x14,
     SET_CONTROLLER_CHARACTERISTICS = 0x4,
     SET_UNIT_CHARACTERISTICS = 0xa,
-    WRITE = 0x22 
+    WRITE = 0x22
 };
 
 enum Endcodes
@@ -134,7 +137,7 @@ enum MessageTypes
 
 //
 // This inherits from device_c solely so the logging macros work.
-// 
+//
 class mscp_server : public device_c
 {
 public:
@@ -149,31 +152,31 @@ public:
 public:
     void on_power_changed(void) override {}
     void on_init_changed(void) override {}
-    void worker(void) override {} 
+    void worker(void) override {}
     bool on_param_changed(parameter_c *param) override { UNUSED(param); return true; }
 
 private:
-    uint32_t Abort(void); 
+    uint32_t Abort(void);
     uint32_t Access(std::shared_ptr<Message> message, uint16_t unitNumber);
     uint32_t Available(uint16_t unitNumber, uint16_t modifiers);
-    uint32_t CompareHostData(std::shared_ptr<Message> message, uint16_t unitNumber); 
-    uint32_t DetermineAccessPaths(uint16_t unitNumber); 
+    uint32_t CompareHostData(std::shared_ptr<Message> message, uint16_t unitNumber);
+    uint32_t DetermineAccessPaths(uint16_t unitNumber);
     uint32_t Erase(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
-    uint32_t GetCommandStatus(std::shared_ptr<Message> message); 
+    uint32_t GetCommandStatus(std::shared_ptr<Message> message);
     uint32_t GetUnitStatus(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
-    uint32_t Online(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers); 
+    uint32_t Online(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
     uint32_t SetControllerCharacteristics(std::shared_ptr<Message> message);
     uint32_t SetUnitCharacteristics(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
     uint32_t Read(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
     uint32_t Replace(std::shared_ptr<Message> message, uint16_t unitNumber);
     uint32_t Write(std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
-   
+
     uint32_t SetUnitCharacteristicsInternal(
-        std::shared_ptr<Message> message, 
-        uint16_t unitNumber, 
-        uint16_t modifiers, 
+        std::shared_ptr<Message> message,
+        uint16_t unitNumber,
+        uint16_t modifiers,
         bool bringOnline);
-    uint32_t DoDiskTransfer(uint16_t operation, std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers); 
+    uint32_t DoDiskTransfer(uint16_t operation, std::shared_ptr<Message> message, uint16_t unitNumber, uint16_t modifiers);
     uint8_t* GetParameterPointer(std::shared_ptr<Message> message);
     mscp_drive_c* GetDrive(uint32_t unitNumber);
 

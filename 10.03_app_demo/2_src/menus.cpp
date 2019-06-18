@@ -23,8 +23,6 @@
  12-nov-2018  JH      entered beta phase
  15-May-2016  JH      created
  */
-#define _MENUS_CPP_
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,41 +36,50 @@
 #include "unibus.h"
 #include "ddrmem.h"
 
-#include "menus.hpp" // own
+#include "application.hpp" // own
 
 using namespace std;
-
-menus_c *menus; // Singleton
 
 /**********************************************
  * User Interface
  *********************************************/
 
-void menus_c::print_arbitration_info(const char *indent) {
-	if (unibus->arbitration_active) {
-		printf("%s\"Arbitration ACTIVE\": Needs a PDP-11 CPU doing NPR/INTR arbitration\n",
-				indent);
-		printf("%s(CPU active, console processor inactive).\n", indent);
-		printf("%sMemory access as Bus Master with NPR/NPG/SACK handshake.\n", indent);
-	} else {
-		printf("%s\"Arbitration INACTIVE\": Expects no PDP-11 CPU doing NPR/INTR arbitration\n",
+void application_c::print_arbitration_info(
+		enum unibus_c::arbitration_mode_enum arbitration_mode, const char *indent) {
+	switch (arbitration_mode) {
+	case unibus_c::ARBITRATION_MODE_NONE:
+		printf(
+				"%s\"BR/BG and NPR/NPG Arbitration INACTIVE\": Expects no PDP-11 CPU doing NPR/INTR arbitration\n",
 				indent);
 		printf("%s(CPU not plugged in, or console processor active).\n", indent);
 		printf("%sOnly UNIBUS data transfers can be tested.\n", indent);
 		printf("%sUnconditional memory access as Bus Master without NPR/NPG/SACK handshake.\n",
 				indent);
+		break;
+	case unibus_c::ARBITRATION_MODE_CLIENT:
+		printf("%s\"UniBone is client to PDP-11 CPU doing NPR/INTR Arbitrator\n", indent);
+		printf("%s(CPU active, console processor inactive).\n", indent);
+		printf("%sMemory access as Bus Master with NPR/NPG/SACK handshake.\n", indent);
+		break;
+	case unibus_c::ARBITRATION_MODE_MASTER:
+		printf("%s\"UniBone is active Arbitrator for NPR/INTR Arbitrator\n", indent);
+		printf("%s\"Expects no physical PDP-11 CPU doing NPR/INTR arbitration\n", indent);
+		printf("%s(CPU not plugged in, NO console processor active).\n", indent);
+		break;
+	default:
+		FATAL("Illegal arbitration mode");
 	}
 }
 
 /*
  * read character string from stdin
  */
-char *menus_c::getchoice(void) {
+char *application_c::getchoice(void) {
 	static char s_choice[255];
 
 	do {
-		printf("\n>>>");
-		inputline(s_choice, (int) sizeof(s_choice));
+		printf("\n");
+		inputline(s_choice, (int) sizeof(s_choice), ">>>");
 		//char *s;
 		// do {
 		// s_choice[0] = '\0'; //  empty buffer.
@@ -87,24 +94,28 @@ char *menus_c::getchoice(void) {
 }
 
 // scan UNIBUS address range and emulate missing memory
-void menus_c::emulate_memory(void) {
+// result: false, if nothing emulated
+bool application_c::emulate_memory(enum unibus_c::arbitration_mode_enum arbitration_mode) {
+	bool result = false;
 	unsigned first_invalid_addr;
-	printf("Disable memory emulation, size physical memory ... ");
+	printf("Disable memory emulation, size physical memory ...\n");
 	emulated_memory_start_addr = 0xffffffff;
 	emulated_memory_end_addr = 0; // start > end: disable
 	ddrmem->set_range(emulated_memory_start_addr, emulated_memory_end_addr);
-	first_invalid_addr = unibus->test_sizer();
+	first_invalid_addr = unibus->test_sizer(arbitration_mode);
 	if (first_invalid_addr >= 0760000)
-		printf("\nFound physical memory in full range 0..0757776, no emulation necessary!\n");
+		printf("Found physical memory in full range 0..0757776, no emulation necessary!\n");
 	else {
 		// Emulate all unimplemented memory behind physical
 		if (ddrmem->set_range(first_invalid_addr, 0757776)) {
 			emulated_memory_start_addr = first_invalid_addr;
 			emulated_memory_end_addr = 0757776;
-			printf("\nNow emulating UNIBUS memory in range %06o..%06o with DDR memory.\n",
+			printf("Now emulating UNIBUS memory in range %06o..%06o with DDR memory.\n",
 					emulated_memory_start_addr, emulated_memory_end_addr);
+			result = true;
 		}
 	}
+	return result;
 }
 
 /*
@@ -134,7 +145,7 @@ void menus_c::emulate_memory(void) {
 /**********************************************
  * Print info()
  * */
-void menus_c::menu_info(void) {
+void application_c::menu_info(void) {
 	printf("Build timestamp: " __DATE__ " " __TIME__ "\n\n");
 	printf("Test setup:\n");
 	printf("UniBone must be plugged into SPC slots C-F on a DD11-CK backplane.\n");
@@ -174,7 +185,7 @@ void menus_c::menu_info(void) {
 
 // print all parameters of a device or device exerciser
 // p == NULL: alle
-void menus_c::print_params(parameterized_c *parameterized, parameter_c *p) {
+void application_c::print_params(parameterized_c *parameterized, parameter_c *p) {
 	stringgrid_c grid;
 	unsigned r;
 	grid.set(0, 0, "Name");
@@ -199,11 +210,10 @@ void menus_c::print_params(parameterized_c *parameterized, parameter_c *p) {
 	grid.print("  ", '-');
 }
 
-
 /**********************************************
  *	Main menu
  */
-void menus_c::menu_main(void) {
+void application_c::menu_main(void) {
 	bool ready;
 	char *s_choice;
 	char opcode[80];
@@ -220,20 +230,20 @@ void menus_c::menu_main(void) {
 		printf("\n\n");
 		printf("*** UniBone technology demonstrator build %s\n", compile_timestamp);
 		printf("\n");
-		print_arbitration_info("    ");
-		printf("\n");
-		printf("a <0/1>     Setup test for active/disabled PDP-11CPU.\n");
+		// printf("a <0/1>     Setup test for Aribitrator: 0 =none, 1 = client to active PDP-11 CPU.\n");
 		printf("tg          Test of single non-PRU GPIO pins\n");
 		printf("tp          Test I2C paneldriver\n");
-		printf("tx          Test of mailbox to PRU1\n");
+		//printf("tx          Test of mailbox to PRU1\n");
 		printf("tl          Test of IO bus latches\n");
+		printf("us          Stimulate UNIBUS signals\n");
 		printf(
 				"tm          Test Bus Master: access UNIBUS address range without PDP-11 CPU arbitration\n");
 		printf("ts          Test shared DDR memory = UNIBUS memory as BUS SLAVE\n");
-		if (unibus->arbitration_active)
-			printf("ti          Test Interrupts\n");
-		printf("td          Test device interface and state logic of RL01/02\n");
-		printf("de          Device Exerciser: work with devices on the UNIBUS without PDP-11 CPU arbitration\n") ;
+		printf("ti          Test Interrupts (needs physical PDP-11 CPU)\n");
+		printf("d           Emulate devices, with PDP-11 CPU arbitration\n");
+		printf("dc          Emulate devices and CPU, PDP-11 must be disabled.\n");
+		printf(
+				"de          Device Exerciser: work with devices on the UNIBUS without PDP-11 CPU arbitration\n");
 		printf(
 				"m           Full memory slave emulation with DMA bus master functions by PDP-11 CPU.\n");
 		printf("i           Info, help\n");
@@ -244,30 +254,32 @@ void menus_c::menu_main(void) {
 		if (n_fields > 0) {
 			if (!strcasecmp(opcode, "q")) {
 				ready = true;
-			} else if (!strcasecmp(opcode, "a")) {
-				unibus->arbitration_active = !!numarg;
+				// } else if (!strcasecmp(opcode, "a")) {
+				//	unibus->arbitrator_client = !!numarg;
 			} else if (!strcasecmp(opcode, "tg")) {
 				menu_gpio();
 			} else if (!strcasecmp(opcode, "tp")) {
 				menu_panel();
-			} else if (!strcasecmp(opcode, "tx")) {
-				menu_mailbox();
+				//} else if (!strcasecmp(opcode, "tx")) {
+				//	menu_mailbox();
 			} else if (!strcasecmp(opcode, "tl")) {
 				menu_buslatches();
+			} else if (!strcasecmp(opcode, "us")) {
+				menu_unibus_signals();
 			} else if (!strcasecmp(opcode, "tm")) {
-				unibus->arbitration_active = false;
-				menu_masterslave();
+				menu_masterslave(unibus_c::ARBITRATION_MODE_NONE);
 			} else if (!strcasecmp(opcode, "ts")) {
 				menu_ddrmem_slave_only();
 			} else if (!strcasecmp(opcode, "ti")) {
 				menu_interrupts();
-			} else if (!strcasecmp(opcode, "td")) {
-				menu_devices();
+			} else if (!strcasecmp(opcode, "d")) {
+				menu_devices(false);
+			} else if (!strcasecmp(opcode, "dc")) {
+				menu_devices(true);
 			} else if (!strcasecmp(opcode, "de")) {
 				menu_device_exercisers();
 			} else if (!strcasecmp(opcode, "m")) {
-				unibus->arbitration_active = true;
-				menu_masterslave();
+				menu_masterslave(unibus_c::ARBITRATION_MODE_CLIENT);
 			} else if (!strcasecmp(opcode, "i")) {
 				menu_info();
 			}

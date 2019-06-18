@@ -124,7 +124,7 @@
 #define RL11_STATE_RW_MASK	0x0200 // bit marks all READ/WRITE states
 #define RL11_STATE_RW_INIT	0x0201
 #define RL11_STATE_RW_DISK	0x0202
-#define RL11_STATE_RW_WAIT_DMA 0x0203
+//#define RL11_STATE_RW_WAIT_DMA 0x0203
 //#define RL11_STATE_RW_DONE 0x0204
 
 RL11_c::RL11_c(void) :
@@ -718,28 +718,25 @@ void RL11_c::state_readwrite() {
 			//logger.debug_hexdump(LC_RL, "Read data between disk access and DMA",
 			//		(uint8_t *) silo, sizeof(silo), NULL);
 			// start DMA transmission of SILO into memory
-			error_dma_timeout = !unibusadapter->request_DMA(UNIBUS_CONTROL_DATO, unibus_address, silo,
-					dma_wordcount);
+			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATO, unibus_address, silo,
+					dma_wordcount, &unibus_address);
 		} else if (function_code == CMD_WRITE_CHECK) {
 			// read sector data to compare with sector data
 			drive->cmd_read_next_sector_data(silo, 128);
 			// logger.debug_hexdump(LC_RL, "Read data between disk access and DMA",
 			//		(uint8_t *) silo, sizeof(silo), NULL);
 			// start DMA transmission of memory to compare with SILO
-			error_dma_timeout = !unibusadapter->request_DMA(UNIBUS_CONTROL_DATI, unibus_address, silo_compare,
-					dma_wordcount);
+			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATI, unibus_address, silo_compare,
+					dma_wordcount, &unibus_address);
 		} else if (function_code == CMD_WRITE_DATA) {
 			// start DMA transmission of memory into SILO
-			error_dma_timeout = !unibusadapter->request_DMA(UNIBUS_CONTROL_DATI, unibus_address, silo,
-					dma_wordcount);
+			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATI, unibus_address, silo,
+					dma_wordcount, &unibus_address);
 		}
-
-		change_state(RL11_STATE_RW_WAIT_DMA);
-		break;
-	case RL11_STATE_RW_WAIT_DMA:
-		// Complete DMA, move to next sector
-
-		unibus_address += dma_wordcount * 2;
+		
+        // request_client_DMA() was blocking, DMA processed now.
+        // unibus_address updated to last accesses address
+	    unibus_address += 2; // was last address, is now next to fill
 		// if timeout: addr AFTER illegal address (verified)
 		update_unibus_address(unibus_address); // set addr msb to cs
 

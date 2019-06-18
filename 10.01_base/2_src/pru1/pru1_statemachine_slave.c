@@ -72,7 +72,7 @@ static uint8_t sm_slave_state_1() {
 	uint8_t b;
 
 	// fast sample of busstate, should be atomic
-	latch4val = buslatches_get(4); // MSYN first
+	latch4val = buslatches_getbyte(4); // MSYN first
 
 	// MSYN active ?
 	if (!(latch4val & BIT(4)))
@@ -83,8 +83,8 @@ static uint8_t sm_slave_state_1() {
 	// checking against SSYN guarantees address if valid if fetched now.
 	// However, another Bus slave can SSYN immediately
 
-	latch2val = buslatches_get(2); // A0..7
-	latch3val = buslatches_get(3); // A8..15
+	latch2val = buslatches_getbyte(2); // A0..7
+	latch3val = buslatches_getbyte(3); // A8..15
 
 	// decode address and control
 	// addr0..7 = latch[2]
@@ -127,9 +127,9 @@ static uint8_t sm_slave_state_1() {
 	case UNIBUS_CONTROL_DATO:
 		// fetch data in any case
 		// DATA[0..7] = latch[5]
-		w = buslatches_get(5);
+		w = buslatches_getbyte(5);
 		// DATA[8..15] = latch[6]
-		w |= (uint16_t) buslatches_get(6) << 8;
+		w |= (uint16_t) buslatches_getbyte(6) << 8;
 		if (iopageregisters_write_w(addr, w)) {
 			//DEBUG_PIN_PULSE ; // trigger scope/LA. auto cleared on next reg_sel
 
@@ -148,10 +148,10 @@ static uint8_t sm_slave_state_1() {
 		// fetch data
 		if (addr & 1) {
 			// DATA[8..15] = latch[6]
-			b = buslatches_get(6);
+			b = buslatches_getbyte(6);
 		} else {
 			// DATA[0..7] = latch[5]
-			b = buslatches_get(5);
+			b = buslatches_getbyte(5);
 		}
 		if (iopageregisters_write_b(addr, b)) { // always sucessful, addr already tested
 			// SSYN = latch[4], bit 5
@@ -171,7 +171,7 @@ static uint8_t sm_slave_state_1() {
 // also wait for EVENT ACK
 static uint8_t sm_slave_state_10() {
 	// MSYN = latch[4], bit 4
-	if (buslatches_get(4) & BIT(4))
+	if (buslatches_getbyte(4) & BIT(4))
 		return 0; // MSYN still active
 	if (mailbox.events.eventmask)
 		return 0; // long SSYN delay until ARM acknowledges all events
@@ -189,7 +189,7 @@ static uint8_t sm_slave_state_10() {
 // also wait for EVENT ACK
 static uint8_t sm_slave_state_20() {
 	// MSYN = latch[4], bit 4
-	if (buslatches_get(4) & BIT(4))
+	if (buslatches_getbyte(4) & BIT(4))
 		return 0; // MSYN still active
 	if (mailbox.events.eventmask)
 		return 0; // long SSYN delay until ARM acknowledges event
@@ -210,7 +210,7 @@ static uint8_t sm_slave_state_20() {
 // end of inactive cycle: wait for MSYN to go inactive
 static uint8_t sm_slave_state_99() {
 	// MSYN = latch[4], bit 4
-	if (buslatches_get(4) & BIT(4))
+	if (buslatches_getbyte(4) & BIT(4))
 		return 0; // MSYN still active
 
 	sm_slave.state = &sm_slave_state_1;

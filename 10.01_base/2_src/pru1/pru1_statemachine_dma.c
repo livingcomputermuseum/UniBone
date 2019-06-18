@@ -95,7 +95,7 @@ void sm_dma_start() {
 
 // place address and control bits onto bus, also data for DATO
 // If slave address is internal (= implemented by UniBone),
-// fast UNIBUS slave protocoll is generated on the bus.
+// fast UNIBUS slave protocol is generated on the bus.
 static uint8_t sm_dma_state_1() {
 	uint32_t tmpval;
 	uint32_t addr = mailbox.dma.cur_addr; // non-volatile snapshot
@@ -104,9 +104,11 @@ static uint8_t sm_dma_state_1() {
 	// uint8_t page_table_entry;
 	uint8_t b;
 	bool internal;
-
+ 
+	// should test SACK and BBSY !
 	if (mailbox.dma.cur_status != DMA_STATE_RUNNING || mailbox.dma.wordcount == 0)
 		return 1; // still stopped
+
 
 	if (sm_dma.cur_wordsleft == 1) {
 		// deassert SACK, enable next arbitration cycle
@@ -138,10 +140,10 @@ static uint8_t sm_dma_state_1() {
 		buslatches_setbyte(6, data >> 8); // DATA[8..15] = latch[6]
 		// wait 150ns, but guaranteed to wait 150ns after SSYN inactive
 		// prev SSYN & DATA may be still on bus, disturbes DATA
-		while (buslatches_get(4) & BIT(5))
+		while (buslatches_getbyte(4) & BIT(5))
 			;	// wait for SSYN inactive
-		__delay_cycles(NANOSECS(350) - 10);
-		// assume 10 cycles for buslatches_get and address test
+		__delay_cycles(NANOSECS(150) - 10);
+		// assume 10 cycles for buslatches_getbyte and address test
 		// ADDR, CONTROL (and DATA) stable since 150ns, set MSYN
 
 		// use 150ns delay to check for internal address
@@ -190,8 +192,8 @@ static uint8_t sm_dma_state_1() {
 		buslatches_setbits(4, 0x3f, tmpval);
 
 		// wait 150ns after MSYN, no distance to SSYN required
-		__delay_cycles(NANOSECS(350) - 10);
-		// assume 10 cycles for buslatches_get and address test
+		__delay_cycles(NANOSECS(150) - 10);
+		// assume 10 cycles for buslatches_getbyte and address test
 		// ADDR, CONTROL (and DATA) stable since 150ns, set MSYN next
 
 		// use 150ns delay to check for internal address
@@ -239,15 +241,15 @@ static uint8_t sm_dma_state_11() {
 	uint16_t tmpval;
 	sm_dma.state_timeout = TIMEOUT_REACHED;
 	// SSYN = latch[4], bit 5
-	if (!sm_dma.state_timeout && !(buslatches_get(4) & BIT(5)))
+	if (!sm_dma.state_timeout && !(buslatches_getbyte(4) & BIT(5)))
 		return 0; // no SSYN yet: wait
 	// SSYN set by slave (or timeout). read data
-	__delay_cycles(NANOSECS(75) - 6); // assume 2*3 cycles for buslatches_get
+	__delay_cycles(NANOSECS(75) - 6); // assume 2*3 cycles for buslatches_getbyte
 
 	// DATA[0..7] = latch[5]
-	tmpval = buslatches_get(5);
+	tmpval = buslatches_getbyte(5);
 	// DATA[8..15] = latch[6]
-	tmpval |= (buslatches_get(6) << 8);
+	tmpval |= (buslatches_getbyte(6) << 8);
 	// save in buffer
 	*sm_dma.dataptr = tmpval;
 	// mailbox.dma.words[sm_dma.cur_wordidx] = tmpval;
@@ -263,7 +265,7 @@ static uint8_t sm_dma_state_11() {
 static uint8_t sm_dma_state_21() {
 	sm_dma.state_timeout = TIMEOUT_REACHED; // SSYN timeout?
 	// SSYN = latch[4], bit 5
-	if (!sm_dma.state_timeout && !(buslatches_get(4) & BIT(5)))
+	if (!sm_dma.state_timeout && !(buslatches_getbyte(4) & BIT(5)))
 		return 0; // no SSYN yet: wait
 
 	// SSYN set by slave (or timeout): negate MSYN, remove DATA from bus
@@ -293,8 +295,8 @@ static uint8_t sm_dma_state_99() {
 		sm_dma.cur_wordsleft--;
 		if (sm_dma.cur_wordsleft == 0)
 			final_dma_state = DMA_STATE_READY; // last word: stop
-		else if (buslatches_get(7) & BIT(3)) { // INIT stops transaction: latch[7], bit 3
-			// only bus master (=we!) can issue INIT, so this should never be reached
+		else if (buslatches_getbyte(7) & BIT(3)) { // INIT stops transaction: latch[7], bit 3
+			// only bus master (=CPU?) can issue INIT
 			final_dma_state = DMA_STATE_INITSTOP;
 			// deassert SACK after INIT, independent of remaining word count
 			buslatches_setbits(1, BIT(5), 0); // deassert SACK = latch[1], bit 5

@@ -29,20 +29,23 @@
 #include <stdbool.h>
 
 #include "inputline.h"
-#include "menus.hpp" // own
+#include "application.hpp" // own
+#include "pru.hpp"
 
 #include "mailbox.h"
 
 /**********************************************
  * Function and performance test of ARM-PRU1 mailbox
  * */
-void menus_c::menu_mailbox() {
+void application_c::menu_mailbox() {
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	// mcout_t mcout; // Multi Column OUTput
 	bool ready;
 	char *s_choice;
 	char s_id[256], s_opcode[256];
 	ready = false;
+	// test PRUs
+	hardware_startup(pru_c::PRUCODE_TEST) ;
 	while (!ready) {
 		if (show_help) {
 			show_help = false; // only once
@@ -67,5 +70,6 @@ void menus_c::menu_mailbox() {
 			show_help = true;
 		}
 	}
+	hardware_shutdown() ;	
 }
 

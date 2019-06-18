@@ -1,4 +1,4 @@
 # start "demo" application, emulate memory, load "ZKMA",
-cd ~
-~/10.03_app_demo/4_deploy/demo --arbitration_active 1 --verbose --debug  --cmdfile zkma.cmd
+cd /root/10.02_devices/3_test/mem/zkma
+~/10.03_app_demo/4_deploy/demo --verbose --debug  --cmdfile zkma.cmd
 

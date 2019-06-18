@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <time.h>
+#include <limits.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 
@@ -161,6 +162,20 @@ bool fileExists(const std::string& filename) {
 	}
 	return false;
 }
+
+// Generates "perror()" printout, 
+// msgfmt must have one "%s" field for absolute filename
+char *fileErrorText(const char *msgfmt, const char *fname) {
+	static char linebuff[PATH_MAX +100];
+	char abspath[PATH_MAX] ;
+	realpath(fname, abspath);
+	sprintf(linebuff, msgfmt, abspath);
+	strcat(linebuff, ": ") ;
+	strcat (linebuff, strerror(errno)) ;
+//	perror(linebuff);
+	return linebuff ;
+}
+
 
 // add a number of microseconds to a time
 struct timespec timespec_add_us(struct timespec ts, unsigned us) {

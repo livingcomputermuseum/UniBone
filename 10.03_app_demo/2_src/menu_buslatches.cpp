@@ -32,7 +32,8 @@
 #include "utils.hpp"
 #include "inputline.h"
 #include "mcout.h"
-#include "menus.hpp" // own
+#include "application.hpp" // own
+#include "pru.hpp"
 
 #include "gpios.hpp"
 
@@ -49,7 +50,7 @@
 static uint8_t buslatches_outreg_val[8];
 
 // write single signal wire
-static void buslatches_set_pin_val(buslatches_signal_info_t *si, unsigned val) {
+static void buslatches_set_pin_val(buslatches_wire_info_t *si, unsigned val) {
 	// set single bit
 	assert(!si->is_input); // only output signals
 	if (val)
@@ -59,7 +60,7 @@ static void buslatches_set_pin_val(buslatches_signal_info_t *si, unsigned val) {
 	buslatches_setval(si->reg_sel, 0xff, buslatches_outreg_val[si->reg_sel]);
 }
 
-static bool buslatches_get_pin_val(buslatches_signal_info_t *si) {
+static bool buslatches_get_pin_val(buslatches_wire_info_t *si) {
 	// read register
 	assert(si->is_input); // only input signals
 	unsigned val = buslatches_getval(si->reg_sel);
@@ -72,7 +73,7 @@ static bool buslatches_get_pin_val(buslatches_signal_info_t *si) {
 
 // highspeed toggle a register bit for a certain time. 
 // result: false = stop with ^C
-static bool buslatches_oscillate_pin(buslatches_signal_info_t *si, unsigned timeout_ms) {
+static bool buslatches_oscillate_pin(buslatches_wire_info_t *si, unsigned timeout_ms) {
 	timeout_c timeout;
 	unsigned count;
 
@@ -91,7 +92,8 @@ static bool buslatches_oscillate_pin(buslatches_signal_info_t *si, unsigned time
 }
 
 static void buslatches_test_uniprobe(void) {
-	// signale names see gpio.cpp, "buslatches_signal_info"
+	// signal names see gpio.cpp, "buslatches_wire_info"
+	// order of signals like on UniProbe LEDs
 	const char *signalnames[] = { "ACLO", "DCLO", "INIT",
 	// IOPAGE
 			"A17", "A16", "A15", "A14", "A13", "A12", "A11", "A10", "A09", "A08",  //
@@ -122,7 +124,7 @@ static void buslatches_test_uniprobe(void) {
 	// ALL ON, bitwise
 	printf("Set all UNIBUS signals active => all LEDs ON.\n");
 	for (i = 0; signalnames[i]; i++) {
-		buslatches_signal_info_t *si = buslatches_get_signal_info(signalnames[i], /*is_input*/
+		buslatches_wire_info_t *si = buslatches_get_wire_info(signalnames[i], /*is_input*/
 		false);
 		assert(si);
 		buslatches_set_pin_val(si, si->is_inverted ? 0 : 1);
@@ -131,7 +133,7 @@ static void buslatches_test_uniprobe(void) {
 	printf("Oscillate UNIBUS signals one by one => single LEDs with half intensity.\n");
 	abort = false;
 	for (i = 0; !abort && signalnames[i]; i++) {
-		buslatches_signal_info_t *si = buslatches_get_signal_info(signalnames[i], /*is_input*/
+		buslatches_wire_info_t *si = buslatches_get_wire_info(signalnames[i], /*is_input*/
 		false);
 		assert(si);
 		abort = !buslatches_oscillate_pin(si, timeout_ms);
@@ -155,25 +157,25 @@ static void buslatches_m9302_sack_test() {
 	unsigned count;
 	unsigned i;
 	bool error;
-	buslatches_signal_info_t *grant_line[GRANT_LINE_COUNT];
-	buslatches_signal_info_t *sack_line;
+	buslatches_wire_info_t *grant_line[GRANT_LINE_COUNT];
+	buslatches_wire_info_t *sack_line;
 	printf("Test SACK turnaround of M9302 terminator.\n");
 
 	printf("GRANT lines BG4,BG5,BG6,BG7,NPG are stimulated randomly,\n");
 	printf("if at least one is active, SACK must be asserted by M9302 terminator.\n");
 	printf("Starting now, stop with ^C ...\n");
-	assert(grant_line[0] = buslatches_get_signal_info("BG4_OUT",/*is_input*/false));
-	assert(grant_line[1] = buslatches_get_signal_info("BG5_OUT",/*is_input*/false));
-	assert(grant_line[2] = buslatches_get_signal_info("BG6_OUT",/*is_input*/false));
-	assert(grant_line[3] = buslatches_get_signal_info("BG7_OUT",/*is_input*/false));
-	assert(grant_line[4] = buslatches_get_signal_info("NPG_OUT",/*is_input*/false));
-	assert(sack_line = buslatches_get_signal_info("SACK",/*is_input*/true));
+	assert(grant_line[0] = buslatches_get_wire_info("BG4_OUT",/*is_input*/false));
+	assert(grant_line[1] = buslatches_get_wire_info("BG5_OUT",/*is_input*/false));
+	assert(grant_line[2] = buslatches_get_wire_info("BG6_OUT",/*is_input*/false));
+	assert(grant_line[3] = buslatches_get_wire_info("BG7_OUT",/*is_input*/false));
+	assert(grant_line[4] = buslatches_get_wire_info("NPG_OUT",/*is_input*/false));
+	assert(sack_line = buslatches_get_wire_info("SACK",/*is_input*/true));
 	// BG* have rebersed polarity
-	assert(grant_line[0]->is_inverted) ;
-	assert(grant_line[1]->is_inverted) ;
-	assert(grant_line[2]->is_inverted) ;
-	assert(grant_line[3]->is_inverted) ;
-	assert(grant_line[4]->is_inverted) ;
+	assert(grant_line[0]->is_inverted);
+	assert(grant_line[1]->is_inverted);
+	assert(grant_line[2]->is_inverted);
+	assert(grant_line[3]->is_inverted);
+	assert(grant_line[4]->is_inverted);
 
 	SIGINTcatchnext();
 
@@ -188,7 +190,7 @@ static void buslatches_m9302_sack_test() {
 
 		// moving one, with lots of extra "all IDLE" phase
 		// SACK LED must be on at 50%.
-		i = count % (2*GRANT_LINE_COUNT);
+		i = count % (2 * GRANT_LINE_COUNT);
 		// set one line
 		if (i < GRANT_LINE_COUNT) {
 			buslatches_set_pin_val(grant_line[i], !1);
@@ -220,7 +222,7 @@ static void buslatches_m9302_sack_test() {
 	printf("\n");
 }
 
-void menus_c::menu_buslatches(void) {
+void application_c::menu_buslatches(void) {
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	bool show_inputs = true; // query and show state of all latches
 	bool ready;
@@ -229,7 +231,9 @@ void menus_c::menu_buslatches(void) {
 	int n_fields;
 
 	// These test need active bus drivers
+	hardware_startup(pru_c::PRUCODE_TEST);
 	buslatches_output_enable(true);
+
 #define PRINTBUSLATCH(i)	\
 				printf("buslatch[%d] = 0x%02x (%d bits)\n", i,\
 						buslatches_getval(i) & buslatches.bidi_bitmask[i], \
@@ -258,16 +262,17 @@ void menus_c::menu_buslatches(void) {
 			printf("<id> t      Toggle 0x00,0xff\n");
 			printf("<id> r      Random values\n");
 			printf("* o|z|t|r   As above, test on all registers\n");
+			printf("* 0|1       All OFF, all ON\n");
 			printf("up          Slow \"moving zero\" to test UniProbe LEDs\n");
 			printf("gst         M9302 GRANT/SACK turnaround test\n");
 			printf("o <0|1>     Enable/disable DS8641 UNIBUS output drivers.\n");
 			printf("              Drivers are currently %s.\n",
 					buslatches.cur_output_enable ? "ENABLED" : "NOT ENABLED");
-			printf(" a          Show all\n");
-			printf(" r          Reset outputs to \"neutral\" values\n");
-			printf(" t          High speed timing test by PRU. \n");
-			printf("            PRU1.12 is error signal. Stop with ^C\n");
-			printf(" q          Quit\n");
+			printf("a           Show all\n");
+			printf("r           Reset outputs to \"neutral\" values\n");
+			printf(
+					"t           High speed timing test by PRU. PRU1.12 is error signal. Stop with ^C\n");
+			printf("q           Quit\n");
 		}
 		s_choice = getchoice();
 		printf("\n");
@@ -277,7 +282,7 @@ void menus_c::menu_buslatches(void) {
 		} else if (!strcasecmp(s_choice, "q")) {
 			ready = true;
 		} else if (!strcasecmp(s_choice, "r")) {
-			buslatches_init();
+			buslatches_pru_reset();
 		} else if (!strcasecmp(s_choice, "a")) {
 			show_inputs = true;
 		} else if (n_fields == 2 && !strcasecmp(s_opcode, "o")) {
@@ -316,16 +321,22 @@ void menus_c::menu_buslatches(void) {
 				show_help = true;
 			}
 		} else if (n_fields == 2 && strchr("*", s_opcode[0])) {
-			unsigned reg_first = 0;
-			unsigned reg_last = 7;
 			if (!strcasecmp(s_param, "o")) {
-				buslatches_test_simple_pattern_multi(reg_first, reg_last, 2);
+				buslatches_test_simple_pattern_multi(2);
 			} else if (!strcasecmp(s_param, "z")) {
-				buslatches_test_simple_pattern_multi(reg_first, reg_last, 3);
+				buslatches_test_simple_pattern_multi(3);
 			} else if (!strcasecmp(s_param, "t")) {
-				buslatches_test_simple_pattern_multi(reg_first, reg_last, 4);
+				buslatches_test_simple_pattern_multi(4);
 			} else if (!strcasecmp(s_param, "r")) {
-				buslatches_test_simple_pattern_multi(reg_first, reg_last, 5);
+				buslatches_test_simple_pattern_multi(5);
+			} else if (!strcasecmp(s_param, "0")) {
+				for (unsigned reg_sel = 0; reg_sel < 8; reg_sel++)
+					buslatches_setval(reg_sel, 0xff, 0);
+				show_inputs = true;
+			} else if (!strcasecmp(s_param, "1")) {
+				for (unsigned reg_sel = 0; reg_sel < 8; reg_sel++)
+					buslatches_setval(reg_sel, 0xff, 0xff);
+				show_inputs = true;
 			} else {
 				printf("Syntax error: *  <pattern>.\n");
 				show_help = true;
@@ -343,5 +354,6 @@ void menus_c::menu_buslatches(void) {
 	} // while (!ready)
 
 	buslatches_output_enable(false);
+	hardware_shutdown();
 }
 

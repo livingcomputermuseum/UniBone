@@ -30,6 +30,7 @@ rk05_c::rk05_c(storagecontroller_c *controller) :
     _dpl(false),
     _scp(false) 
 {
+	type_name.value = "RK05" ;
     log_label = "RK05"; 
     _geometry.Cylinders = 203;   // Standard RK05
     _geometry.Heads = 2;

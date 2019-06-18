@@ -21,6 +21,7 @@
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+ 21-may-2019  JH      added UNIBUS signals
  12-nov-2018  JH      entered beta phase
  */
 
@@ -37,6 +38,7 @@
 
 #include "mailbox.h"
 
+#include "pru.hpp"
 #include "utils.hpp"
 #include "logsource.hpp"
 #include "logger.hpp"
@@ -250,7 +252,7 @@ void gpios_c::test_loopback(void) {
 /* return a string with board signal path for an UNIBUS signal
  * used as error info for loopback failures
  */
-buslatches_signal_info_t buslatches_signal_info[] = { //
+buslatches_wire_info_t buslatches_wire_info[] = { //
 //
 		// Register 0 write (PRU -> 74LS377 -> DS8641)
 				{ 0, 0, 0, 1, "BG4_OUT",
@@ -416,9 +418,9 @@ buslatches_signal_info_t buslatches_signal_info[] = { //
 //
 // Register 4 read (PRU <- 74LVTH541 <- DS8641)
 				{ 4, 0, 1, 0, "A16",
-						"P8.45 <- J17.1 DATIN_0 <- U13.18 <- U13.02 <- U27.13 <- U27.15 <- A16" },//
+						"P8.45 <- J17.1 DATIN_0 <- U25.18 <- U25.02 <- U27.13 <- U27.15 <- A16" },//
 				{ 4, 1, 1, 0, "A17",
-						"P8.46 <- J17.2 DATIN_1 <- U13.17 <- U13.03 <- U27.10 <- U27.12 <- A17" },//
+						"P8.46 <- J17.2 DATIN_1 <- U25.17 <- U25.03 <- U27.10 <- U27.12 <- A17" },//
 				{ 4, 2, 1, 0, "C0",
 						"P8.43 <- J17.3 DATIN_2 <- U13.16 <- U13.04 <- U27.03 <- U27.01 <- C0" },//
 				{ 4, 3, 1, 0, "C1",
@@ -543,23 +545,22 @@ buslatches_signal_info_t buslatches_signal_info[] = { //
 		};
 
 // search a register bit by UNIBUS signal name and direction
-buslatches_signal_info_t *buslatches_get_signal_info(const char *unibus_name,
-		unsigned is_input) {
+buslatches_wire_info_t *buslatches_get_wire_info(const char *unibus_name, unsigned is_input) {
 	unsigned i;
-	buslatches_signal_info_t *si;
+	buslatches_wire_info_t *si;
 
-	for (i = 0; (si = &buslatches_signal_info[i]) && si->path; i++)
+	for (i = 0; (si = &buslatches_wire_info[i]) && si->path; i++)
 		if (si->is_input == is_input && !strcasecmp(si->unibus_name, unibus_name))
 			return si;
 	return NULL; // not found
 }
 
 // print info for a loop back mismatch bitmask
-static void buslatches_print_signal_path(unsigned reg, unsigned mismatch_bitmask) {
+static void buslatches_print_wire_path(unsigned reg, unsigned mismatch_bitmask) {
 	unsigned bit;
 	unsigned bitmask;
 	unsigned i;
-	buslatches_signal_info_t *si;
+	buslatches_wire_info_t *si;
 
 	for (bit = 0; bit < 8; bit++) {
 		bitmask = 1 << bit;
@@ -568,18 +569,17 @@ static void buslatches_print_signal_path(unsigned reg, unsigned mismatch_bitmask
 
 			printf("Signal path for bus latch %u, bit %u (mask 0x%02x):\n", reg, bit,
 					(1 << bit));
-			for (i = 0; (si = &buslatches_signal_info[i]) && si->path; i++)
+			for (i = 0; (si = &buslatches_wire_info[i]) && si->path; i++)
 				if (si->reg_sel == reg && !si->is_input && si->bit_nr == bit)
 					printf("  Write: %s\n", si->path);
-			for (i = 0; (si = &buslatches_signal_info[i]) && si->path; i++)
+			for (i = 0; (si = &buslatches_wire_info[i]) && si->path; i++)
 				if (si->reg_sel == reg && si->is_input && si->bit_nr == bit)
 					printf("  Read : %s\n", si->path);
 		}
 	}
 }
-
 // enable=1: activate UNIBUS drivers
-// can be called BEFORE buslatches_init()
+// activate AFTER RPU code started and reset bus latches values
 void buslatches_output_enable(bool enable) {
 	enable = !!enable;
 	GPIO_SETVAL(gpios->bus_enable, enable);
@@ -589,14 +589,13 @@ void buslatches_output_enable(bool enable) {
 // register signals to standard
 // all outputs to standard:
 // init state
-// UNIBUS lines all H / only BR4567, NPR_OUT auf LOW
-void buslatches_init() {
+void buslatches_register() {
 	unsigned i;
-	// chips are all 8bit width, but not all input/outputs are
-	// connected to bidirektional terminated UNIBUs lines.
-	// see PCB schematic!
+// chips are all 8bit width, but not all input/outputs are
+// connected to bidirektional terminated UNIBUs lines.
+// see PCB schematic!
 	buslatches.bidi_bitwidth[0] = 5; // BG4567, NPG
-	// LTC on .6 ignored, is input only
+// LTC on .6 ignored, is input only
 	buslatches.bidi_bitwidth[1] = 7; // BR4..BR7,NPR,SACK,BBSY
 	buslatches.bidi_bitwidth[2] = 8; // addresses 0..7 ;
 	buslatches.bidi_bitwidth[3] = 8; // addresses 8..15
@@ -604,21 +603,26 @@ void buslatches_init() {
 	buslatches.bidi_bitwidth[5] = 8; // data 0..7
 	buslatches.bidi_bitwidth[6] = 8; // data 8..15
 	buslatches.bidi_bitwidth[7] = 6; // INTR,PA,PB,INIT,ACLO,DCLO
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < BUSLATCHES_COUNT; i++) {
 		buslatches.read_inverted[i] = false;
 		buslatches.bidi_bitmask[i] = BitmaskFromLen32[buslatches.bidi_bitwidth[i]];
 	}
-	//  BG4567, NPG are read back non inverted from UNIBUS
+//  BG4567, NPG are read back non inverted from UNIBUS
 	buslatches.read_inverted[0] = true;
 
-	// PRU1 does it
+}
+
+// UNIBUS lines all H / only BR4567, NPR_OUT auf LOW
+// PRU1 does it
+void buslatches_pru_reset() {
+	assert(pru->prucode_id == pru_c::PRUCODE_TEST);
 	mailbox_execute(ARM2PRU_BUSLATCH_INIT, ARM2PRU_NONE);
 }
 
 // read the REG_DATIN[0..7] pins
 // highly optimized, to reduce access to memory mapped gpio registers
 unsigned buslatches_getval(unsigned reg_sel) {
-	// PRU1 does it
+// PRU1 does it
 	mailbox->buslatch.addr = reg_sel;
 	while (mailbox->buslatch.addr != reg_sel)
 		; // cache !
@@ -629,7 +633,7 @@ unsigned buslatches_getval(unsigned reg_sel) {
 }
 
 // write the REG_DATOUT[0..7] pins into one latch
-// only bits "bitmask" are written
+// only bits "bitmask" are written. Other bits are cleared (PRU logic)
 void buslatches_setval(unsigned reg_sel, unsigned bitmask, unsigned val) {
 	mailbox->buslatch.addr = reg_sel;
 	mailbox->buslatch.bitmask = bitmask & 0xff;
@@ -653,7 +657,7 @@ void buslatches_test_simple_pattern(unsigned pattern, unsigned reg_sel) {
 	unsigned idx, setval = 0, chkval;
 	unsigned bitwidth, bitmask;
 	unsigned count;
-	assert(reg_sel < 8);
+	assert(reg_sel < BUSLATCHES_COUNT);
 	bitwidth = buslatches.bidi_bitwidth[reg_sel];
 	bitmask = buslatches.bidi_bitmask[reg_sel];
 
@@ -675,9 +679,9 @@ void buslatches_test_simple_pattern(unsigned pattern, unsigned reg_sel) {
 		break;
 	}
 
-	// Setup ^C catcher
+// Setup ^C catcher
 	SIGINTcatchnext();
-	// high speed loop
+// high speed loop
 	idx = 0;
 	count = 0;
 	while (!SIGINTreceived) {
@@ -716,12 +720,13 @@ void buslatches_test_simple_pattern(unsigned pattern, unsigned reg_sel) {
 		if (chkval != setval) {
 			printf("pass %u test_register_simple_pattern(%d, %d): wrote 0x%x, read 0x%x\n",
 					count, pattern, reg_sel, setval, chkval);
+
 			if (reg_sel == 0) {
 				printf("Testing BR*,NPR with BG*,NPG feedback.\n");
 				printf("Are there 5*3 jumpers in the \"||\"\n");
 				printf("                             \"--\" position?\n");
 			}
-			buslatches_print_signal_path(reg_sel, setval ^ chkval);
+			buslatches_print_wire_path(reg_sel, setval ^ chkval);
 			return;
 		}
 		count++;
@@ -729,39 +734,52 @@ void buslatches_test_simple_pattern(unsigned pattern, unsigned reg_sel) {
 	printf("\n%u tests successful.\n", count);
 }
 
-void buslatches_test_simple_pattern_multi(unsigned reg_first, unsigned reg_last,
-		unsigned pattern) {
-	unsigned reg_count = reg_last - reg_first + 1;
+// shuffles entries in mailbox.exerciser work list
+static void buslatches_exerciser_random_order() {
+	for (unsigned i = 0; i < 2 * BUSLATCHES_COUNT; i++) {
+		unsigned reg_sel1 = rand() % BUSLATCHES_COUNT;
+		unsigned reg_sel2 = rand() % BUSLATCHES_COUNT;
+		uint8_t tmp;
+		// swap addr and testval
+		tmp = mailbox->buslatch_exerciser.addr[reg_sel1];
+		mailbox->buslatch_exerciser.addr[reg_sel1] = mailbox->buslatch_exerciser.addr[reg_sel2];
+		mailbox->buslatch_exerciser.addr[reg_sel2] = tmp;
+		tmp = mailbox->buslatch_exerciser.writeval[reg_sel1];
+		mailbox->buslatch_exerciser.writeval[reg_sel1] =
+				mailbox->buslatch_exerciser.writeval[reg_sel2];
+		mailbox->buslatch_exerciser.writeval[reg_sel2] = tmp;
+	}
+}
 
-	unsigned testno; // global test number counter
-	unsigned i;
-	unsigned testval[8]; // test data for all latches
+void buslatches_test_simple_pattern_multi(unsigned pattern) {
+	unsigned pass_no; // global test number counter
+	uint64_t total_errors, total_tests;
+	unsigned reg_sel; // register address
+	unsigned testval[BUSLATCHES_COUNT]; // test data for all latches
 
 	switch (pattern) {
 //	case 1:
 //		printf("Highspeed count register latch %d, stop with ^C.\n", reg_sel);
 //		break;
 	case 2:
-		printf("Highspeed \"moving ones\" in register latches %d-%d, stop with ^C.\n",
-				reg_first, reg_last);
+		printf("Highspeed \"moving ones\" in register latches, stop with ^C.\n");
 		break;
 	case 3:
-		printf("Highspeed \"moving zeros\" in register latches %d-%d, stop with ^C.\n",
-				reg_first, reg_last);
+		printf("Highspeed \"moving zeros\" in register latches, stop with ^C.\n");
 		break;
 	case 4:
-		printf("Highspeed toggle 0x00 - 0xff in register latches %d-%d, stop with ^C.\n",
-				reg_first, reg_last);
+		printf("Highspeed toggle 0x00 - 0xff in register latches, stop with ^C.\n");
 		break;
 	case 5:
-		printf("Highspeed random values in register latches %d-%d, stop with ^C.\n", reg_first,
-				reg_last);
+		printf("Highspeed random values in register latches, stop with ^C.\n");
 		break;
 	default:
 		printf("Error: unknown test pattern %u.\n", pattern);
 	}
 
-	testno = 0;
+	pass_no = 0;
+	total_errors = 0;
+	total_tests = 0;
 
 	// Setup ^C catcher
 	SIGINTcatchnext();
@@ -770,74 +788,117 @@ void buslatches_test_simple_pattern_multi(unsigned reg_first, unsigned reg_last,
 		// 1 cycle = 8 bits of 8 registers
 		// some tests are no-op because of reduced bitwidth
 
-		/* 1. generate pattern */
-		for (i = reg_first; i <= reg_last; i++) {
-			switch (pattern) {
-			case 2: { // moving ones
-				unsigned bitidx = testno % 8; // circle all 8 bits per register
-				unsigned regidx = reg_first + ((testno / 8) % reg_count); // circle all registers
+		/* 1. generate pattern. Output: testval[reg_addr] */
+		switch (pattern) {
+		case 2: // moving ones, linear addressing
+			for (reg_sel = 0; reg_sel < BUSLATCHES_COUNT; reg_sel++) {
+				unsigned bitidx = pass_no % 8; // circle all 8 bits per register
+				unsigned regidx = (pass_no / 8) % BUSLATCHES_COUNT; // circle all registers
 				// set only one bit
-				if (i == regidx)
-					testval[i] = 1 << bitidx;
+				if (reg_sel == regidx)
+					testval[reg_sel] = 1 << bitidx;
 				else
-					testval[i] = 0;
-				break;
+					testval[reg_sel] = 0;
 			}
-			case 3: { // moving zeros
+			break;
+		case 3: // moving zeros, linear addressing
+			for (reg_sel = 0; reg_sel < BUSLATCHES_COUNT; reg_sel++) {
 				// clear only one bit
-				unsigned bitidx = testno % 8; // circle all 8 bits per register
-				unsigned regidx = reg_first + ((testno / 8) % reg_count); // circle all registers
-				if (i == regidx)
-					testval[i] = ~(1 << bitidx);
+				unsigned bitidx = pass_no % 8; // circle all 8 bits per register
+				unsigned regidx = (pass_no / 8) % BUSLATCHES_COUNT; // circle all registers
+				if (reg_sel == regidx)
+					testval[reg_sel] = ~(1 << bitidx);
 				else
-					testval[i] = 0xff;
-				break;
+					testval[reg_sel] = 0xff;
 			}
-			case 4: // toggle all regs simultaneously 0x00, 0xff, 0xff, ...
-				if (testno & 1)
-					testval[i] = 0xff;
+			break;
+		case 4: // toggle all regs simultaneously 0x00, 0xff, 0xff, ...
+			// linear addressing
+			for (reg_sel = 0; reg_sel < BUSLATCHES_COUNT; reg_sel++) {
+				if (pass_no & 1)
+					testval[reg_sel] = 0xff;
 				else
-					testval[i] = 0x00;
-				break;
-			case 5:
-				testval[i] = rand() & 0xff; // slow?
-				break;
-			default:
-				printf("Error: unknown test pattern %u.\n", pattern);
+					testval[reg_sel] = 0x00;
 			}
-			// mask out unimplemented bits
-			testval[i] &= buslatches.bidi_bitmask[i];
+			break;
+		case 5:
+			// random values, random addressing
+			for (reg_sel = 0; reg_sel < BUSLATCHES_COUNT; reg_sel++)
+				testval[reg_sel] = rand() & 0xff; // slow?
+			break;
+		default:
+			printf("Error: unknown test pattern %u.\n", pattern);
 		}
 
-		/* 2. write pattern into output latches.
-		 * Also write unused bits */
-		for (i = reg_first; i <= reg_last; i++)
-			buslatches_setval(i, 0xff, testval[i]);
+		// mask out unimplemented bits
+		for (reg_sel = 0; reg_sel < BUSLATCHES_COUNT; reg_sel++)
+			testval[reg_sel] &= buslatches.bidi_bitmask[reg_sel];
 
-		/* 3. read back pattern in output latches over UNIBUS into input muxes */
-		for (i = reg_first; i <= reg_last; i++) {
-			unsigned bitmask = buslatches.bidi_bitmask[i];
-			unsigned chkval = buslatches_getval(i);
-			if (buslatches.read_inverted[i])
-				chkval = ~chkval; // input latches invert
-			chkval &= bitmask;
-			if (chkval != testval[i]) {
+		// Setup mailbox for PRU buslatch exerciser
+		// it tests always 8 accesses
+		for (reg_sel = 0; reg_sel < BUSLATCHES_COUNT; reg_sel++) {
+			mailbox->buslatch_exerciser.addr[reg_sel] = reg_sel;
+			mailbox->buslatch_exerciser.writeval[reg_sel] = testval[reg_sel];
+			mailbox->buslatch_exerciser.readval[reg_sel] = 0xff; // invalid at the moment
+		}
+		// shuffle worklist to create random access order
+		buslatches_exerciser_random_order();
+
+		// alternatingly use byte or bit access procedures
+		// unindented synchronoized with moving one/moving zero or other peridioc tests
+		mailbox->buslatch_exerciser.pattern = (pass_no
+				% MAILBOX_BUSLATCH_EXERCISER_PATTERN_COUNT);
+
+		mailbox_execute(ARM2PRU_BUSLATCH_EXERCISER, ARM2PRU_NONE);
+
+		// check: mailbox readvalues == write values ?
+		for (unsigned i = 0; i < BUSLATCHES_COUNT; i++) {
+			reg_sel = mailbox->buslatch_exerciser.addr[i];
+			unsigned writeval = mailbox->buslatch_exerciser.writeval[i];
+			unsigned readval = mailbox->buslatch_exerciser.readval[i];
+			unsigned bitmask = buslatches.bidi_bitmask[reg_sel];
+			total_tests++;
+			if (buslatches.read_inverted[reg_sel])
+				readval = ~readval; // input latches invert
+			readval &= bitmask;
+			if (readval != writeval) {
+				total_errors++;
 				printf(
-						"Error buslatches_test_simple_pattern_multi(regs=%u-%u,pattern=%d), pass %u:\n",
-						reg_first, reg_last, pattern, testno);
-				printf("  register %u: wrote 0x%x, read back 0x%x\n", i, testval[i], chkval);
-				if (i == 0) {
+						"Error buslatches_test_simple_pattern_multi(pattern=%d), pass %u, pattern = %d:\n",
+						pattern, pass_no, (unsigned) mailbox->buslatch_exerciser.pattern);
+				printf("  register %u: wrote 0x%x, read back 0x%x, error bit mask 0x%02x\n",
+						reg_sel, writeval, readval, writeval ^ readval);
+				if (i == 0)
+					printf("  No prev addr/val history\n");
+				else {
+					// prinout previous test data. for access pattern see "pattern" and sourcecode
+					printf("  Prev addr/val history:");
+					for (unsigned j = 0; j < i; j++)
+						printf(" %u/0x%02x", mailbox->buslatch_exerciser.addr[j],
+								mailbox->buslatch_exerciser.writeval[j]);
+					printf(".\n");
+				}
+				if (reg_sel == 0) {
 					printf("Testing BR*,NPR with BG*,NPG feedback.\n");
 					printf("Are there 5*3 jumpers in the \"||\"\n");
 					printf("                             \"--\" position?\n");
 				}
-				buslatches_print_signal_path(i, testval[i] ^ chkval);
-				return;
+				buslatches_print_wire_path(reg_sel, writeval ^ readval);
+				printf("%llu of %llu tests failed, error rate = %0.5f%% = %gppm)\n\n",
+						total_errors, total_tests, 100.0 * total_errors / total_tests,
+						1000000.0 * total_errors / total_tests);
 			}
 		}
-		testno++;
+
+		pass_no++;
 	}
-	printf("\n%u tests successful.\n", testno);
+
+	if (total_errors == 0)
+		printf("\n%llu tests successful.\n", total_tests);
+	else
+		printf("\n%llu of %llu tests failed, error rate = %0.5f%% = %gppm)\n", total_errors,
+				total_tests, 100.0 * total_errors / total_tests,
+				1000000.0 * total_errors / total_tests);
 }
 
 /* stress test on highspeed timing
@@ -862,7 +923,7 @@ void buslatches_test_timing(uint8_t addr_0_7, uint8_t addr_8_15, uint8_t data_0_
 	mailbox->buslatch_test.data_0_7 = data_0_7;
 	mailbox->buslatch_test.data_8_15 = data_8_15;
 
-	// Setup ^C catcher
+// Setup ^C catcher
 	SIGINTcatchnext();
 
 	mailbox->arm2pru_req = ARM2PRU_BUSLATCH_TEST; // start PRU test loop
@@ -870,12 +931,214 @@ void buslatches_test_timing(uint8_t addr_0_7, uint8_t addr_8_15, uint8_t data_0_
 	while (!SIGINTreceived) {
 		timeout.wait_ms(0);
 	}
-	// stop PRU loop by settting something != ARM2PRU_BUSLATCH_TEST
+// stop PRU loop by settting something != ARM2PRU_BUSLATCH_TEST
 	mailbox->arm2pru_req = ARM2PRU_BUSLATCH_INIT; //
 	timeout.wait_ms(1);
 	if (mailbox->arm2pru_req != ARM2PRU_NONE)
 		printf("Stopping PRU test loop failed!\n");
 	else
 		printf("PRU test loop stopped.\n");
+}
+
+/**** GPIO access to UNIBUS sigbals ****/
+unibus_signals_c *unibus_signals; // singleton
+
+unibus_signal_info_c::unibus_signal_info_c(enum unibus_signal_info_c::id_enum id, string name,
+		unsigned bitwidth) {
+	this->id = id;
+	this->name = name;
+	this->bitwidth = bitwidth;
+}
+
+unibus_signals_c::unibus_signals_c() {
+// fill dictionary
+// order like in DEC manual
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_address, "ADDR", 18));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_data, "DATA", 16));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_control, "C1,C0", 2));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_msyn, "MSYN", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_ssyn, "SSYN", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_pa, "PA", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_pb, "PB", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_intr, "INTR", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_br4, "BR4", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_br5, "BR5", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_br6, "BR6", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_br7, "BR7", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_bg4, "BG4", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_bg5, "BG5", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_bg6, "BG6", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_bg7, "BG7", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_npr, "NPR", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_npg, "NPG", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_sack, "SACK", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_bbsy, "BBSY", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_init, "INIT", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_aclo, "ACLO", 1));
+	signals.push_back(unibus_signal_info_c(unibus_signal_info_c::ub_dclo, "DCLO", 1));
+}
+
+unsigned unibus_signals_c::max_name_len() {
+	return 5; // see above
+}
+
+unsigned unibus_signals_c::size() {
+	return signals.size();
+}
+
+void unibus_signals_c::set_val(enum unibus_signal_info_c::id_enum id, unsigned value) {
+	switch (id) {
+	case unibus_signal_info_c::ub_address:
+		buslatches_setval(2, 0xff, value); // ADDR0:7
+		buslatches_setval(3, 0xff, value >> 8); // ADDR8:15
+		buslatches_setval(4, 0x03, value >> 12); // ADDR16,17
+		break;
+	case unibus_signal_info_c::ub_data:
+		buslatches_setval(5, 0xff, value); // DATA0:7
+		buslatches_setval(6, 0xff, value >> 8); // DATA8:15
+		break;
+	case unibus_signal_info_c::ub_control:
+		buslatches_setval(4, 0x0C, value << 2); // C1 = 0x8, C0 = 0x4
+		break;
+	case unibus_signal_info_c::ub_msyn:
+		buslatches_setval(4, 0x10, value << 4); // MSYN = 0x10
+		break;
+	case unibus_signal_info_c::ub_ssyn:
+		buslatches_setval(4, 0x20, value << 5); // ssyn=0x20
+		break;
+	case unibus_signal_info_c::ub_pa:
+		buslatches_setval(7, 0x02, value << 1);
+		break;
+	case unibus_signal_info_c::ub_pb:
+		buslatches_setval(7, 0x04, value << 2);
+		break;
+	case unibus_signal_info_c::ub_intr:
+		buslatches_setval(7, 0x01, value);
+		break;
+	case unibus_signal_info_c::ub_br4:
+		buslatches_setval(1, 0x01, value);
+		break;
+	case unibus_signal_info_c::ub_br5:
+		buslatches_setval(1, 0x02, value << 1);
+		break;
+	case unibus_signal_info_c::ub_br6:
+		buslatches_setval(1, 0x04, value << 2);
+		break;
+	case unibus_signal_info_c::ub_br7:
+		buslatches_setval(1, 0x08, value << 3);
+		break;
+	case unibus_signal_info_c::ub_bg4:
+		buslatches_setval(0, 0x01, !value);
+		break;
+	case unibus_signal_info_c::ub_bg5:
+		buslatches_setval(0, 0x02, (!value) << 1);
+		break;
+	case unibus_signal_info_c::ub_bg6:
+		buslatches_setval(0, 0x04, (!value) << 2);
+		break;
+	case unibus_signal_info_c::ub_bg7:
+		buslatches_setval(0, 0x08, (!value) << 3);
+		break;
+	case unibus_signal_info_c::ub_npr:
+		buslatches_setval(1, 0x10, value << 4);
+		break;
+	case unibus_signal_info_c::ub_npg:
+		buslatches_setval(0, 0x10, (!value) << 4);
+		break;
+	case unibus_signal_info_c::ub_sack:
+		buslatches_setval(1, 0x20, value << 5);
+		break;
+	case unibus_signal_info_c::ub_bbsy:
+		buslatches_setval(1, 0x40, value << 6);
+		break;
+	case unibus_signal_info_c::ub_init:
+		buslatches_setval(7, 0x08, value << 3);
+		break;
+	case unibus_signal_info_c::ub_aclo:
+		buslatches_setval(7, 0x10, value << 4);
+		break;
+	case unibus_signal_info_c::ub_dclo:
+		buslatches_setval(7, 0x20, value << 5);
+		break;
+	}
+}
+
+unsigned unibus_signals_c::get_val(enum unibus_signal_info_c::id_enum id) {
+	unsigned result = 0;
+	switch (id) {
+	case unibus_signal_info_c::ub_address:
+		result = buslatches_getval(2); // ADDR0:7
+		result |= buslatches_getval(3) << 8; // ADDR8:15
+		result |= (buslatches_getval(4) & 0x03) << 16; // ADDR8:15
+		break;
+	case unibus_signal_info_c::ub_data:
+		result = buslatches_getval(5); // DATA0:7
+		result |= buslatches_getval(6) << 8; // DATA8:15
+		break;
+	case unibus_signal_info_c::ub_control:
+		result = (buslatches_getval(4) & 0x0c) >> 2; // C1 = 0x8, C0 = 0x4
+		break;
+	case unibus_signal_info_c::ub_msyn:
+		result = (buslatches_getval(4) & 0x10) >> 4; // MSYN = 0x10
+		break;
+	case unibus_signal_info_c::ub_ssyn:
+		result = (buslatches_getval(4) & 0x20) >> 5; // ssyn=0x20
+		break;
+	case unibus_signal_info_c::ub_pa:
+		result = (buslatches_getval(7) & 0x02) >> 1;
+		break;
+	case unibus_signal_info_c::ub_pb:
+		result = (buslatches_getval(7) & 0x04) >> 2;
+		break;
+	case unibus_signal_info_c::ub_intr:
+		result = (buslatches_getval(7) & 0x01);
+		break;
+	case unibus_signal_info_c::ub_br4:
+		result = (buslatches_getval(1) & 0x01);
+		break;
+	case unibus_signal_info_c::ub_br5:
+		result = (buslatches_getval(1) & 0x02) >> 1;
+		break;
+	case unibus_signal_info_c::ub_br6:
+		result = (buslatches_getval(1) & 0x04) >> 2;
+		break;
+	case unibus_signal_info_c::ub_br7:
+		result = (buslatches_getval(1) & 0x08) >> 3;
+		break;
+	case unibus_signal_info_c::ub_bg4:
+		result = !(buslatches_getval(0) & 0x01);
+		break;
+	case unibus_signal_info_c::ub_bg5:
+		result = !(buslatches_getval(0) & 0x02) >> 1;
+		break;
+	case unibus_signal_info_c::ub_bg6:
+		result = !(buslatches_getval(0) & 0x04) >> 2;
+		break;
+	case unibus_signal_info_c::ub_bg7:
+		result = !(buslatches_getval(0) & 0x08) >> 3;
+		break;
+	case unibus_signal_info_c::ub_npr:
+		result = (buslatches_getval(1) & 0x10) >> 4;
+		break;
+	case unibus_signal_info_c::ub_npg:
+		result = !(buslatches_getval(0) & 0x10) >> 4;
+		break;
+	case unibus_signal_info_c::ub_sack:
+		result = (buslatches_getval(1) & 0x20) >> 5;
+		break;
+	case unibus_signal_info_c::ub_bbsy:
+		result = (buslatches_getval(1) & 0x40) >> 6;
+		break;
+	case unibus_signal_info_c::ub_init:
+		result = (buslatches_getval(7) & 0x08) >> 3;
+		break;
+	case unibus_signal_info_c::ub_aclo:
+		result = (buslatches_getval(7) & 0x10) >> 4;
+		break;
+	case unibus_signal_info_c::ub_dclo:
+		result = (buslatches_getval(7) & 0x20) >> 5;
+		break;
+	}
+	return result;
 }
 

@@ -32,21 +32,22 @@
 #include "unibus.h"
 
 // arm to pru
-#define ARM2PRU_NONE	0
+#define ARM2PRU_NONE	0	// don't change
 #define ARM2PRU_HALT	1	// run PRU1 into halt
 #define ARM2PRU_MAILBOXTEST1	2
 #define ARM2PRU_BUSLATCH_INIT	3	// reset all mux registers to "neutral"
 #define ARM2PRU_BUSLATCH_SET	4	// set a mux register
 #define ARM2PRU_BUSLATCH_GET	5 	// read a mux register
-#define ARM2PRU_BUSLATCH_TEST	6 	// read a mux register
-#define ARM2PRU_INITPULSE	7 	// pulse UNIBUS INIT
-#define ARM2PRU_POWERCYCLE	8 	// ACLO/DCLO power cycle simulation
-#define ARM2PRU_DMA		9               // DMA with or without arbitration
-#define ARM2PRU_DDR_FILL_PATTERN	10	// fill DDR with test pattern
-#define ARM2PRU_DDR_SLAVE_MEMORY	11	// use DDR as UNIBUS slave memory
-#define ARM2PRU_EMULATION		12	// start & execute device emulation loop
-#define ARM2PRU_EMULATION_STOP		13	// stop device emulation loop
-#define ARM2PRU_INTR	14               // INTR, only with arbitration
+#define ARM2PRU_BUSLATCH_EXERCISER	6 	// exercise 8 accesses to mux registers
+#define ARM2PRU_BUSLATCH_TEST	7 	// read a mux register
+#define ARM2PRU_INITPULSE	8 	// pulse UNIBUS INIT
+#define ARM2PRU_POWERCYCLE	9 	// ACLO/DCLO power cycle simulation
+#define ARM2PRU_DMA_ARB_NONE		10               // DMA without NPR/NPG/SACK arbitration 
+#define ARM2PRU_DMA_ARB_CLIENT		11               // DMA with arbitration by external Arbitrator
+#define ARM2PRU_DMA_ARB_MASTER		12               // DMA as Arbitrator
+#define ARM2PRU_DDR_FILL_PATTERN	13	// fill DDR with test pattern
+#define ARM2PRU_DDR_SLAVE_MEMORY	14	// use DDR as UNIBUS slave memory
+#define ARM2PRU_INTR	15               // INTR, only with arbitration
 
 // possible states of DMA machine
 #define DMA_STATE_READY	0        	// idle
@@ -82,6 +83,15 @@ typedef struct {
 	uint32_t bitmask; // change only these bits in register
 	uint32_t val; // value set/get.
 } mailbox_buslatch_t;
+
+#define MAILBOX_BUSLATCH_EXERCISER_PATTERN_COUNT	4
+typedef struct {
+	uint8_t	pattern ; // input: which access pattern?
+	uint8_t addr[8] ; // access sequence of register addresses
+	uint8_t writeval[8] ; // data value for each
+	uint8_t readval[8] ; // read back results
+} mailbox_buslatch_exerciser_t;
+
 
 typedef struct {
 	uint8_t addr_0_7;	// start values for test sequence
@@ -155,6 +165,7 @@ typedef struct {
 		mailbox_test_t mailbox_test;
 		mailbox_buslatch_t buslatch;
 		mailbox_buslatch_test_t buslatch_test;
+		mailbox_buslatch_exerciser_t	buslatch_exerciser;	
 		mailbox_dma_t dma;
 		mailbox_intr_t intr;
 	};

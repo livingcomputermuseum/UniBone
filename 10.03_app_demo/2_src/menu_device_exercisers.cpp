@@ -32,7 +32,7 @@
 #include "mcout.h"
 #include "stringgrid.hpp"
 
-#include "menus.hpp" // own
+#include "application.hpp" // own
 
 #include "gpios.hpp"
 #include "mailbox.h"
@@ -46,7 +46,8 @@
 
 #include "devexer_rl.hpp"
 
-void menus_c::menu_device_exercisers(void) {
+void application_c::menu_device_exercisers(void) {
+	enum unibus_c::arbitration_mode_enum arbitration_mode = unibus_c::ARBITRATION_MODE_MASTER;
 	bool ready = false;
 	bool show_help = true;
 	bool memory_installed = false;
@@ -55,13 +56,14 @@ void menus_c::menu_device_exercisers(void) {
 	char *s_choice;
 	char s_opcode[256], s_param[2][256];
 
-	iopageregisters_init();
+//	iopageregisters_init();
 	// UNIBUS activity
+	hardware_startup(pru_c::PRUCODE_UNIBUS);
 	buslatches_output_enable(true);
-	// no device emualtion, no CPU arbitration
+	// no device emulation, no CPU arbitration
 
 	unibusadapter->worker_stop();
-	unibus->arbitration_active = false;
+	//unibus->arbitrator_client = false;
 
 	// instantiate differebt device exercisers
 
@@ -77,15 +79,15 @@ void menus_c::menu_device_exercisers(void) {
 			show_help = false; // only once
 			printf("\n");
 			printf("*** Exercise (= work with) installed UNIBUS decives.\n");
-			print_arbitration_info("    ");
+			print_arbitration_info(arbitration_mode, "    ");
 			if (cur_exerciser) {
-				printf("    Current device is \"%s\" @ %06o\n", cur_exerciser->name.value.c_str(),
-						cur_exerciser->base_addr.value);
+				printf("    Current device is \"%s\" @ %06o\n",
+						cur_exerciser->name.value.c_str(), cur_exerciser->base_addr.value);
 			} else
 				printf("    No current device selected\n");
 			if (memory_installed) {
 				printf(
-						"    UNIBUS memory (physical or emulated) installed from %06o to %06o.\n",
+						"    UNIBUS memory emulated from %06o to %06o.\n",
 						emulated_memory_start_addr, emulated_memory_end_addr);
 			} else
 				printf("    NO UNIBUS memory installed ... device test limited!\n");
@@ -137,8 +139,7 @@ void menus_c::menu_device_exercisers(void) {
 			} else if (!strcasecmp(s_opcode, "m") && n_fields == 2
 					&& !strcasecmp(s_param[0], "i")) {
 				// install (emulate) max UNIBUS memory
-				emulate_memory();
-				memory_installed = true;
+				memory_installed = emulate_memory(arbitration_mode);
 				show_help = true; // menu struct changed
 			} else if (memory_installed && !strcasecmp(s_opcode, "m") && n_fields >= 2
 					&& !strcasecmp(s_param[0], "f")) {
@@ -154,8 +155,9 @@ void menus_c::menu_device_exercisers(void) {
 						"Fill memory with %06o, writing UNIBUS memory[%06o:%06o] with blocksize %u words\n",
 						fillword, emulated_memory_start_addr, emulated_memory_end_addr,
 						unibus->dma_wordcount);
-				unibus->mem_write(membuffer->data.words, emulated_memory_start_addr,
-						emulated_memory_end_addr, unibus->dma_wordcount, &timeout);
+				unibus->mem_write(arbitration_mode, membuffer->data.words,
+						emulated_memory_start_addr, emulated_memory_end_addr,
+						unibus->dma_wordcount, &timeout);
 				if (timeout)
 					printf("Error writing UNIBUS memory!\n");
 			} else if (memory_installed && !strcasecmp(s_opcode, "m") && n_fields == 2
@@ -164,15 +166,15 @@ void menus_c::menu_device_exercisers(void) {
 				const char * filename = "memory.dump";
 				bool timeout;
 				// 1. read UNIBUS memory
-				uint32_t end_addr = unibus->test_sizer() - 2;
+				uint32_t end_addr = unibus->test_sizer(arbitration_mode) - 2;
 				printf("Reading UNIBUS memory[0:%06o] with DMA blocks of %u words\n", end_addr,
 						unibus->dma_wordcount);
 				//  clear memory buffer, to be sure content changed
 				membuffer->set_addr_range(0, end_addr);
 				membuffer->fill(0);
 
-				unibus->mem_read(membuffer->data.words, 0, end_addr, unibus->dma_wordcount,
-						&timeout);
+				unibus->mem_read(arbitration_mode, membuffer->data.words, 0, end_addr,
+						unibus->dma_wordcount, &timeout);
 				if (timeout)
 					printf("Error reading UNIBUS memory!\n");
 				else {
@@ -198,8 +200,8 @@ void menus_c::menu_device_exercisers(void) {
 				if (!found)
 					cout << "Exerciser \"" << s_param[0] << "\" not found.\n";
 				else {
-					printf("Current exerciser is \"%s\" @ %06o\n", cur_exerciser->name.value.c_str(),
-							cur_exerciser->base_addr.value );
+					printf("Current exerciser is \"%s\" @ %06o\n",
+							cur_exerciser->name.value.c_str(), cur_exerciser->base_addr.value);
 					// TODO: find base address of assoiated UNIBUS unibuscontroller
 					show_help = true;
 				}
@@ -232,7 +234,7 @@ void menus_c::menu_device_exercisers(void) {
 				addr = strtol(s_param[0], NULL, 8);
 
 				mailbox->dma.words[0] = strtol(s_param[1], NULL, 8);
-				bool timeout = !unibus->dma(UNIBUS_CONTROL_DATO, addr, 1);
+				bool timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATO, addr, 1);
 				printf("DEPOSIT %06o <- %06o\n", addr, mailbox->dma.words[0]);
 				if (timeout)
 					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);
@@ -243,7 +245,8 @@ void menus_c::menu_device_exercisers(void) {
 				if (n_fields == 2) { // single reg number given
 					blocksize = 1; // exam 1 word
 					addr = strtol(s_param[0], NULL, 8); 	// interpret as 18 bit address
-					timeout = !unibus->dma(UNIBUS_CONTROL_DATI, addr, blocksize);
+					timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATI, addr,
+							blocksize);
 					printf("EXAM %06o -> %06o\n", addr, mailbox->dma.words[0]);
 				}
 				if (timeout)
@@ -260,5 +263,6 @@ void menus_c::menu_device_exercisers(void) {
 	} // ready
 
 	buslatches_output_enable(false);
+	hardware_shutdown();
 }
 

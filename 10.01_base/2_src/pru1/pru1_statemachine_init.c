@@ -45,7 +45,7 @@
 // Assume this events come so slow, no one gets raised until
 // prev event processed.
 void	do_event_initializationsignals() {
-		uint8_t	tmp = buslatches_get(7) & 0x38 ;
+		uint8_t	tmp = buslatches_getbyte(7) & 0x38 ;
 		if (tmp != mailbox.events.initialization_signals_cur) {
 			// save old state, so ARM can detect what changed
 			mailbox.events.initialization_signals_prev = mailbox.events.initialization_signals_cur ;

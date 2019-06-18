@@ -87,7 +87,7 @@ void ddrmem_c::save(char *fname) {
 	unsigned n;
 	fout = fopen(fname, "wb");
 	if (!fout) {
-		ERROR("Error opening file %s for write", fname);
+		ERROR(fileErrorText("Error opening file %s for write", fname));
 		return;
 	}
 	n = fwrite((void *) base_virtual->memory.words, 2, wordcount, fout);
@@ -104,7 +104,7 @@ void ddrmem_c::load(char *fname) {
 	FILE *fin;
 	fin = fopen(fname, "rb");
 	if (!fin) {
-		ERROR("Error opening file %s for read", fname);
+		ERROR(fileErrorText("Error opening file %s for read", fname));
 		return;
 	}
 	// try to read max address range, shorter files are OK
@@ -180,7 +180,7 @@ void ddrmem_c::unibus_slave(uint32_t startaddr, uint32_t endaddr) {
 	mailbox->arm2pru_req = ARM2PRU_DDR_SLAVE_MEMORY;
 	printf("Hit 'q' ENTER to end.\n");
 	do { // only this code wait for input under Eclipse
-		s = inputline(buf, sizeof(buf));
+		s = inputline(buf, sizeof(buf), NULL);
 	} while (strlen(s) == 0);
 	// clearing  arm2pru_req stops the emulation
 	mailbox_execute(ARM2PRU_NONE, ARM2PRU_NONE);

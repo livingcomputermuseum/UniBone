@@ -25,9 +25,8 @@ endef
 $(error $(ERROR_BODY))
 endif
 
-PRU_NUM=0
-PROJ_NAME=pru$(PRU_NUM)
-GEN_DIR=$(abspath ../../4_deploy)
+PROJ_NAME=pru0
+OBJ_DIR=$(abspath ../../4_deploy)
 SHARED_DIR=$(abspath ../shared)
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 CURRENT_DIR := $(notdir $(patsubst %/,%,$(dir $(MKFILE_PATH))))
@@ -41,75 +40,85 @@ STACK_SIZE=0x100
 HEAP_SIZE=0x100
 
 #Common compiler and linker flags (Defined in 'PRU Optimizing C/C++ Compiler User's Guide)
-CFLAGS=-v3 -O3 --display_error_number --endian=little --hardware_mac=on --obj_directory=$(GEN_DIR) --pp_directory=$(GEN_DIR) -ppd -ppa \
+CFLAGS=-v3 -O3 --display_error_number --endian=little --hardware_mac=on --obj_directory=$(OBJ_DIR) --pp_directory=$(OBJ_DIR) -ppd -ppa \
         --c_src_interlist --optimizer_interlist
 
 #Linker flags (Defined in 'PRU Optimizing C/C++ Compiler User's Guide)
 LFLAGS=--reread_libs --warn_sections --stack_size=$(STACK_SIZE) --heap_size=$(HEAP_SIZE)
 
-PRU_CODE=pru$(PRU_NUM)_config.c
-TARGET=$(GEN_DIR)/$(PROJ_NAME).out
-MAP=$(GEN_DIR)/$(PROJ_NAME).map
 SOURCES=$(wildcard *.c)
 # extension is ".asmsrc", not ".asm", do distinguish from compiler-generated .asm files.
 SOURCES_ASM=$(wildcard *.asmsrc)
 #Using .object instead of .obj in order to not conflict with the CCS build process
-OBJECTS=$(patsubst %,$(GEN_DIR)/%,$(SOURCES:.c=.object))
-OBJECTS_ASM=$(patsubst %,$(GEN_DIR)/%,$(SOURCES_ASM:.asmsrc=.asmobject))
+OBJECTS_ALL=$(patsubst %,$(OBJ_DIR)/%,$(SOURCES:.c=.object))
+OBJECTS_ASM=$(patsubst %,$(OBJ_DIR)/%,$(SOURCES_ASM:.asmsrc=.asmobject))
 
-#all: $(TARGET)
-# only interested on the image as C-array
-all: $(GEN_DIR)/$(PRU_CODE)
+# all .object files with exceptions of the *main*
+OBJECTS_COMMON= \
+    $(OBJ_DIR)/pru0_pru_mailbox.object
+
+# rule to print a variable.
+# use: make print-VARIALBE
+print-%  : ; @echo $* = $($*)
 
 
-# Invokes the linker (-z flag) to make the .out file
-$(TARGET): $(OBJECTS) $(OBJECTS_ASM) $(LINKER_COMMAND_FILE)
+# only interested on the image as C-array.
+# Chained builds, so keep *.objects, else recompile.
+all: $(OBJECTS_ALL) \
+	$(OBJ_DIR)/pru0_code_all.out	\
+	$(OBJ_DIR)/pru0_code_all_array.c
+
+# Rule to generate several linked binaries from several main*.c,
+# then several C_array files from the linked binary.
+# arrayfile <codevariant>_code.c depends on all objects and <codevariant>_main.c
+# Example: pru1_main_test.c => obj_dir/pru1_code_test.c
+# call with "<path>/make target_pru1_test_code.c"
+$(OBJ_DIR)/pru0_code_%.out : $(OBJ_DIR)/pru0_main_%.object $(OBJECTS_COMMON) $(OBJECTS_ASM) $(LINKER_COMMAND_FILE)
 	@echo ''
-	@echo 'Building target: $@'
+	@echo 'Building binary $@'
 	@echo 'Invoking: PRU Linker'
-	$(PRU_CGT)/bin/clpru $(CFLAGS) -z -i$(PRU_CGT)/lib -i$(PRU_CGT)/include $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJECTS_ASM) -m$(MAP) $(LINKER_COMMAND_FILE) --library=libc.a $(LIBS)
-	@echo 'Finished building target: $@'
+	$(PRU_CGT)/bin/clpru $(CFLAGS) -z -i$(PRU_CGT)/lib -i$(PRU_CGT)/include $(LFLAGS) -o $@  -m$@.map $^ --library=libc.a $(LIBS)
+	@echo 'Finished building $@'
 
-#        --outfile=$(GEN_DIR)/$(PROJ_NAME)_imagearrays.c
-
-# the rule for .out file generates the C-array too.
-$(GEN_DIR)/$(PRU_CODE): $(TARGET)
+# Rule to generate several C-array hex dumps from linked binaries
+# hexpru appends "_array" to the base file name
+$(OBJ_DIR)/pru0_code_%_array.c : $(OBJ_DIR)/pru0_code_%.out
 	@echo 'Generating C-arrays containing binary images with PRU code.'
-	$(PRU_CGT)/bin/hexpru --array $(TARGET)
-	@echo 'Adding entry addresses to PRU config C source file'
-	$(SHARED_DIR)/update_pru_config.sh $(PRU_NUM) $(PROJ_NAME)_array.c $(GEN_DIR)/$(PROJ_NAME)_config $(GEN_DIR)/$(PROJ_NAME).map
-	@rm $(PROJ_NAME)_array.c
+	( \
+	cd $(OBJ_DIR) ; \
+	$(PRU_CGT)/bin/hexpru --array $< ; \
+	)
 
 # Invokes the compiler on all c files in the directory to create the object files
-$(GEN_DIR)/%.object: %.c
-	@mkdir -p $(GEN_DIR)
+$(OBJ_DIR)/%.object: %.c
+	@mkdir -p $(OBJ_DIR)
 	@echo ''
 	@echo 'Building file: $<'
 	@echo 'Invoking: PRU Compiler'
 	$(PRU_CGT)/bin/clpru --include_path=$(PRU_CGT)/include $(INCLUDE) $(CFLAGS) -fe $@ $<
 	@echo Produce assembler listing
 	$(PRU_CGT)/bin/clpru --include_path=$(PRU_CGT)/include $(INCLUDE) $(CFLAGS) --absolute_listing -fe $@ $<
-	mv *.asm $(GEN_DIR)
+	mv *.asm $(OBJ_DIR)
 
 
 # Invokes the compiler on all asm files in the directory to create the object files
-$(GEN_DIR)/%.asmobject: %.asmsrc
-#$(GEN_DIR)/pru1_pru0_datout.o: pru1_pru0_datout.asmsrc
-	@mkdir -p $(GEN_DIR)
+$(OBJ_DIR)/%.asmobject: %.asmsrc
+#$(OBJ_DIR)/pru1_pru0_datout.o: pru1_pru0_datout.asmsrc
+	@mkdir -p $(OBJ_DIR)
 	@echo ''
 	@echo 'Building file: $<'
 	@echo 'Invoking: PRU Compiler'
 	$(PRU_CGT)/bin/clpru --asm_listing --asm_file=$^ --output_file=$@
-	-mv *.lst $(GEN_DIR)
+	-mv *.lst $(OBJ_DIR)
 
 
 .PHONY: all clean
 
-# Remove the $(GEN_DIR) directory
+# Remove the $(OBJ_DIR) directory
 clean:
-	@echo Removing $(PROJ_NAME)'*.*' files in the "$(GEN_DIR)" directory
-	@rm -f $(GEN_DIR)/$(PROJ_NAME)*.*
+	@echo Removing all $(PROJ_NAME)'*' files in the "$(OBJ_DIR)" directory
+	@rm -f $(OBJ_DIR)/$(PROJ_NAME)*.*
 
 # Includes the dependencies that the compiler creates (-ppd and -ppa flags)
--include $(OBJECTS:%.object=%.pp)
+-include $(OBJECTS_ALL:%.object=%.pp)
 
