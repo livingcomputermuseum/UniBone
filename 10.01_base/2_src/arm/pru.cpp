@@ -134,6 +134,7 @@ int pru_c::start(enum prucode_enum prucode_id) {
 	// use stop() before restart()
 	assert(this->prucode_id == PRUCODE_NONE);
 
+
 	/* initialize PRU */
 	if ((rtn = prussdrv_init()) != 0) {
 		ERROR("prussdrv_init() failed");
@@ -152,6 +153,7 @@ int pru_c::start(enum prucode_enum prucode_id) {
 		goto error;
 	}
 
+
 	/*
 	 http://credentiality2.blogspot.com/2015/09/beaglebone-pru-ddr-memory-access.html
 	 * get pointer to shared DDR
@@ -164,6 +166,13 @@ int pru_c::start(enum prucode_enum prucode_id) {
 
 	ddrmem->base_physical = prussdrv_get_phys_addr((void *) (ddrmem->base_virtual));
 	ddrmem->info(); // may abort program
+
+	// get address of mail box struct in PRU
+	mailbox_connect();
+	// now all mailbox command fields initialized/cleared, PRUs can be started
+
+	// get address of device register descriptor struct in PRU
+	iopageregisters_connect();
 
 	// search code in dictionary
 	struct prucode_entry *pce;
@@ -190,18 +199,19 @@ int pru_c::start(enum prucode_enum prucode_id) {
 			pce->pru1_entry)) != 0) {
 		FATAL("prussdrv_exec_program(PRU1) failed");
 	}
-	INFO("Loaded pru code with id = %d", prucode_id);
+	INFO("Loaded and started PRU code with id = %d", prucode_id);
 
 	timeout.wait_ms(100); // wait for PRU to come up, much too long
 
-	// get address of mail box struct in PRU
-	mailbox_connect();
-	// now all fields initialized/cleared
-
-	// get address of device register descriptor struct in PRU
-	iopageregisters_connect();
-
 	this->prucode_id = prucode_id;
+
+	// verify PRU1 is executing its command loop
+	mailbox->arm2pru_req = ARM2PRU_NOP;
+	timeout.wait_ms(1);
+	if (mailbox->arm2pru_req != ARM2PRU_NONE)  {
+		FATAL("PRU1 is not executing its command loop");
+		goto error;
+	}
 
 	return rtn;
 

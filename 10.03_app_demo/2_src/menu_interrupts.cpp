@@ -116,10 +116,6 @@ void application_c::menu_interrupts(void) {
 			unibus->powercycle();
 			timer.wait_ms(1000); // shpw prompt
 
-			SET_DEBUG_PIN0(0)
-			;
-			SET_DEBUG_PIN1(0)
-			;
 			printf("Loading memory content from MACRO-11 listing \"%s\".\n", testprogram_fname);
 			membuffer->init();
 			load_ok = membuffer->load_macro11_listing(testprogram_fname, "start");

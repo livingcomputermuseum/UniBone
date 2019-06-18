@@ -157,7 +157,7 @@ void storagedrive_c::file_write(uint8_t *buffer, uint64_t position, unsigned len
 	// 3. write data
 	f.write((const char*) buffer, len);
 	if (f.fail())
-		ERROR("file_write() failure on %s", name);
+		ERROR("file_write() failure on %s", name.value.c_str());
 	f.flush();
 }
 
@@ -177,7 +177,7 @@ void storagedrive_selftest_c::block_buffer_fill(unsigned block_number) {
 	assert((block_size % 4) == 0); // whole uint32
 	for (unsigned i = 0; i < block_size / 4; i++) {
 		// i counts dwords in buffer
-		// pattern: global incrementing uint32 
+		// pattern: global incrementing uint32
 		uint32_t pattern = i + (block_number * block_size / 4);
 		((uint32_t*) block_buffer)[i] = pattern;
 	}
@@ -188,7 +188,7 @@ void storagedrive_selftest_c::block_buffer_check(unsigned block_number) {
 	assert((block_size % 4) == 0);	// whole uint32
 	for (unsigned i = 0; i < block_size / 4; i++) {
 		// i counts dwords in buffer
-		// pattern: global incrementing uint32 
+		// pattern: global incrementing uint32
 		uint32_t pattern_expected = i + (block_number * block_size / 4);
 		uint32_t pattern_found = ((uint32_t*) block_buffer)[i];
 		if (pattern_expected != pattern_found) {

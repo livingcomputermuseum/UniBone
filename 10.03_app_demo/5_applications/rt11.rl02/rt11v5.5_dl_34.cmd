@@ -1,51 +1,57 @@
 # inputfile for demo to select a rl1 device in the "device test" menu.
 # Read in with command line option  "demo --cmdfile ..."
-td			# device test menu
+d			# device menu
+pwr			# reboot PDP-11
 .wait 3000		# wait for PDP-11 to reset
 m i			# install max UNIBUS memory
 
-# mount RSX v4.1 in RL02 #0 and start
+# Deposit bootloader into memory
+m ll dl.lst
+
+# mount RT11 v5.5 in RL02 #0 and start
 sd rl0			# select drive #0
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
-p type rl02
+# set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
 p powerswitch 1		# power on, now in "load" state
-p image rsx11m.rl02     # mount image
+p image rt11v5.5_34.rl02 # mount image file with test pattern
 p runstopbutton 1	# press RUN/STOP, will start
 
-        # mount disk #1 start
+# mount RT11 GAMES in RL02 #1 and start
 sd rl1			# select drive #1
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
-p type rl02
+# set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
 p powerswitch 1		# power on, now in "load" state
-p image rsx11user.rl02 	# mount image
+p image rt11v5.5_games_34.rl02	# mount image file with test pattern
 p runstopbutton 1	# press RUN/STOP, will start
 
 # mount scratch2 in RL02 #2 and start
 sd rl2			# select drive #2
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
-p type rl02
+# set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
 p powerswitch 1		# power on, now in "load" state
-p image rsx11hlpdcl.rl02 	# mount image
+p image scratch2.rl02 	# mount image file with test pattern
 p runstopbutton 1	# press RUN/STOP, will start
 
 # mount scratch3 in RL02 #3 and start
 sd rl3			# select drive #3
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
-p type rl02
+# set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
 p powerswitch 1		# power on, now in "load" state
-p image rsx11excprv.rl02  # mount image
+p image scratch3.rl02 	# mount image file with test pattern
 p runstopbutton 1	# press RUN/STOP, will start
 
 .print Disk drive now on track after 5 secs
 .wait	6000		# wait until drive spins up
-
 p                       # show all params of RL1
 
-m ll dl.lst
+.print RL drives ready.
 .print RL11 boot loader installed.
-.print Start 10000 to boot from drive 0, 10010 for drive #1, ...
+.print Start 10000 to boot from drive 0, 10010 for drive 1, ...
 .print Reload with "m ll"
+
+
+

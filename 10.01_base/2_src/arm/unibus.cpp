@@ -140,7 +140,7 @@ void unibus_c::interrupt(uint8_t priority, uint16_t vector) {
 bool unibus_c::dma(enum unibus_c::arbitration_mode_enum arbitration_mode, uint8_t control,
 		uint32_t startaddr, unsigned blocksize) {
 	uint64_t dmatime_ns, totaltime_ns;
-	uint8_t dma_opcode;
+	uint8_t dma_opcode = ARBITRATION_MODE_NONE; // inihibit compiler warnings
 
 	// can access bus with DMA when there's a Bus Arbitrator
 	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);

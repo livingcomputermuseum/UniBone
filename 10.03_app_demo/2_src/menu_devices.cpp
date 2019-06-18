@@ -102,7 +102,7 @@ void application_c::menu_devices(bool with_CPU) {
 	char *s_choice;
 	char s_opcode[256], s_param[2][256];
 
-	//CPU: MASTER!
+	// with_CPU: the emulated CPU is answering BR and NPR requests.
 	if (with_CPU)
 		arbitration_mode = unibus_c::ARBITRATION_MODE_MASTER;
 	else
@@ -123,11 +123,11 @@ void application_c::menu_devices(bool with_CPU) {
 	cur_device = NULL;
 	demo_io_c *demo_io = NULL;
 	//demo_regs_c demo_regs; // mem at 160000: RT11 crashes?
-	cpu_c *cpu;
-	RL11_c *RL11;
+	cpu_c *cpu = NULL;
+	RL11_c *RL11 = NULL;
 	paneldriver->reset(); // reset I2C, restart worker()
-	rk11_c *RK11;
-	uda_c *UDA50;
+	rk11_c *RK11 = NULL;
+	uda_c *UDA50 = NULL;
 
 	if (with_DEMOIO) {
 		demo_io = new demo_io_c();
@@ -217,8 +217,8 @@ void application_c::menu_devices(bool with_CPU) {
 				printf("d <regname> <val>    Deposit octal value into named device register\n");
 				printf("e <regname>          Examine single device register (regno decimal)\n");
 				printf("e                    Examine all device registers\n");
+				printf("e <addr>             Examine octal UNIBUS address.\n");
 				printf("d <addr> <val>       Deposit octal val into UNIBUS address.\n");
-				printf("e <addr>             Deposit octal val into UNIBUS address.\n");
 			}
 			printf("dl c|s|f             Debug log: Clear, Show on console, dump to File.\n");
 			printf("                       (file = %s)\n", logger->default_filepath.c_str());
@@ -383,7 +383,7 @@ void application_c::menu_devices(bool with_CPU) {
 					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);
 			} else if (unibuscontroller && !strcasecmp(s_opcode, "e") && n_fields <= 2) {
 				unsigned blocksize = 0; // default: no EXAM
-				bool timeout;
+				bool timeout ;
 				uint32_t addr;
 				unibusdevice_register_t *reg;
 				if (n_fields == 2) { // single reg number given
@@ -399,14 +399,19 @@ void application_c::menu_devices(bool with_CPU) {
 				} else { // list all regs
 					addr = unibuscontroller->base_addr.value; // all device registers
 					blocksize = unibuscontroller->register_count;
-					unsigned i;
-					timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATI, addr,
-							blocksize);
-					for (i = 0; addr <= mailbox->dma.cur_addr; i++, addr += 2) {
-						reg = unibuscontroller->register_by_unibus_address(addr);
-						assert(reg);
-						printf("EXAM reg #%d %s %06o -> %06o\n", reg->index, reg->name,
-								reg->addr, mailbox->dma.words[i]);
+					if (blocksize) {
+						unsigned i;
+						timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATI, addr,
+								blocksize);
+						for (i = 0; addr <= mailbox->dma.cur_addr; i++, addr += 2) {
+							reg = unibuscontroller->register_by_unibus_address(addr);
+							assert(reg);
+							printf("EXAM reg #%d %s %06o -> %06o\n", reg->index, reg->name,
+									reg->addr, mailbox->dma.words[i]);
+						}
+					} else {
+						timeout = false ;
+						printf("Device has no UNIBUS registers.\n");
 					}
 				}
 				if (timeout)
@@ -444,7 +449,7 @@ void application_c::menu_devices(bool with_CPU) {
 	if (with_MSCP) {
 		UDA50->worker_stop();
 		UDA50->uninstall();
-		delete RK11;
+		delete UDA50;
 	}
 
 //	//demo_regs.worker_stop();
