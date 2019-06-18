@@ -32,22 +32,23 @@
 #include "unibus.h"
 
 // arm to pru
-#define ARM2PRU_NONE	0	// don't change
-#define ARM2PRU_HALT	1	// run PRU1 into halt
-#define ARM2PRU_MAILBOXTEST1	2
-#define ARM2PRU_BUSLATCH_INIT	3	// reset all mux registers to "neutral"
-#define ARM2PRU_BUSLATCH_SET	4	// set a mux register
-#define ARM2PRU_BUSLATCH_GET	5 	// read a mux register
-#define ARM2PRU_BUSLATCH_EXERCISER	6 	// exercise 8 accesses to mux registers
-#define ARM2PRU_BUSLATCH_TEST	7 	// read a mux register
-#define ARM2PRU_INITPULSE	8 	// pulse UNIBUS INIT
-#define ARM2PRU_POWERCYCLE	9 	// ACLO/DCLO power cycle simulation
-#define ARM2PRU_DMA_ARB_NONE		10               // DMA without NPR/NPG/SACK arbitration 
-#define ARM2PRU_DMA_ARB_CLIENT		11               // DMA with arbitration by external Arbitrator
-#define ARM2PRU_DMA_ARB_MASTER		12               // DMA as Arbitrator
-#define ARM2PRU_DDR_FILL_PATTERN	13	// fill DDR with test pattern
-#define ARM2PRU_DDR_SLAVE_MEMORY	14	// use DDR as UNIBUS slave memory
-#define ARM2PRU_INTR	15               // INTR, only with arbitration
+#define ARM2PRU_NONE	0	// Operation complete: don't change
+#define ARM2PRU_NOP	1	// to check wether PRU is running
+#define ARM2PRU_HALT	2	// run PRU1 into halt
+#define ARM2PRU_MAILBOXTEST1	3
+#define ARM2PRU_BUSLATCH_INIT	4	// reset all mux registers to "neutral"
+#define ARM2PRU_BUSLATCH_SET	5	// set a mux register
+#define ARM2PRU_BUSLATCH_GET	6 	// read a mux register
+#define ARM2PRU_BUSLATCH_EXERCISER	7 	// exercise 8 accesses to mux registers
+#define ARM2PRU_BUSLATCH_TEST	8 	// read a mux register
+#define ARM2PRU_INITPULSE	9 	// pulse UNIBUS INIT
+#define ARM2PRU_POWERCYCLE	10 	// ACLO/DCLO power cycle simulation
+#define ARM2PRU_DMA_ARB_NONE		11               // DMA without NPR/NPG/SACK arbitration
+#define ARM2PRU_DMA_ARB_CLIENT		12               // DMA with arbitration by external Arbitrator
+#define ARM2PRU_DMA_ARB_MASTER		13               // DMA as Arbitrator
+#define ARM2PRU_DDR_FILL_PATTERN	14	// fill DDR with test pattern
+#define ARM2PRU_DDR_SLAVE_MEMORY	15	// use DDR as UNIBUS slave memory
+#define ARM2PRU_INTR	16               // INTR, only with arbitration
 
 // possible states of DMA machine
 #define DMA_STATE_READY	0        	// idle
@@ -165,7 +166,7 @@ typedef struct {
 		mailbox_test_t mailbox_test;
 		mailbox_buslatch_t buslatch;
 		mailbox_buslatch_test_t buslatch_test;
-		mailbox_buslatch_exerciser_t	buslatch_exerciser;	
+		mailbox_buslatch_exerciser_t	buslatch_exerciser;
 		mailbox_dma_t dma;
 		mailbox_intr_t intr;
 	};

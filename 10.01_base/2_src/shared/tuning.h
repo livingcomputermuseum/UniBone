@@ -38,7 +38,7 @@
 #if defined(TUNING_PCB_TEST)
     // experimental to test error rates
     #define BUSLATCHES_GETBYTE_DELAY	10
-    #define BUSLATCHES_SETBITS_DELAY	2
+    #define BUSLATCHES_SETBITS_DELAY	4
     #define BUSLATCHES_SETBYTE_DELAY	6
 
 #elif defined(TUNING_PCB_LEGACY_SECURE)

@@ -24,19 +24,18 @@ PRUSS_INCLUDE_DIR = $(PRU_PACKAGE_ROOT)/include
 PRUSS_DRV_LIB = $(PRU_PACKAGE_ROOT)/bin-bbb/libprussdrv.a
 
 # -static: do not used shared libs, include all coide into the binary
-# (big binary, but BBB neds no shared libs of certain verisons installed)
+# (big binary, but BBB neds no shared libs of certain versions installed)
 # Example: demo binary goes from 594K to 12.3MB !
 LDFLAGS+= -static -lstdc++ -lpthread $(PRUSS_DRV_LIB)
 
 # compiler flags and libraries
-#CC_DBG_FLAGS = -O3 -Wall -Wextra -DDBG
-CC_DBG_FLAGS = -ggdb3 -O0 -Wall -Wextra -DDBG
-
-#ifeq ($(DBG),1)
-#CC_DBG_FLAGS = -ggdb3 -O0 -Wall -Wextra -DDBG
-#else
-#CC_DBG_FLAGS = -O3 -Wall -Wextra -UDBG
-#endif
+ifeq ($(MAKE_CONFIGURATION),RELEASE)
+	CC_DBG_FLAGS = -O3 -Wall -Wextra -DDBG
+else ifeq ($(MAKE_CONFIGURATION),DBG)
+	CC_DBG_FLAGS = -ggdb3 -O0 -Wall -Wextra -DDBG
+else
+	$(error Set MAKE_CONFIGURATION to RELEASE or DBG!)
+endif
 
 ifeq ($(MAKE_TARGET_ARCH),BBB)
 	# cross compile on x64 for BBB
@@ -232,7 +231,7 @@ $(OBJDIR)/mscp_server.o :   $(DEVICE_SRC_DIR)/mscp_server.cpp $(DEVICE_SRC_DIR)/
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/mscp_drive.o :   $(DEVICE_SRC_DIR)/mscp_drive.cpp $(DEVICE_SRC_DIR)/mscp_drive.hpp
-	$(CC) $(CCFLAGS) $< -o $@	
+	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/storagedrive.o :  $(BASE_SRC_DIR)/storagedrive.cpp $(BASE_SRC_DIR)/storagedrive.hpp
 	$(CC) $(CCFLAGS) $< -o $@

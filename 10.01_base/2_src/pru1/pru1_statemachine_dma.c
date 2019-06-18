@@ -142,7 +142,7 @@ static uint8_t sm_dma_state_1() {
 		// prev SSYN & DATA may be still on bus, disturbes DATA
 		while (buslatches_getbyte(4) & BIT(5))
 			;	// wait for SSYN inactive
-		__delay_cycles(NANOSECS(150) - 10);
+		__delay_cycles(NANOSECS(UNIBUS_DMA_MASTER_PRE_MSYN_NS) - 10);
 		// assume 10 cycles for buslatches_getbyte and address test
 		// ADDR, CONTROL (and DATA) stable since 150ns, set MSYN
 
@@ -192,7 +192,7 @@ static uint8_t sm_dma_state_1() {
 		buslatches_setbits(4, 0x3f, tmpval);
 
 		// wait 150ns after MSYN, no distance to SSYN required
-		__delay_cycles(NANOSECS(150) - 10);
+		__delay_cycles(NANOSECS(UNIBUS_DMA_MASTER_PRE_MSYN_NS) - 10);
 		// assume 10 cycles for buslatches_getbyte and address test
 		// ADDR, CONTROL (and DATA) stable since 150ns, set MSYN next
 

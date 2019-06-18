@@ -204,7 +204,7 @@ bool memoryimage_c::load_addr_value_text(const char *fname) {
 
 	fin = fopen(fname, "r");
 	if (!fin) {
-		printf("%s\n", fileErrorText("Error opening file %s for write", fname)) ;		
+		printf("%s\n", fileErrorText("Error opening file %s for write", fname)) ;
 		return false;
 	}
 	entry_address = MEMORY_ADDRESS_INVALID; // not known
@@ -538,6 +538,7 @@ bool memoryimage_c::load_papertape(const char *fname) {
 	entry_address = MEMORY_ADDRESS_INVALID; // not yet known
 
 	stream_byte_index = 0;
+    block_byte_size = addr = 0 ; // -Wmaybe-uninitialized
 	while (!feof(fin)) {
 		b = fgetc(fin);
 		// ERROR("[0x%04x] state=%d b=0x%02x sum=0x%02x block_byte_idx=%d",
