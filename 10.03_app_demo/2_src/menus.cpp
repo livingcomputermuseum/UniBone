@@ -242,8 +242,7 @@ void application_c::menu_main(void) {
 		printf("ti          Test Interrupts (needs physical PDP-11 CPU)\n");
 		printf("d           Emulate devices, with PDP-11 CPU arbitration\n");
 		printf("dc          Emulate devices and CPU, PDP-11 must be disabled.\n");
-		printf(
-				"de          Device Exerciser: work with devices on the UNIBUS without PDP-11 CPU arbitration\n");
+		// printf("de          Device Exerciser: work with devices on the UNIBUS without PDP-11 CPU arbitration\n");
 		printf(
 				"m           Full memory slave emulation with DMA bus master functions by PDP-11 CPU.\n");
 		printf("i           Info, help\n");
