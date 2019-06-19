@@ -1,3 +1,7 @@
+#/!bin/bash
+# option "-a": recompile all from scratch
+# else rely on makefile rules
+
 . compile-bbb.env
 
 # Debugging: remote from Eclipse. Compile on BBB is release.
@@ -6,7 +10,7 @@ export MAKE_CONFIGURATION=RELEASE
 cd 10.03_app_demo/2_src
 
 if [ "$1" == "-a" ] ; then
-make clean
+  make clean
 fi
 
 make
