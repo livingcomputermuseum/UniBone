@@ -176,7 +176,6 @@ void application_c::menu_devices(bool with_CPU) {
 
 	// now devices are "Plugged in". Reset PDP-11.
 	unibus->powercycle();
->>>>>>> upstream/master
 
 	while (!ready) {
 
