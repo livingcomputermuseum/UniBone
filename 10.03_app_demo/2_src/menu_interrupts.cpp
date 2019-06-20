@@ -74,7 +74,7 @@ void application_c::menu_interrupts(void) {
 				printf("***\n");
 				printf("*** Starting full UNIBUS master/slave logic on PRU\n");
 				printf("***\n");
-				unibusadapter->worker_start();
+				unibusadapter->enabled.set(true) ;
 				active = true;
 			}
 
@@ -170,7 +170,7 @@ void application_c::menu_interrupts(void) {
 		printf("***\n");
 		printf("*** Stopping UNIBUS logic on PRU\n");
 		printf("***\n");
-		unibusadapter->worker_stop();
+		unibusadapter->enabled.set(false) ;
 		active = false;
 	}
 

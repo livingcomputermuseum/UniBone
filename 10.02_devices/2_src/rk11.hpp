@@ -162,6 +162,8 @@ public:
         unibusdevice_register_t *device_reg,
         uint8_t unibus_control) override;
 
+	bool on_param_changed(parameter_c *param) override;
+
     void on_power_changed(void) override;
     void on_init_changed(void) override;
   

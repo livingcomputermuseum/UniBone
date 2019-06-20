@@ -1,34 +1,34 @@
 /* unibusdevice.cpp: abstract device with interface to unibusadapter
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   12-nov-2018  JH      entered beta phase
+ 12-nov-2018  JH      entered beta phase
 
-  abstract unibus device
-  maybe mass storage controller or other device implementing
-  UNIBUS IOpage registers.
-  sets device register values depending on internal status,
-  reacts on register read/write over UNIBUS by evaluation of PRU events.
-*/
+ abstract unibus device
+ maybe mass storage controller or other device implementing
+ UNIBUS IOpage registers.
+ sets device register values depending on internal status,
+ reacts on register read/write over UNIBUS by evaluation of PRU events.
+ */
 //#include <string>
 //using namespace std;
 #include "logger.hpp"
@@ -39,19 +39,51 @@ unibusdevice_c::unibusdevice_c() :
 		device_c() {
 	handle = 0;
 	register_count = 0;
+	// device is not yet enabled, UNIBUS properties can be set
+	base_addr.readonly = false;
+	intr_vector.readonly = false;
+	intr_level.readonly = false;
 	default_base_addr = 0;
 	default_intr_vector = 0;
 	default_intr_level = 0;
+
 	log_channelmask = 0; // no logging until set
 }
 
 unibusdevice_c::~unibusdevice_c() {
 }
 
-void unibusdevice_c::install(uint32_t base_addr, unsigned intr_vector, uint8_t intr_level) {
-	this->base_addr.value = base_addr;
-	this->intr_vector.value = intr_vector;
-	this->intr_level.value = intr_level;
+// implements params, so must handle "change"
+bool unibusdevice_c::on_param_changed(parameter_c *param) {
+	if (param == &enabled) {
+		// plug/unplug device into UNIBUS:
+		if (enabled.new_value) {
+			// enable: lock UNIBUS config
+			base_addr.readonly = true;
+			intr_vector.readonly = true;
+			intr_level.readonly = true;
+			install(); // visible on UNIBUS
+		} else {
+			// disable
+			uninstall();
+			base_addr.readonly = false;
+			intr_vector.readonly = false;
+			intr_level.readonly = false;
+		}
+	}
+	return device_c::on_param_changed(param); // more actions (for enable)
+}
+
+// define default values for device BASE address and INTR
+void unibusdevice_c::set_default_bus_params(uint32_t default_base_addr, unsigned default_intr_vector, unsigned default_intr_level) {
+	this->default_base_addr = this->base_addr.value = default_base_addr;
+	this->default_intr_vector = this->intr_vector.value = default_intr_vector ;
+	this->default_intr_level = this->intr_level.value = default_intr_level ;
+}
+
+
+
+void unibusdevice_c::install(void) {
 	unibusadapter->register_device(*this); // -> device_c ?
 	// now has handle
 
@@ -60,10 +92,6 @@ void unibusdevice_c::install(uint32_t base_addr, unsigned intr_vector, uint8_t i
 	on_power_changed();
 	power_down = false;
 	on_power_changed();
-}
-
-void unibusdevice_c::install(void) {
-	install(default_base_addr, default_intr_vector, default_intr_level);
 }
 
 void unibusdevice_c::uninstall(void) {

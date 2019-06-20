@@ -71,7 +71,7 @@ void application_c::menu_masterslave(enum unibus_c::arbitration_mode_enum arbitr
 
 	// PRUCODE_UNIBUS can raise events (INIT,ACLO,DCLO) 
 	// handle & clear these
-	unibusadapter->worker_start() ;
+	unibusadapter->enabled.set(true) ;
 
 	ready = false;
 
@@ -95,8 +95,7 @@ void application_c::menu_masterslave(enum unibus_c::arbitration_mode_enum arbitr
 				printf("*** Starting full UNIBUS master/slave logic on PRU\n");
 				printf("***\n");
 				if (testcontroller_enabled) {
-					demo_regs.install();
-					demo_regs.worker_start();
+					demo_regs.enabled.set(true);
 				}
 				unibusadapter->print_shared_register_map();
 				active = true;
@@ -371,12 +370,11 @@ void application_c::menu_masterslave(enum unibus_c::arbitration_mode_enum arbitr
 		printf("***\n");
 
 		if (testcontroller_enabled) {
-			demo_regs.worker_stop();
-			demo_regs.uninstall();
+			demo_regs.enabled.set(false);
 		}
 		active = false;
 	}
-	unibusadapter->worker_stop();
+	unibusadapter->enabled.set(false) ;
 
 	// Switch off bus drivers
 	buslatches_output_enable(false);

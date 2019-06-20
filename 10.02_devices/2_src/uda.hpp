@@ -61,6 +61,8 @@ public:
     uda_c();
     virtual ~uda_c();
 
+	bool on_param_changed(parameter_c *param) override;
+
     void worker(void) override;
 
     void on_after_register_access(

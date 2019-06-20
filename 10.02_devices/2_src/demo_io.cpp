@@ -45,15 +45,14 @@ demo_io_c::demo_io_c() :
 	name.value = "DEMO_IO";
 	type_name.value = "demo_io_c";
 	log_label = "di";
-	default_base_addr = 0760100; // overwritten in install()?
-	default_intr_vector = 0;
-	default_intr_level = 0;
+
+	set_default_bus_params(0760100, 0, 0) ; // base addr, intr-vector, intr level
 
 	// init parameters
-	switch_feedback.value = false ;
+	switch_feedback.value = false;
 
 	// controller has only 2 register
-	register_count = 2 ;
+	register_count = 2;
 
 	switch_reg = &(this->registers[0]); // @  base addr
 	strcpy(switch_reg->name, "SR"); // "Switches and Display"
@@ -95,13 +94,17 @@ demo_io_c::demo_io_c() :
 
 demo_io_c::~demo_io_c() {
 	// close all gpio value files
-	unsigned i ;
-	for (i=0 ; i < 5 ; i++)
-		gpio_inputs[i].close() ;
-	for (i=0 ; i < 4 ; i++)
-		gpio_outputs[i].close() ;
+	unsigned i;
+	for (i = 0; i < 5; i++)
+		gpio_inputs[i].close();
+	for (i = 0; i < 4; i++)
+		gpio_outputs[i].close();
 }
 
+bool demo_io_c::on_param_changed(parameter_c *param) {
+	// no own parameter or "enable" logic
+	return unibusdevice_c::on_param_changed(param); // more actions (for enable)
+}
 
 /* helper: opens the control file for a gpio
  * exports, programs directions, assigns stream
@@ -113,7 +116,7 @@ void demo_io_c::gpio_open(fstream& value_stream, bool is_input, unsigned gpio_nu
 
 	// 1. export pin, so it appears as .../gpio<nr>
 	char export_filename[80];
-	ofstream export_file ;
+	ofstream export_file;
 	sprintf(export_filename, "%s/export", gpio_class_path);
 	export_file.open(export_filename);
 
@@ -127,7 +130,7 @@ void demo_io_c::gpio_open(fstream& value_stream, bool is_input, unsigned gpio_nu
 	// 2. Now we have directory /sys/class/gpio<number>
 	//	Set to input or output
 	char direction_filename[80];
-	ofstream direction_file ;
+	ofstream direction_file;
 	sprintf(direction_filename, "%s/gpio%d/direction", gpio_class_path, gpio_number);
 	direction_file.open(direction_filename);
 	if (!direction_file.is_open()) {
@@ -201,7 +204,7 @@ void demo_io_c::worker(void) {
 		//    into /sys/class/gpio<n>/value pseudo files
 
 		// LED control from switches or UNIBUS "DR" register?
-		if (! switch_feedback.value)
+		if (!switch_feedback.value)
 			register_value = get_register_dato_value(display_reg);
 		for (i = 0; i < 4; i++) {
 			register_bitmask = (1 << i);
@@ -222,11 +225,6 @@ void demo_io_c::on_after_register_access(unibusdevice_register_t *device_reg,
 	// nothing todo
 	UNUSED(device_reg);
 	UNUSED(unibus_control);
-}
-
-bool demo_io_c::on_param_changed(parameter_c *param) {
-	UNUSED(param) ;
-	return true ;
 }
 
 void demo_io_c::on_power_changed(void) {

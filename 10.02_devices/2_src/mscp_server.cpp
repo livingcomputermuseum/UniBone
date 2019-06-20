@@ -71,8 +71,12 @@ mscp_server::mscp_server(
 {
 	name.value = "mscp_server" ;
 	type_name.value = "mscp_server_c" ;
+	log_label = "MSSVR" ;
     // Alias the port pointer.  We do not own the port, we merely reference it.
     _port = port;
+
+	enabled.set(true) ; 
+	enabled.readonly = true ; // always active
 
     StartPollingThread();
 }
@@ -82,6 +86,18 @@ mscp_server::~mscp_server()
 {
     AbortPollingThread();
 }
+
+
+bool mscp_server::on_param_changed(parameter_c *param) {
+	// no own parameter or "enable" logic
+	if (param == &enabled) {
+		// accpet, but do not react on enable/disable, always active
+		return true ;
+	}
+	return device_c::on_param_changed(param) ; // more actions (for enable)
+}
+
+
 
 //
 // StartPollingThread():

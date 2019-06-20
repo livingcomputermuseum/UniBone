@@ -1,28 +1,28 @@
 /* rl02.cpp: implementation of RL01/RL02 disk drive, attached to RL11 controller
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   12-nov-2018  JH      entered beta phase
-*/
+ 12-nov-2018  JH      entered beta phase
+ */
 
 #include <assert.h>
 
@@ -44,22 +44,28 @@ RL0102_c::RL0102_c(storagecontroller_c *controller) :
 
 }
 
-
 // return false, if illegal parameter value.
 // verify "new_value", must output error messages
 bool RL0102_c::on_param_changed(parameter_c *param) {
-	if (param == &type_name) {
+	if (param == &enabled) {
+		if (!enabled.new_value) {
+			// disable switches power OFF.
+			// must be power on by caller or user after enable
+			power_switch.value = false;
+			change_state(RL0102_STATE_power_off);
+		}
+	} else if (param == &type_name) {
 		if (!strcasecmp(type_name.new_value.c_str(), "RL01"))
-			set_type(1) ;
+			set_type(1);
 		else if (!strcasecmp(type_name.new_value.c_str(), "RL02"))
-			set_type(2) ;
+			set_type(2);
 		else {
 //		throw bad_parameter_check("drive type must be RL01 or RL02") ;			
-			ERROR("drive type must be RL01 or RL02") ;
-			return false ;
+			ERROR("drive type must be RL01 or RL02");
+			return false;
 		}
 	}
-	return true ;
+	return storagedrive_c::on_param_changed(param); // more actions (for enable)
 }
 
 void RL0102_c::set_type(uint8_t drivetype) {
@@ -168,15 +174,15 @@ void RL0102_c::change_state(unsigned new_state) {
 	state.value = new_state;
 	update_status_word(); // contains state
 	if (old_state != new_state)
-		DEBUG("Change drive %s state from %d to %d. Status word %06o -> %06o.", name.value.c_str(),
-				old_state, state.value, old_status_word, status_word);
+		DEBUG("Change drive %s state from %d to %d. Status word %06o -> %06o.",
+				name.value.c_str(), old_state, state.value, old_status_word, status_word);
 }
 
 /*** state functions, called repeatedly ***/
 void RL0102_c::state_power_off() {
 	// drive_ready_line = false; // verified
 	// drive_error_line = true; // real RL02: RL11 show a DRIVE ERROR after power on / DC_LO
-	type_name.readonly = false ; // may be changed between RL01/RL02
+	type_name.readonly = false; // may be changed between RL01/RL02
 	volume_check = true; // starts with volume check?
 	cover_open.readonly = true;
 	update_status_word(/*drive_ready_line*/false, /*drive_error_line*/true);
@@ -195,7 +201,7 @@ void RL0102_c::state_power_off() {
 // drive stop, door unlocked, cartridge can be loaded
 void RL0102_c::state_load_cartridge() {
 	// drive_ready_line = false; // verified
-	type_name.readonly = true ; // must be powered of to changed between RL01/RL02
+	type_name.readonly = true; // must be powered of to changed between RL01/RL02
 	update_status_word(/*drive_ready_line*/false, drive_error_line);
 	load_lamp.value = 1;
 	ready_lamp.value = 0;
@@ -256,7 +262,7 @@ void RL0102_c::state_spin_up() {
 
 	load_lamp.value = 0;
 	ready_lamp.value = 0;
-	writeprotect_lamp.value = writeprotect_button.value || file_readonly ;
+	writeprotect_lamp.value = writeprotect_button.value || file_readonly;
 	image_filepath.readonly = true; // "door locked", disk can not be changed
 
 	state_timeout.wait_ms(calcperiod_ms);
@@ -377,7 +383,7 @@ void RL0102_c::state_lock_on() {
 
 	load_lamp.value = 0;
 	ready_lamp.value = 1;
-	writeprotect_lamp.value = writeprotect_button.value|| file_readonly;
+	writeprotect_lamp.value = writeprotect_button.value || file_readonly;
 
 	// fast polling, if ZRLI tests time of 0 cly seek with head switch
 	state_timeout.wait_ms(1);
@@ -501,7 +507,7 @@ bool RL0102_c::header_on_track(uint16_t header) {
 } while(0)
 
 #ifdef OLD
- #define NEXT_SECTOR_SEGMENT_ADVANCE do {	\
+#define NEXT_SECTOR_SEGMENT_ADVANCE do {	\
  	next_sector_segment_under_heads = (next_sector_segment_under_heads + 1) % 80 ;	\
  	if (next_sector_segment_under_heads & 1)		\
  		/* time to pass one sector 600 data, 25 header? */			\
@@ -526,7 +532,8 @@ bool RL0102_c::cmd_read_next_sector_header(uint16_t *buffer, unsigned buffer_siz
 
 	if (next_sector_segment_under_heads & 1) {
 		// odd: next is data, let it pass the head
-		NEXT_SECTOR_SEGMENT_ADVANCE;
+		NEXT_SECTOR_SEGMENT_ADVANCE
+		;
 		// nanosleep() for rotational delay?
 	}
 
@@ -542,7 +549,8 @@ bool RL0102_c::cmd_read_next_sector_header(uint16_t *buffer, unsigned buffer_siz
 	buffer[2] = calc_crc(2, &buffer[0]); // header CRC
 
 	// circular advance to next header: 40x headers, 40x data
-	NEXT_SECTOR_SEGMENT_ADVANCE;
+	NEXT_SECTOR_SEGMENT_ADVANCE
+	;
 	// nanosleep() for rotational delay?
 	return true;
 }
@@ -558,7 +566,8 @@ bool RL0102_c::cmd_read_next_sector_data(uint16_t *buffer, unsigned buffer_size_
 
 	if (!(next_sector_segment_under_heads & 1)) {
 		// even: next segment is header, let it pass the head
-		NEXT_SECTOR_SEGMENT_ADVANCE;
+		NEXT_SECTOR_SEGMENT_ADVANCE
+		;
 		// nanosleep() for rotational delay?
 	}
 	unsigned sectorno = next_sector_segment_under_heads >> 1; // LSB is header/data phase
@@ -570,13 +579,12 @@ bool RL0102_c::cmd_read_next_sector_data(uint16_t *buffer, unsigned buffer_size_
 	// LSB saved before MSB -> word/byte conversion on ARM (little endian) is easy
 	file_read((uint8_t *) buffer, offset, sector_size_bytes);
 	DEBUG("File Read 0x%x words from c/h/s=%d/%d/%d, file pos=0x%llx, words = %06o, %06o, ...",
-		sector_size_bytes/2,
-	cylinder,head, sectorno,
-	offset, (unsigned)(buffer[0]), (unsigned)(buffer[1])) ;
-
+			sector_size_bytes / 2, cylinder, head, sectorno, offset, (unsigned )(buffer[0]),
+			(unsigned )(buffer[1]));
 
 	// circular advance to next header: 40x headers, 40x data
-	NEXT_SECTOR_SEGMENT_ADVANCE;
+	NEXT_SECTOR_SEGMENT_ADVANCE
+	;
 	// nanosleep() for rotational delay?
 	return true;
 }
@@ -600,7 +608,8 @@ bool RL0102_c::cmd_write_next_sector_data(uint16_t *buffer, unsigned buffer_size
 
 	if (!(next_sector_segment_under_heads & 1)) {
 		// even: next segment is header, let it pass the head
-		NEXT_SECTOR_SEGMENT_ADVANCE;
+		NEXT_SECTOR_SEGMENT_ADVANCE
+		;
 		// nanosleep() for rotational delay?
 	}
 	unsigned sectorno = next_sector_segment_under_heads >> 1; // LSB is header/data phase
@@ -612,13 +621,12 @@ bool RL0102_c::cmd_write_next_sector_data(uint16_t *buffer, unsigned buffer_size
 	// LSB saved before MSB -> word/byte conversion on ARM (little endian) is easy
 	file_write((uint8_t *) buffer, offset, sector_size_bytes);
 	DEBUG("File Write 0x%x words from c/h/s=%d/%d/%d, file pos=0x%llx, words = %06o, %06o, ...",
-		sector_size_bytes/2,
-	cylinder,head, sectorno,
-	offset, (unsigned)(buffer[0]), (unsigned)(buffer[1])) ;
-
+			sector_size_bytes / 2, cylinder, head, sectorno, offset, (unsigned )(buffer[0]),
+			(unsigned )(buffer[1]));
 
 	// circular advance to next header: 40x headers, 40x data
-	NEXT_SECTOR_SEGMENT_ADVANCE;
+	NEXT_SECTOR_SEGMENT_ADVANCE
+	;
 	// nanosleep() for rotational delay?
 
 	return true;
@@ -637,8 +645,13 @@ void RL0102_c::worker(void) {
 		update_status_word(drive_ready_line, drive_error_line);
 
 		// global stuff for all states
+		if (enabled.value && (!controller || !controller->enabled.value))
+			// RL drive powered, but no controller: no clock -> FAULT
+			fault_lamp.value = true;
+
 		if (power_switch.value == false)
 			change_state(RL0102_STATE_power_off);
+
 		switch (state.value) {
 		case RL0102_STATE_power_off:
 			state_power_off();

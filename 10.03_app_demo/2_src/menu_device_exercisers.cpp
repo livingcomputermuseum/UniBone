@@ -41,8 +41,8 @@
 #include "unibus.h"
 #include "memoryimage.hpp"
 
-#include "unibusadapter.hpp"
-#include "unibusdevice.hpp"
+//#include "unibusadapter.hpp"
+//#include "unibusdevice.hpp"
 
 #include "devexer_rl.hpp"
 
@@ -60,12 +60,8 @@ void application_c::menu_device_exercisers(void) {
 	// UNIBUS activity
 	hardware_startup(pru_c::PRUCODE_UNIBUS);
 	buslatches_output_enable(true);
-	// no device emulation, no CPU arbitration
 
-	unibusadapter->worker_stop();
-	//unibus->arbitrator_client = false;
-
-	// instantiate differebt device exercisers
+	// instantiate different device exercisers
 
 	devexer::rl_c rl;
 	USE(rl); // not accessed diretcly, but is registered to exerciser list

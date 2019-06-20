@@ -85,10 +85,6 @@ static void load_memory(enum unibus_c::arbitration_mode_enum arbitration_mode, c
 // CPU is enabled, act as ARBITRATION_MASTER
 void application_c::menu_devices(bool with_CPU) {
 	/** list of usable devices ***/
-	bool with_DEMOIO = true;
-	bool with_RL = true;
-	bool with_RK = true; // SIGINT on exit?
-	bool with_MSCP = true;
 	bool with_storage_file_test = false;
 
 	enum unibus_c::arbitration_mode_enum arbitration_mode;
@@ -117,54 +113,27 @@ void application_c::menu_devices(bool with_CPU) {
 	// now PRU executing UNIBUS master/slave code, physical PDP-11 CPU as arbitrator required.
 	buslatches_output_enable(true);
 
-	unibusadapter->worker_start();
+	unibusadapter->enabled.set(true);
 
 	// 2 demo controller
 	cur_device = NULL;
-	demo_io_c *demo_io = NULL;
+	demo_io_c *demo_io = new demo_io_c();
 	//demo_regs_c demo_regs; // mem at 160000: RT11 crashes?
 	cpu_c *cpu = NULL;
-	RL11_c *RL11 = NULL;
+	// create RL11 +  also 4 RL01/02 drives
+	RL11_c *RL11 = new RL11_c();
 	paneldriver->reset(); // reset I2C, restart worker()
-	rk11_c *RK11 = NULL;
-	uda_c *UDA50 = NULL;
-
-	if (with_DEMOIO) {
-		demo_io = new demo_io_c();
-		demo_io->install();
-		demo_io->worker_start();
-	}
+	// create RK11 + drives
+	rk11_c *RK11 = new rk11_c();
+	// Create UDA50
+	uda_c *UDA50 = new uda_c();
 
 //	//demo_regs.install();
 //	//demo_regs.worker_start();
 
-	if (with_RL) {
-		// create RL11 + drives
-		// instantiates also 4 RL01/02 drives
-		RL11 = new RL11_c();
-		RL11->install();
-		RL11->connect_to_panel();
-		RL11->worker_start();
-	}
-
-	if (with_RK) {
-		// create RK11 + drives
-		RK11 = new rk11_c();
-		RK11->install();
-		RK11->worker_start();
-	}
-
 	if (with_CPU) {
 		cpu = new cpu_c();
-		cpu->install();
-		cpu->worker_start();
-	}
-
-	if (with_MSCP) {
-		// Create UDA50
-		UDA50 = new uda_c();
-		UDA50->install();
-		UDA50->worker_start();
+		cpu->enabled.set(true);
 	}
 
 	if (with_storage_file_test) {
@@ -206,7 +175,10 @@ void application_c::menu_devices(bool with_CPU) {
 				printf("m ll             Reload last memory content from file \"%s\"\n",
 						memory_filename);
 			printf("ld                   List all defined devices\n");
+			printf("en <dev>             Enable a device\n");
+			printf("dis <dev>            Disable device\n");
 			printf("sd <dev>             Select \"current device\"\n");
+
 			if (cur_device) {
 				printf("p <param> <val>      Set parameter value of current device\n");
 				printf("p <param>            Get parameter value of current device\n");
@@ -300,25 +272,54 @@ void application_c::menu_devices(bool with_CPU) {
 				// m ll
 				load_memory(arbitration_mode, memory_filename, "start");
 			} else if (!strcasecmp(s_opcode, "ld") && n_fields == 1) {
+				unsigned n;
 				list<device_c *>::iterator it;
-				cout << "Registered devices:\n";
-				for (it = device_c::mydevices.begin(); it != device_c::mydevices.end(); ++it) {
-					cout << "- " << (*it)->name.value << " (type is " << (*it)->type_name.value
-							<< ")\n";
-					if ((*it)->name.value.empty())
-						printf("EMPTY\n");
-				}
-			} else if (!strcasecmp(s_opcode, "sd") && n_fields == 2) {
-				list<device_c *>::iterator it;
-				bool found = false;
-				for (it = device_c::mydevices.begin(); it != device_c::mydevices.end(); ++it)
-					if (!strcasecmp((*it)->name.value.c_str(), s_param[0])) {
-						found = true;
-						cur_device = *it;
+				for (n = 0, it = device_c::mydevices.begin(); it != device_c::mydevices.end();
+						++it)
+					if ((*it)->enabled.value) {
+						if (n == 0)
+							cout << "Enabled devices:\n";
+						n++;
+						cout << "- " << (*it)->name.value << " (type is "
+								<< (*it)->type_name.value << ")\n";
+//					if ((*it)->name.value.empty())
+//						printf("EMPTY\n");
 					}
-				if (!found)
+				if (n == 0)
+					cout << "No enabled devices.\n";
+
+				for (n = 0, it = device_c::mydevices.begin(); it != device_c::mydevices.end();
+						++it)
+					if (!(*it)->enabled.value) {
+						if (n == 0)
+							cout << "Disabled devices:\n";
+						n++;
+						cout << "- " << (*it)->name.value << " (type is "
+								<< (*it)->type_name.value << ")\n";
+					}
+				if (n == 0)
+					cout << "No disabled devices.\n";
+			} else if (!strcasecmp(s_opcode, "en") && n_fields == 2) {
+				device_c *dev = device_c::find_by_name(s_param[0]);
+				if (!dev) {
 					cout << "Device \"" << s_param[0] << "\" not found.\n";
-				else {
+					show_help = true;
+				} else
+					dev->enabled.set(true);
+			} else if (!strcasecmp(s_opcode, "dis") && n_fields == 2) {
+				device_c *dev = device_c::find_by_name(s_param[0]);
+				if (!dev) {
+					cout << "Device \"" << s_param[0] << "\" not found.\n";
+					show_help = true;
+				} else
+					dev->enabled.set(false);
+			} else if (!strcasecmp(s_opcode, "sd") && n_fields == 2) {
+				cur_device = device_c::find_by_name(s_param[0]);
+
+				if (!cur_device) {
+					cout << "Device \"" << s_param[0] << "\" not found.\n";
+					show_help = true;
+				} else {
 					printf("Current device is \"%s\"\n", cur_device->name.value.c_str());
 					// find base address of assoiated UNIBUS unibuscontroller
 					if (cur_device != NULL && dynamic_cast<unibusdevice_c *>(cur_device))
@@ -383,7 +384,7 @@ void application_c::menu_devices(bool with_CPU) {
 					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);
 			} else if (unibuscontroller && !strcasecmp(s_opcode, "e") && n_fields <= 2) {
 				unsigned blocksize = 0; // default: no EXAM
-				bool timeout ;
+				bool timeout;
 				uint32_t addr;
 				unibusdevice_register_t *reg;
 				if (n_fields == 2) { // single reg number given
@@ -410,7 +411,7 @@ void application_c::menu_devices(bool with_CPU) {
 									reg->addr, mailbox->dma.words[i]);
 						}
 					} else {
-						timeout = false ;
+						timeout = false;
 						printf("Device has no UNIBUS registers.\n");
 					}
 				}
@@ -428,40 +429,26 @@ void application_c::menu_devices(bool with_CPU) {
 	} // ready
 
 	if (with_CPU) {
-		cpu->worker_stop();
-		cpu->uninstall();
+		cpu->enabled.set(false);
 		delete cpu;
 	}
 
-	if (with_RL) {
-		RL11->worker_stop();
-		RL11->disconnect_from_panel();
-		RL11->uninstall();
-		delete RL11;
-	}
+	RL11->enabled.set(false);
+	delete RL11;
 
-	if (with_RK) {
-		RK11->worker_stop();
-		RK11->uninstall();
-		delete RK11;
-	}
+	RK11->enabled.set(false);
+	delete RK11;
 
-	if (with_MSCP) {
-		UDA50->worker_stop();
-		UDA50->uninstall();
-		delete UDA50;
-	}
+	UDA50->enabled.set(false);
+	delete UDA50;
 
 //	//demo_regs.worker_stop();
 //	//demo_regs.uninstall();
 
-	if (with_DEMOIO) {
-		demo_io->worker_stop();
-		demo_io->uninstall();
-		delete demo_io;
-	}
+	demo_io->enabled.set(false);
+	delete demo_io;
 
-	unibusadapter->worker_stop();
+	unibusadapter->enabled.set(false);
 
 	buslatches_output_enable(false);
 	hardware_shutdown(); // stop PRU

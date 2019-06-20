@@ -35,11 +35,12 @@ private:
 
 public:
 
-	parameter_unsigned_c access_count = parameter_unsigned_c(this, "access_count",
-			"ac",/*readonly*/
-			true, "", "%u", "Total # of register accesses", 32, 10);
+	parameter_unsigned_c access_count = parameter_unsigned_c(this, "access_count", "ac",/*readonly*/
+	true, "", "%u", "Total # of register accesses", 32, 10);
 
 	demo_regs_c();
+
+	bool on_param_changed(parameter_c *param) override;  // must implement
 
 	// background worker function
 	void worker(void) override;
@@ -48,7 +49,6 @@ public:
 	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control)
 			override;
 
-	bool on_param_changed(parameter_c *param) override;  // must implement
 	void on_power_changed(void) override;
 	void on_init_changed(void) override;
 };

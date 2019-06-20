@@ -93,25 +93,26 @@ class parameter_string_c: public parameter_c {
 public:
 	// dynamic state
 	string value;
-	string new_value ; // after parse, checked by device.on_param_change_check()
-
+	string new_value;
 
 	parameter_string_c(parameterized_c	*parameterized, string name, string shortname, bool readonly, string info);
 	~parameter_string_c();
 	string *render(void) override;
 	void parse(string text) override;
+	void set(string new_value) ;
 };
 
 class parameter_bool_c: public parameter_c {
 public:
 	// dynamic state
 	bool value;
-	bool new_value ; // after parse, checked by device.on_param_change_check()
+	bool new_value;
 
 	parameter_bool_c(parameterized_c	*parameterized, string name, string shortname, bool readonly, string info);
 	parameter_bool_c();
 	string *render(void) override;
 	void parse(string text) override;
+	void set(bool new_value) ;
 };
 
 class parameter_unsigned_c: public parameter_c {
@@ -123,12 +124,13 @@ public:
 
 	// dynamic state
 	unsigned value;
-	unsigned new_value ; // after parse, checked by device.on_param_change_check()
+	unsigned new_value;
 
 	parameter_unsigned_c(parameterized_c	*parameterized, string name,string shortname,  bool readonly, string unit, string format,
 			string info, unsigned bitwidth, unsigned base);
 	string *render(void) override;
 	void parse(string text) override;
+	void set(unsigned new_value) ;
 };
 
 class parameter_unsigned64_c: public parameter_c {
@@ -140,12 +142,13 @@ public:
 
 	// dynamic state
 	uint64_t value;
-	uint64_t new_value ; // after parse, checked by device.on_param_change_check()
+	uint64_t new_value ;
 
 	parameter_unsigned64_c(parameterized_c	*parameterized, string name, string shortname,  bool readonly, string unit, string format,
 			string info, unsigned bitwidth, unsigned base);
 	string *render(void) override;
 	void parse(string text) override;
+	void set(uint64_t new_value) ;
 };
 
 

@@ -49,8 +49,8 @@ storagedrive_c::storagedrive_c(storagecontroller_c *controller) :
 
 // implements params, so must handle "change"
 bool storagedrive_c::on_param_changed(parameter_c *param) {
-	UNUSED(param);
-	return true;
+	// no own "enable" logic
+	return device_c::on_param_changed(param);
 }
 
 // http://www.cplusplus.com/doc/tutorial/files/
@@ -121,11 +121,11 @@ void storagedrive_c::file_write(uint8_t *buffer, uint64_t position, unsigned len
 	assert(!file_readonly); // caller must take care
 
 	// enlarge file in chunks until filled up to "position"
-	f.clear() ; // clear fail bit
+	f.clear(); // clear fail bit
 	f.seekp(0, ios::end); // move to current EOF
 	file_size = f.tellp(); // current file len
 	if (file_size < 0)
-		file_size = 0 ; // -1 on emtpy files
+		file_size = 0; // -1 on emtpy files
 	while (file_size < write_pos) {
 		// fill in '00' 'chunks up to desired end, but limit to max_chunk_size
 		int chunk_size = std::min(max_chunk_size, (int) (write_pos - file_size));
@@ -135,7 +135,7 @@ void storagedrive_c::file_write(uint8_t *buffer, uint64_t position, unsigned len
 			assert(fillbuff);
 			memset(fillbuff, 0, max_chunk_size);
 		}
-		f.clear() ; // clear fail bit
+		f.clear(); // clear fail bit
 		f.seekp(file_size, ios::beg); // move to end
 		f.write((const char *) fillbuff, chunk_size);
 		file_size += chunk_size;
@@ -148,7 +148,7 @@ void storagedrive_c::file_write(uint8_t *buffer, uint64_t position, unsigned len
 		assert(write_pos == 0);
 	else {
 		// move write pointer to target position
-		f.clear() ; // clear fail bit
+		f.clear(); // clear fail bit
 		f.seekp(write_pos, ios::beg);
 		p = f.tellp(); // position now < target?
 		assert(p == write_pos);

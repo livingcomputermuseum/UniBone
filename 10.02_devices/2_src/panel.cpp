@@ -1,43 +1,43 @@
 /* panels.cpp: a device to access lamps & buttons connected over I2C bus
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   12-nov-2018  JH      entered beta phase
+ 12-nov-2018  JH      entered beta phase
 
-  a device to access lamps & buttons connected over I2C bus
-  Up to 8 MC23017 GPIO extenders each with 16 I/Os can be connected.
+ a device to access lamps & buttons connected over I2C bus
+ Up to 8 MC23017 GPIO extenders each with 16 I/Os can be connected.
 
-  Other devices register some of their bit-Parameters with IOs.
+ Other devices register some of their bit-Parameters with IOs.
 
-  1 i2c driver - n panels
-  1 paneldriver - controls for many devices of same type (4 buttons for each of 4 RL02s)
-  1 control - identifed by unique combination of device name and control name
-  ("rl1", "load_button")
-  device name ideally same as device-> name
-  control name ideally same as deviceparameter->name
+ 1 i2c driver - n panels
+ 1 paneldriver - controls for many devices of same type (4 buttons for each of 4 RL02s)
+ 1 control - identifed by unique combination of device name and control name
+ ("rl1", "load_button")
+ device name ideally same as device-> name
+ control name ideally same as deviceparameter->name
 
-  ! Static list of panel controls is consntat,
-  but device parameters connected to controls is dynamic
-  (run time device creation/deletion)
+ ! Static list of panel controls is consntat,
+ but device parameters connected to controls is dynamic
+ (run time device creation/deletion)
 
  */
 #include <stdint.h>
@@ -159,6 +159,11 @@ paneldriver_c::~paneldriver_c() {
 	unregister_controls();
 }
 
+bool paneldriver_c::on_param_changed(parameter_c *param) {
+	// no own parameter logic
+	return device_c::on_param_changed(param);
+}
+
 /* low level access to I2C bus slaves */
 // https://elinux.org/Interfacing_with_I2C_Devices#Opening_the_Bus
 // result: true = success
@@ -208,7 +213,7 @@ bool paneldriver_c::i2c_write_byte(uint8_t slave_addr, uint8_t reg_addr, uint8_t
 // reprogram the I2C chips and restart the worker
 void paneldriver_c::reset(void) {
 	timeout_c timeout;
-	worker_stop();
+	enabled.set(false); // worker_stop();
 
 	// pulse "panel_reset_l"
 	// MC32017: at least 1 us
@@ -245,12 +250,7 @@ void paneldriver_c::reset(void) {
 		i2c_write_byte(slave_addr, MC23017_GPPUB, 0xff);
 	}
 
-	worker_start();
-}
-
-bool paneldriver_c::on_param_changed(parameter_c *param) {
-	UNUSED(param);
-	return true ;
+	enabled.set(true); // worker_start();
 }
 
 void paneldriver_c::on_power_changed(void) {
@@ -468,7 +468,7 @@ void paneldriver_c::test_moving_ones(void) {
 	clear_all_outputs();
 	timeout.wait_ms(delay_ms);
 	// all "OFF" on exit
-	worker_stop() ;
+	enabled.set(false); // worker_stop();
 	INFO("Worker stopped.");
 
 }
@@ -490,7 +490,7 @@ void paneldriver_c::test_manual_loopback(void) {
 				(*it)->associate->value = (*it)->value;
 		timeout.wait_ms(10);
 	}
-	worker_stop() ;
+	enabled.set(false); // worker_stop();
 	INFO("Worker stopped.");
 
 }

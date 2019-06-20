@@ -46,9 +46,7 @@ uda_c::uda_c() :
     type_name.value = "UDA50";
     log_label = "uda";
 
-    default_base_addr = 0772150;
-    default_intr_vector = 0154;
-    default_intr_level = 5;
+	set_default_bus_params(0772150, 0154, 5) ; // base addr, intr-vector, intr level
 
     // The UDA50 controller has two registers.
     register_count = 2;
@@ -93,6 +91,12 @@ uda_c::~uda_c()
 
     storagedrives.clear();
 }
+
+bool uda_c::on_param_changed(parameter_c *param) {
+	// no own parameter or "enable" logic
+	return storagecontroller_c::on_param_changed(param) ; // more actions (for enable)
+}
+
 
 //
 // Reset():

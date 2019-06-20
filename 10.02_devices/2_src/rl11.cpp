@@ -1,86 +1,86 @@
 /* rl11.cpp: Implementation of the RL11 controller
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
-   12-nov-2018  JH      entered beta phase
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-  - implements a 4 UNIBUS register interface, which are shared with PRU.
-  - gets notified of UNIBUS register access on_after_register_access()
-  - starts 4 RL01/02 drives
-  on_after_register_access() is a high priority RT thread.
-  It may ONLY update the settings of UNIBUS interface registers by swapping in
-  several internal registers (status for each drive, MP multipuprpose for different
-  Commands) to UNIBUS registers.
-  - execution of commands, access to drives etc is made in worker()
-  worker() is waked by a signal from  on_after_register_access()
-
-  Todo:
-  - operation, when drive power  OFF? error DSE drive select?
-  1) RL0 powered off: CS =200, nach NOP
-  Get status; DA=013, write 00004   Read: CS 102204 (ERR,OPI, DRVready=0
-  MP = 006050 (3x identisch)
-  Seek: Write 0006, read: 102206 (Spnerror, coveropen,brush home)
-  MP = 20210
-  2) RL0 powered on, LOAD
-  NOOP: CS write 0, read 200
-  Get Status: DA=013,write 0004, read 204. MP = 20217 (spinn down), dann 20210 (LOAD)
-  Seek: Write CS=0006 , read 102206. MP = unchanged
-  3) RL02 on track
-  NOOP: CS write 0,  read 140201 (Driverer, do Getstatus
-  Get Status: DA=013, write 0004, read 205. MP = 020235
-  Seek: DA=0377 (255)100, read = 207
+ 12-nov-2018  JH      entered beta phase
 
 
+ - implements a 4 UNIBUS register interface, which are shared with PRU.
+ - gets notified of UNIBUS register access on_after_register_access()
+ - starts 4 RL01/02 drives
+ on_after_register_access() is a high priority RT thread.
+ It may ONLY update the settings of UNIBUS interface registers by swapping in
+ several internal registers (status for each drive, MP multipuprpose for different
+ Commands) to UNIBUS registers.
+ - execution of commands, access to drives etc is made in worker()
+ worker() is waked by a signal from  on_after_register_access()
+
+ Todo:
+ - operation, when drive power  OFF? error DSE drive select?
+ 1) RL0 powered off: CS =200, nach NOP
+ Get status; DA=013, write 00004   Read: CS 102204 (ERR,OPI, DRVready=0
+ MP = 006050 (3x identisch)
+ Seek: Write 0006, read: 102206 (Spnerror, coveropen,brush home)
+ MP = 20210
+ 2) RL0 powered on, LOAD
+ NOOP: CS write 0, read 200
+ Get Status: DA=013,write 0004, read 204. MP = 20217 (spinn down), dann 20210 (LOAD)
+ Seek: Write CS=0006 , read 102206. MP = unchanged
+ 3) RL02 on track
+ NOOP: CS write 0,  read 140201 (Driverer, do Getstatus
+ Get Status: DA=013, write 0004, read 205. MP = 020235
+ Seek: DA=0377 (255)100, read = 207
 
 
-  - Which errors raise "OPI" (operation incomplete)
-  NXM?
-  - Mismatch DMA wordcount and sector buffer
-  word len != sector border ? => no problem?
-  end of track before worldcount == 0 ?
-  "DA register is not incrmeneted in multisector transfer"
-  => OPI?
-
-  - "Read header: ": select which sector to read?
-  Simulate disk rotation???
-  How to generate CRC? -> simh!
-
-  - "read data without header"
-  -> wait for sector pulse? disk rotation?
 
 
-  Communication between on_after_register_access and worker():
-  - use pthread condition variable pthrad_cond_*
-  - normally a mutex show protect worker() against variable change
-  by interrupting on_after_register_access()
-  - the signal "controller_ready" is that mutex already:
-  set by cmd-start in on_after_register_access(),
-  released by worker() on completion
-  - still a mutex needed, only for the thread condition variable as shown in
-  - mutex in on_after_register_access() and worker()
-  - all refgsier access are atomic 32bit anyhow
-  http://openbook.rheinwerk-verlag.de/linux_unix_programmierung/Kap10-006.htm#RxxKap10006040003201F02818E
-  https://docs.oracle.com/cd/E19455-01/806-5257/6je9h032r/index.html#sync-59145
+ - Which errors raise "OPI" (operation incomplete)
+ NXM?
+ - Mismatch DMA wordcount and sector buffer
+ word len != sector border ? => no problem?
+ end of track before worldcount == 0 ?
+ "DA register is not incrmeneted in multisector transfer"
+ => OPI?
+
+ - "Read header: ": select which sector to read?
+ Simulate disk rotation???
+ How to generate CRC? -> simh!
+
+ - "read data without header"
+ -> wait for sector pulse? disk rotation?
+
+
+ Communication between on_after_register_access and worker():
+ - use pthread condition variable pthrad_cond_*
+ - normally a mutex show protect worker() against variable change
+ by interrupting on_after_register_access()
+ - the signal "controller_ready" is that mutex already:
+ set by cmd-start in on_after_register_access(),
+ released by worker() on completion
+ - still a mutex needed, only for the thread condition variable as shown in
+ - mutex in on_after_register_access() and worker()
+ - all refgsier access are atomic 32bit anyhow
+ http://openbook.rheinwerk-verlag.de/linux_unix_programmierung/Kap10-006.htm#RxxKap10006040003201F02818E
+ https://docs.oracle.com/cd/E19455-01/806-5257/6je9h032r/index.html#sync-59145
 
 
  */
@@ -136,9 +136,7 @@ RL11_c::RL11_c(void) :
 	type_name.value = "RL11";
 	log_label = "rl";
 
-	default_base_addr = 0774400;
-	default_intr_vector = 0160;
-	default_intr_level = 5;
+	set_default_bus_params(0774400, 0160, 5) ; // base addr, intr-vector, intr level
 
 	// add 4 RL disk drives
 	drivecount = 4;
@@ -192,6 +190,19 @@ RL11_c::~RL11_c() {
 	unsigned i;
 	for (i = 0; i < drivecount; i++)
 		delete storagedrives[i];
+}
+
+bool RL11_c::on_param_changed(parameter_c *param) {
+	if (param == &enabled) {
+		if (enabled.new_value) {
+			// enabled
+			connect_to_panel();
+		} else {
+			// disabled
+			disconnect_from_panel();
+		}
+	} 
+	return storagecontroller_c::on_param_changed(param); // more actions (for enable)
 }
 
 /* connect parameters of drives to i2c paneldriver
@@ -449,12 +460,6 @@ void RL11_c::on_after_register_access(unibusdevice_register_t *device_reg,
 		break;
 	}
 	// now SSYN goes inactive !
-}
-
-
-bool RL11_c::on_param_changed(parameter_c *param) {
-	UNUSED(param) ;
-	return true ;
 }
 
 void RL11_c::on_power_changed(void) {
@@ -718,25 +723,25 @@ void RL11_c::state_readwrite() {
 			//logger.debug_hexdump(LC_RL, "Read data between disk access and DMA",
 			//		(uint8_t *) silo, sizeof(silo), NULL);
 			// start DMA transmission of SILO into memory
-			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATO, unibus_address, silo,
-					dma_wordcount, &unibus_address);
+			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATO,
+					unibus_address, silo, dma_wordcount, &unibus_address);
 		} else if (function_code == CMD_WRITE_CHECK) {
 			// read sector data to compare with sector data
 			drive->cmd_read_next_sector_data(silo, 128);
 			// logger.debug_hexdump(LC_RL, "Read data between disk access and DMA",
 			//		(uint8_t *) silo, sizeof(silo), NULL);
 			// start DMA transmission of memory to compare with SILO
-			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATI, unibus_address, silo_compare,
-					dma_wordcount, &unibus_address);
+			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATI,
+					unibus_address, silo_compare, dma_wordcount, &unibus_address);
 		} else if (function_code == CMD_WRITE_DATA) {
 			// start DMA transmission of memory into SILO
-			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATI, unibus_address, silo,
-					dma_wordcount, &unibus_address);
+			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATI,
+					unibus_address, silo, dma_wordcount, &unibus_address);
 		}
-		
-        // request_client_DMA() was blocking, DMA processed now.
-        // unibus_address updated to last accesses address
-	    unibus_address += 2; // was last address, is now next to fill
+
+		// request_client_DMA() was blocking, DMA processed now.
+		// unibus_address updated to last accesses address
+		unibus_address += 2; // was last address, is now next to fill
 		// if timeout: addr AFTER illegal address (verified)
 		update_unibus_address(unibus_address); // set addr msb to cs
 

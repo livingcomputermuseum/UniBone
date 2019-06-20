@@ -54,9 +54,9 @@ demo_regs_c::demo_regs_c() :
 	name.value = "DEMO_REGS";
 	type_name.value = "demo_regs_c";
 	log_label = "dr";
-	default_base_addr = 0760000; // overwritten in install()
-	default_intr_vector = 0;
-	default_intr_level = 0;
+
+	
+	set_default_bus_params(0760000, 0, 0) ; // base addr, intr-vector, intr level
 
 	register_count = 32; // up to 760076
 	// registers are "active": receive "on_after_register_access"
@@ -71,6 +71,11 @@ demo_regs_c::demo_regs_c() :
 	// dynamic state
 	access_count.value = 0;
 
+}
+
+bool demo_regs_c::on_param_changed(parameter_c *param) {
+	// no own parameter or "enable" logic
+	return unibusdevice_c::on_param_changed(param); // more actions (for enable)
 }
 
 // background worker.
@@ -105,11 +110,6 @@ void demo_regs_c::on_after_register_access(unibusdevice_register_t *device_reg,
 	// DEBUG writes to disk & console ... measured delay up to 30ms !
 	//DEBUG(LL_DEBUG, LC_demo_regs, "[%6u] reg +%d @ %06o %s", accesscount, (int ) device_reg->index,
 	//		device_reg->addr, unibus_c::control2text(unibus_control));
-}
-
-bool demo_regs_c::on_param_changed(parameter_c *param) {
-	UNUSED(param) ;
-	return true ;
 }
 
 void demo_regs_c::on_power_changed(void) {

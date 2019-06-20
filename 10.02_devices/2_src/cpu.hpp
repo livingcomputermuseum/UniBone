@@ -21,7 +21,7 @@
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-23-nov-2018  JH      created
+ 23-nov-2018  JH      created
  */
 #ifndef _CPU_HPP_
 #define _CPU_HPP_
@@ -44,17 +44,17 @@ private:
 public:
 
 	cpu_c();
-	~cpu_c() ;
+	~cpu_c();
+
+	bool on_param_changed(parameter_c *param) override;  // must implement
 
 	parameter_bool_c runmode = parameter_bool_c(this, "run", "r",/*readonly*/
 	false, "1 = CPU running, 0 = halt");
 	parameter_bool_c init = parameter_bool_c(this, "init", "i",/*readonly*/
 	false, "1 = CPU initalizing");
 
-
-	struct Bus bus ; // UNIBU Sinterface of CPU
-	struct KA11 ka11 ; // Angelos CPU state
-
+	struct Bus bus; // UNIBU Sinterface of CPU
+	struct KA11 ka11; // Angelos CPU state
 
 	// background worker function
 	void worker(void) override;
@@ -63,7 +63,6 @@ public:
 	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control)
 			override;
 
-	bool on_param_changed(parameter_c *param) override;  // must implement
 	void on_power_changed(void) override;
 	void on_init_changed(void) override;
 };

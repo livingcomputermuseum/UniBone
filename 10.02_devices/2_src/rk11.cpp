@@ -25,10 +25,8 @@ rk11_c::rk11_c() :
     name.value = "rk";
     type_name.value = "RK11";
     log_label = "rk";
-    default_base_addr = 0777400; // overwritten in install()?
-    default_intr_vector = 0220;  // TODO: make configurable
-    default_intr_level = 5;  // TODO: make configurable 
-
+	
+	set_default_bus_params(0777400, 0220, 5) ; // base addr, intr-vector, intr level
 
     // The RK11 controller has seven registers,
     // We allocate 8 because one address in the address space is unused.
@@ -116,6 +114,14 @@ rk11_c::~rk11_c()
         delete storagedrives[i];
     }
 }
+
+// return false, if illegal parameter value.
+// verify "new_value", must output error messages
+bool rk11_c::on_param_changed(parameter_c *param) {
+	// no own parameter or "enable" logic
+	return storagecontroller_c::on_param_changed(param) ; // more actions (for enable)
+}
+
 
 void rk11_c::dma_transfer(DMARequest &request)
 {

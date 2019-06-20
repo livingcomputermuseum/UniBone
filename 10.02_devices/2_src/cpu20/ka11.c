@@ -355,7 +355,6 @@ step(KA11 *cpu)
 
 	INA(PC, cpu->ir);
 	PC += 2;	/* don't increment on bus error! */
-
 	by = !!(cpu->ir&B15);
 	br = sxt(cpu->ir)<<1;
 	src = cpu->ir>>6 & 077;

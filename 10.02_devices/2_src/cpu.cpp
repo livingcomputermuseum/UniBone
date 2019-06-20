@@ -52,15 +52,27 @@ cpu_c::cpu_c() :
 	init.value = false;
 
 	// current CPU does not publish registers to the bus
+	// must be unibusdevice_c then!
 	register_count = 0;
 
-	memset(&bus, 0, sizeof(bus)) ;
-	memset(&ka11, 0, sizeof(ka11)) ;
-	ka11.bus = &bus ;
+	memset(&bus, 0, sizeof(bus));
+	memset(&ka11, 0, sizeof(ka11));
+	ka11.bus = &bus;
 }
 
 cpu_c::~cpu_c() {
 
+}
+
+bool cpu_c::on_param_changed(parameter_c *param) {
+	if (param == &enabled) {
+		if (!enabled.new_value) {
+			// HALT disabled CPU
+			runmode.value = false;
+			init.value = false;
+		}
+	} 
+	return device_c::on_param_changed(param); // more actions (for enable)
 }
 
 extern "C" {
@@ -69,7 +81,7 @@ extern "C" {
 int cpu_dato(unsigned addr, unsigned data) {
 	bool timeout;
 	mailbox->dma.words[0] = data;
-	timeout = !unibus->dma(unibus_c::ARBITRATION_MODE_MASTER , UNIBUS_CONTROL_DATO, addr, 1);
+	timeout = !unibus->dma(unibus_c::ARBITRATION_MODE_MASTER, UNIBUS_CONTROL_DATO, addr, 1);
 	return !timeout;
 
 }
@@ -80,7 +92,6 @@ int cpu_datob(unsigned addr, unsigned data) {
 	mailbox->dma.words[0] = data;
 	timeout = !unibus->dma(unibus_c::ARBITRATION_MODE_MASTER, UNIBUS_CONTROL_DATOB, addr, 1);
 	return !timeout;
-
 }
 
 int cpu_dati(unsigned addr, unsigned *data) {
@@ -88,12 +99,12 @@ int cpu_dati(unsigned addr, unsigned *data) {
 
 	timeout = !unibus->dma(unibus_c::ARBITRATION_MODE_MASTER, UNIBUS_CONTROL_DATI, addr, 1);
 	*data = mailbox->dma.words[0];
+	// printf("DATI; ba=%o, data=%o\n", addr, *data) ;
 	return !timeout;
 }
 }
 
 // background worker.
-// udpate LEDS, poll switches direct to register flipflops
 void cpu_c::worker(void) {
 	timeout_c timeout;
 	bool nxm;
@@ -115,10 +126,9 @@ void cpu_c::worker(void) {
 
 		if (init.value) {
 			// user wants CPU reset
-			reset(&ka11) ;
-			init.value = 0 ;
+			reset(&ka11);
+			init.value = 0;
 		}
-
 
 #if 0
 		if (runmode.value) {
@@ -153,11 +163,6 @@ void cpu_c::on_after_register_access(unibusdevice_register_t *device_reg,
 	// nothing todo
 	UNUSED(device_reg);
 	UNUSED(unibus_control);
-}
-
-bool cpu_c::on_param_changed(parameter_c *param) {
-	UNUSED(param) ;
-	return true ;
 }
 
 void cpu_c::on_power_changed(void) {
