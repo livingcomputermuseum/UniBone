@@ -197,8 +197,9 @@ void rk11_c::dma_transfer(DMARequest &request)
 
 // Background worker.
 // Handle device operations.
-void rk11_c::worker(void) 
+void rk11_c::worker(unsigned instance) 
 {
+	UNUSED(instance) ; // only one
 
     worker_init_realtime_priority(rt_device);
 
@@ -207,7 +208,7 @@ void rk11_c::worker(void)
 
     bool do_interrupt = true;
     timeout_c timeout;
-    while (!worker_terminate) 
+    while (!workers_terminate) 
     {
         switch (_worker_state)
         {

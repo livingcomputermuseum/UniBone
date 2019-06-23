@@ -80,9 +80,10 @@ bool demo_regs_c::on_param_changed(parameter_c *param) {
 
 // background worker.
 // Just print a heart beat
-void demo_regs_c::worker(void) {
+void demo_regs_c::worker(unsigned instance) {
+	UNUSED(instance) ; // only one
 	timeout_c timeout;
-	while (!worker_terminate) {
+	while (!workers_terminate) {
 		timeout.wait_ms(1000);
 		cout << ".";
 	}

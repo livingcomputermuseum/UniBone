@@ -102,7 +102,7 @@ public:
 	void reset(void);
 
 	// background worker function
-	void worker(void) override;
+	void worker(unsigned instance) override;
 
 	RL0102_c *selected_drive(void);
 

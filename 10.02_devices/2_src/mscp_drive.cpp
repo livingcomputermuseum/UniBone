@@ -27,6 +27,7 @@ using namespace std;
 
 mscp_drive_c::mscp_drive_c(storagecontroller_c *controller, uint32_t driveNumber) :
 		storagedrive_c(controller), _useImageSize(false) {
+	set_workers_count(0) ; // needs no worker()
 	log_label = "MSCPD";
 	SetDriveType("RA81");
 	SetOffline();
@@ -304,10 +305,6 @@ bool mscp_drive_c::SetDriveType(const char* typeName) {
 // worker():
 //  worker method for this drive.  No work is necessary.
 //
-void mscp_drive_c::worker(void) {
-	// Nothing to do here at the moment. Thread will terminate immediately.
-}
-
 //
 // on_power_changed():
 //  Handle power change notifications.

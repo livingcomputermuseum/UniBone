@@ -246,17 +246,18 @@ void unibusadapter_c::worker_deviceregister_event() {
 }
 
 // runs in background, catches and distributes PRU events
-void unibusadapter_c::worker() {
+void unibusadapter_c::worker(unsigned instance) {
+	UNUSED(instance) ; // only one
 	int res;
 
 	// set thread priority to MAX.
-	// - fastest response to slect() call in prussdrv_pru_wait_event_timeout()
+	// - fastest response to select() call in prussdrv_pru_wait_event_timeout()
 	//  (minimal I/O latency)
 	// - not interrupted by other tasks while running
 	// check with tool "top" or "htop".
 	worker_init_realtime_priority(rt_max); // set to max prio
 
-	while (!worker_terminate) {
+	while (!workers_terminate) {
 		// Timing:
 		// This is THE ONE mechanism where "realtime meets Linux"
 		// To respond to the PRU signal, Linux must wake up schedule this thread
@@ -368,7 +369,7 @@ bool unibusadapter_c::register_device(unibusdevice_c& device) {
 	while (device_handle <= MAX_DEVICE_HANDLE && devices[device_handle] != NULL)
 		device_handle++;
 	if (device_handle > MAX_DEVICE_HANDLE) {
-		ERROR("Tried to register more than %u devices!", MAX_DEVICE_HANDLE);
+		ERROR("register_device() Tried to register more than %u devices!", MAX_DEVICE_HANDLE);
 		return false;
 	}
 	devices[device_handle] = &device;
@@ -383,7 +384,7 @@ bool unibusadapter_c::register_device(unibusdevice_c& device) {
 		unibusdevice_register_t *device_reg = &(device.registers[i]);
 		device_reg->addr = device.base_addr.value + 2 * i;
 		if ( IOPAGE_REGISTER_ENTRY(*deviceregisters,device_reg->addr)!= 0 )
-		FATAL("IO page address conflict: %s implements register at %06o, belongs already to other device.",
+		FATAL("register_device() IO page address conflict: %s implements register at %06o, belongs already to other device.",
 		device.name.value.c_str(), device_reg->addr);
 	}
 
@@ -404,7 +405,7 @@ bool unibusadapter_c::register_device(unibusdevice_c& device) {
 			register_handle = i;
 	unsigned free_handles = MAX_REGISTER_COUNT - register_handle - 1;
 	if (free_handles < device.register_count) {
-		ERROR("Can not register device %s, needs %d register, only %d left.",
+		ERROR("register_device() can not register device %s, needs %d register, only %d left.",
 				device.name.value.c_str(), device.register_count, free_handles);
 		return false;
 	}
@@ -429,7 +430,7 @@ bool unibusadapter_c::register_device(unibusdevice_c& device) {
 		if (device_reg->active_on_dati || device_reg->active_on_dato) {
 			if (device_reg->active_on_dati && !device_reg->active_on_dato) {
 				FATAL(
-						"Register configuration error for device %s, register idx %u:\n"
+						"register_device() Register configuration error for device %s, register idx %u:\n"
 								"A device register may not be passive on DATO and active on DATI.\n"
 								"Passive DATO -> value written only saved in shared UNIBUS reg value\n"
 								"Active DATI: shared UNIBUS reg value updated from flipflops -> DATO value overwritten\n"

@@ -52,6 +52,7 @@
 #include "rl11.hpp"
 #include "rk11.hpp"
 #include "uda.hpp"
+#include "dl11w.hpp"
 #include "cpu.hpp"
 
 /*** handle loading of memory content  from macro-11 listing ***/
@@ -127,6 +128,10 @@ void application_c::menu_devices(bool with_CPU) {
 	rk11_c *RK11 = new rk11_c();
 	// Create UDA50
 	uda_c *UDA50 = new uda_c();
+	// Create SLU+ LTC
+	slu_c *DL11 = new slu_c() ;
+	ltc_c *LTC = new ltc_c() ;
+	
 
 //	//demo_regs.install();
 //	//demo_regs.worker_start();
@@ -432,6 +437,11 @@ void application_c::menu_devices(bool with_CPU) {
 		cpu->enabled.set(false);
 		delete cpu;
 	}
+
+	LTC->enabled.set(false) ;
+	delete LTC ;
+	DL11->enabled.set(false) ;
+	delete DL11 ;
 
 	RL11->enabled.set(false);
 	delete RL11;

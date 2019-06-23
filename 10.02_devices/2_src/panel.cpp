@@ -438,10 +438,11 @@ void paneldriver_c::i2c_sync_all_params() {
  Query all used I2C chip register,
  Update controls and parameters
  */
-void paneldriver_c::worker(void) {
+void paneldriver_c::worker(unsigned instance) {
+	UNUSED(instance) ; // only one
 	timeout_c timeout;
 
-	while (!worker_terminate) {
+	while (!workers_terminate) {
 		// poll in endless round
 		i2c_sync_all_params();
 		timeout.wait_ms(10);

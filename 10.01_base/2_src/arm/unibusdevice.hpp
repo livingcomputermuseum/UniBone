@@ -131,8 +131,9 @@ public:
 	unibusdevice_register_t *register_by_name(string name);
 	unibusdevice_register_t *register_by_unibus_address(uint32_t addr);
 
-	// set an UNIBUS interrupt condition with intr_vector and intr_level
+	// set an UNIBUS interrupt condition with parameters intr_vector and intr_level
 	void interrupt(void);
+	void interrupt(unsigned vector, unsigned level) ;
 
 	// callback to be called on controller register DATI/DATO events.
 	// must ACK mailbox.event.signal. Asynchron!

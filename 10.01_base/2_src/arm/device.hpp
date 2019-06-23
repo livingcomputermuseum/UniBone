@@ -32,8 +32,19 @@
 #include <mutex>
 using namespace std;
 
+#include "utils.hpp"
 #include "parameter.hpp"
 #include "logsource.hpp"
+
+// instance of a worker thread for a device
+class device_c;
+class device_worker_c {
+public:
+	// thread for this worker instance
+	device_c *device; // link to parent
+	unsigned instance; // id of this running instance
+	pthread_t pthread;bool running; // run state
+};
 
 // abstract unibus device
 // maybe mass storage controller, storage drive or other device
@@ -41,8 +52,8 @@ using namespace std;
 // reacts on register read/write over UNIBUS by evaluation of PRU events.
 class device_c: public logsource_c, public parameterized_c {
 private:
-	void worker_start(void);
-	void worker_stop(void);
+	void workers_start(void);
+	void workers_stop(void);
 
 public:
 	// the class holds a list of pointers to instantiated devices
@@ -64,14 +75,14 @@ public:
 			"device installed and ready to use?");
 
 	parameter_unsigned_c emulation_speed = parameter_unsigned_c(NULL, "emulation_speed", "es",
-			false, "", "%d", "1 = original speed, > 1: mechanics is this factor faster", 8, 10);
+	false, "", "%d", "1 = original speed, > 1: mechanics is this factor faster", 8, 10);
 	// 1 = original speed, > 1: mechanics is this factor faster
 
 	parameter_unsigned_c verbosity = parameter_unsigned_c(NULL, "verbosity", "v", false, "",
 			"%d", "1 = fatal, 2 = error, 3 = warning, 4 = info, 5 = debug", 8, 10);
 
 	// make data exchange with worker atomic
-	std::mutex worker_mutex;
+	// std::mutex worker_mutex;
 
 	// scheduler settings for worker thread
 	int worker_sched_policy;
@@ -86,8 +97,9 @@ public:
 	void worker_boost_realtime_priority(void);
 	void worker_restore_realtime_priority(void);
 
-	device_c();
+	device_c(void);
 	virtual ~device_c(); // class with virtual functions should have virtual destructors
+	void set_workers_count(unsigned workers_count);
 
 	virtual bool on_param_changed(parameter_c *param);
 
@@ -103,12 +115,19 @@ public:
 	volatile bool init_asserted;
 	virtual void on_init_changed(void) = 0; // reset device, like UNIBUS INIT
 
-	// worker thread
-	volatile bool worker_terminate; // cmd flag to worker()
-	volatile bool worker_terminated; // ACK flag from worker()
+	// worker threads: multiple instances of single worker() are running in parallel
+	// device must implement a worker(instance) {
+	//		switch((instance) { ... } }
+	//	'instance' from 0 .. worker_count-1
+	volatile bool workers_terminate; // cmd flag to all worker() instances
 
-	pthread_t worker_pthread;
-	virtual void worker(void) = 0; // background worker function
+	vector<device_worker_c> workers;
+
+	// default background worker function for devices without need.
+	virtual void worker(unsigned instance) {
+		UNUSED(instance);
+		printf("Warning: default device_c::worker() called, better  use set_worker_count(0) ") ;
+	}
 };
 
 #endif

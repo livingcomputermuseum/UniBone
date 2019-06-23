@@ -633,13 +633,14 @@ bool RL0102_c::cmd_write_next_sector_data(uint16_t *buffer, unsigned buffer_size
 }
 
 // thread
-void RL0102_c::worker(void) {
+void RL0102_c::worker(unsigned instance) {
+	UNUSED(instance) ; // only one
 	timeout_c timeout;
 
 	// set prio to RT, but less than RL11 controller
 	worker_init_realtime_priority(rt_device);
 
-	while (!worker_terminate) {
+	while (!workers_terminate) {
 //		worker_mutex.lock() ; // collision with cmd_seek() and on_xxx_changed()
 		// states have set error flags not in RL11 CSR: just update
 		update_status_word(drive_ready_line, drive_error_line);

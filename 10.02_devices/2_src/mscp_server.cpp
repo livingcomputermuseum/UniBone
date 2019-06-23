@@ -69,6 +69,7 @@ mscp_server::mscp_server(
         polling_mutex(PTHREAD_MUTEX_INITIALIZER),
         _credits(INIT_CREDITS) 
 {
+	set_workers_count(0) ; // no std worker()
 	name.value = "mscp_server" ;
 	type_name.value = "mscp_server_c" ;
 	log_label = "MSSVR" ;

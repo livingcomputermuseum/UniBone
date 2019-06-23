@@ -162,13 +162,15 @@ void uda_c::StateTransition(
 // worker():
 //  Implements the initialization state machine.
 //
-void uda_c::worker(void)
+void uda_c::worker(unsigned instance)
 {
+	UNUSED(instance) ; // only one
+
     worker_init_realtime_priority(rt_device); 
 
     timeout_c timeout;
 
-    while (!worker_terminate)
+    while (!workers_terminate)
     {
         //
         // Wait to be awoken.

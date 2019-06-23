@@ -43,7 +43,7 @@ public:
 	bool on_param_changed(parameter_c *param) override;  // must implement
 
 	// background worker function
-	void worker(void) override;
+	void worker(unsigned instance) override;
 
 	// called by unibusadapter on emulated register access
 	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control)

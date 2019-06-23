@@ -102,8 +102,6 @@ public:
 	}
 	virtual void on_init_changed(void) {
 	}
-	virtual void worker(void) {
-	}
 
 	void test(void);
 };

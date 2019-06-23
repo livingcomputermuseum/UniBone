@@ -105,14 +105,15 @@ int cpu_dati(unsigned addr, unsigned *data) {
 }
 
 // background worker.
-void cpu_c::worker(void) {
+void cpu_c::worker(unsigned instance) {
+	UNUSED(instance) ; // only one
 	timeout_c timeout;
 	bool nxm;
 	unsigned pc = 0;
 	unsigned dr = 0760102;
 	unsigned opcode = 0;
 	(void) opcode;
-	while (!worker_terminate) {
+	while (!workers_terminate) {
 		// run full speed!
 		timeout.wait_us(1);
 

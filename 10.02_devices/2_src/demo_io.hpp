@@ -58,7 +58,7 @@ public:
 	false, "1 = hard wire Switches to LEDs, PDP-11 can not set LEDs");
 
 	// background worker function
-	void worker(void) override;
+	void worker(unsigned instance) override;
 
 	// called by unibusadapter on emulated register access
 	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control)

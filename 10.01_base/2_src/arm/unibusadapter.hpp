@@ -133,7 +133,7 @@ public:
 	void worker_init_event(void);
 	void worker_power_event(void);
 	void worker_deviceregister_event(void);
-	void worker(void) override; // background worker function
+	void worker(unsigned instance) override; // background worker function
 	void dma_worker(void);      // background DMA worker
 
 	bool register_device(unibusdevice_c& device);

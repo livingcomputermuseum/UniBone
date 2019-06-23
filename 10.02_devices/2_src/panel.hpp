@@ -112,7 +112,7 @@ public:
 	void i2c_sync_all_params();
 
 	// background worker function
-	void worker(void) override;
+	void worker(unsigned instance) override;
 
 	void on_power_changed(void) override; // must implement
 	void on_init_changed(void) override; // must implement

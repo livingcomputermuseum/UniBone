@@ -63,7 +63,7 @@ public:
 
 	bool on_param_changed(parameter_c *param) override;
 
-    void worker(void) override;
+    void worker(unsigned instance) override;
 
     void on_after_register_access(
         unibusdevice_register_t *device_reg,

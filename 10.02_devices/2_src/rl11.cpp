@@ -801,13 +801,14 @@ void RL11_c::state_readwrite() {
 
 // thread
 // excutes commands
-void RL11_c::worker(void) {
+void RL11_c::worker(unsigned instance) {
+	UNUSED(instance) ; // only one
 	assert(!pthread_mutex_lock(&on_after_register_access_mutex));
 
 	// set prio to RT, but less than unibus_adapter
 	worker_init_realtime_priority(rt_device);
 
-	while (!worker_terminate) {
+	while (!workers_terminate) {
 		/* process command state machine in parallel with
 		 "active register" state changes
 		 */

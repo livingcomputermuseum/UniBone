@@ -187,7 +187,7 @@ public:
 	void clear_error_register(void);
 
 	// background worker function
-	void worker(void) override;
+	void worker(unsigned instance) override;
 };
 
 #endif

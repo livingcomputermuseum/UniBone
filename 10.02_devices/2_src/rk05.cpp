@@ -223,7 +223,8 @@ void rk05_c::drive_reset(void) {
 // SCP change will be posted when the seek instigated above is completed.
 }
 
-void rk05_c::worker(void) {
+void rk05_c::worker(unsigned instance) {
+	UNUSED(instance) ; // only one
 	timeout_c timeout;
 
 	while (true) {

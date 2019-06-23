@@ -100,7 +100,7 @@ public:
 	void on_init_changed(void) override;
 
 	// background worker function
-	void worker(void) override;
+	void worker(unsigned instance) override;
 };
 
 #endif

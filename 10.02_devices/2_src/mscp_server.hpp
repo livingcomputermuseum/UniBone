@@ -153,7 +153,6 @@ public:
 public:
     void on_power_changed(void) override {}
     void on_init_changed(void) override {}
-    void worker(void) override {}
 
 private:
     uint32_t Abort(void);

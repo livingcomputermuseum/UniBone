@@ -155,7 +155,7 @@ public:
     virtual ~rk11_c();    
 
     // background worker function
-    void worker(void) override;
+    void worker(unsigned instance) override;
 
     // called by unibusadapter on emulated register access
     void on_after_register_access(

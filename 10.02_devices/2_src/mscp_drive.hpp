@@ -48,8 +48,6 @@ public:
 	void on_power_changed(void) override;
 	void on_init_changed(void) override;
 
-	void worker(void) override;
-
 public:
 	parameter_bool_c use_image_size = parameter_bool_c(this, "useimagesize", "uis", false,
 			"Determine unit size from image file instead of drive type");

@@ -40,6 +40,9 @@
 #define MILLION 1000000L
 #define BILLION (1000L * MILLION)
 
+#define BIT(n) (1 << (n))
+
+
 #ifndef _UTILS_CPP_
 extern volatile int SIGINTreceived;
 #endif

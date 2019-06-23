@@ -182,9 +182,10 @@ void demo_io_c::gpio_set_output(unsigned output_index, unsigned value) {
 
 // background worker.
 // udpate LEDS, poll switches direct to register flipflops
-void demo_io_c::worker(void) {
+void demo_io_c::worker(unsigned instance) {
+	UNUSED(instance) ; // only one
 	timeout_c timeout;
-	while (!worker_terminate) {
+	while (!workers_terminate) {
 		timeout.wait_ms(100);
 
 		unsigned i;
