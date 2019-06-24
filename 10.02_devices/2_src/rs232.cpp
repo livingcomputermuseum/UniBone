@@ -33,7 +33,7 @@
 #include "rs232.hpp"
 
 rs232_c::rs232_c() {
-	TransmissionTime_us = 0;
+	CharTransmissionTime_us = 0;
 }
 
 // devname without leading "/dev/"
@@ -219,7 +219,7 @@ int rs232_c::OpenComport(const char *devname, int baudrate, const char *mode,
 	}
 	// bit count is 10 for 8N1
 	// Calc time to transmit on character
-	TransmissionTime_us = (1000000 * bitcount) / baudrate;
+	CharTransmissionTime_us = (1000000 * bitcount) / baudrate;
 
 	/* scan for BREAK and frame/parity errors?
 	 To read BREAK not as \0:
@@ -353,7 +353,7 @@ void rs232_c::SetBreak(int break_state) {
 
 void rs232_c::CloseComport(void) {
 	int status;
-	TransmissionTime_us = 0;
+	CharTransmissionTime_us = 0;
 
 	if (ioctl(Cport, TIOCMGET, &status) == -1) {
 		perror("unable to get portstatus");

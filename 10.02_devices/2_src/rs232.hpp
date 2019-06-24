@@ -65,7 +65,7 @@ private:
 
 public:
 	rs232_c();
-	unsigned TransmissionTime_us;
+	unsigned CharTransmissionTime_us;
 	int OpenComport(const char *devname, int baudrate, const char *mode, bool par_and_break);
 	int PollComport(unsigned char *buf, int size);
 	int SendByte(unsigned char byte);

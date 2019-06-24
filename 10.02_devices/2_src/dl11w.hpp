@@ -153,6 +153,9 @@ public:
 	parameter_string_c mode = parameter_string_c(this, "mode", "m", /*readonly*/false,
 			"Mode: 8N1, 7E1, ... ");
 
+	parameter_bool_c error_bits_enable = parameter_bool_c(this, "errorbits", "eb", /*readonly*/false,
+			"Enable error bits (M7856 SW4-7)");
+
 	parameter_bool_c break_enable = parameter_bool_c(this, "break", "b", /*readonly*/false,
 			"Enable BREAK transmission (M7856 SW4-1)");
 

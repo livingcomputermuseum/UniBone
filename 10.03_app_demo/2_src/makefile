@@ -150,7 +150,7 @@ clean:
 
 
 # TODO
-# uato dependcies
+# auto dependencies of header files
 # http://scottmcpeak.com/autodepend/autodepend.html
 #	gcc -MM $(CCFLAGS) $< >$(OBJDIR)*.c > ***.d
 

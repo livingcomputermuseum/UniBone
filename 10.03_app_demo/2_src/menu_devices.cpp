@@ -59,11 +59,22 @@
 static char memory_filename[PATH_MAX + 1];
 
 // entry_label is program start, tpyically "start"
-static void load_memory(enum unibus_c::arbitration_mode_enum arbitration_mode, char *fname,
-		const char *entry_label) {
+// format: 0 = macrop11, 1 = papertape
+static void load_memory(enum unibus_c::arbitration_mode_enum arbitration_mode,
+		memory_fileformat_t format, char *fname, const char *entry_label) {
 	uint32_t firstaddr, lastaddr;
-	bool load_ok = membuffer->load_macro11_listing(fname, entry_label);
+	bool load_ok;
 	bool timeout;
+	switch (format) {
+	case fileformat_macro11_listing:
+		load_ok = membuffer->load_macro11_listing(fname, entry_label);
+		break;
+	case fileformat_papertape:
+		load_ok = membuffer->load_papertape(fname);
+		break;
+	default:
+		load_ok = false;
+	}
 	if (load_ok) {
 		strcpy(memory_filename, fname);
 		membuffer->get_addr_range(&firstaddr, &lastaddr);
@@ -76,11 +87,11 @@ static void load_memory(enum unibus_c::arbitration_mode_enum arbitration_mode, c
 		else
 			printf("  No entry address at \"%s\" label is %06o.\n", entry_label,
 					membuffer->entry_address);
+		unibus->mem_write(arbitration_mode, membuffer->data.words, firstaddr, lastaddr,
+				unibus->dma_wordcount, &timeout);
+		if (timeout)
+			printf("  Error writing UNIBUS memory\n");
 	}
-	unibus->mem_write(arbitration_mode, membuffer->data.words, firstaddr, lastaddr,
-			unibus->dma_wordcount, &timeout);
-	if (timeout)
-		printf("  Error writing UNIBUS memory\n");
 }
 
 // CPU is enabled, act as ARBITRATION_MASTER
@@ -129,9 +140,8 @@ void application_c::menu_devices(bool with_CPU) {
 	// Create UDA50
 	uda_c *UDA50 = new uda_c();
 	// Create SLU+ LTC
-	slu_c *DL11 = new slu_c() ;
-	ltc_c *LTC = new ltc_c() ;
-	
+	slu_c *DL11 = new slu_c();
+	ltc_c *LTC = new ltc_c();
 
 //	//demo_regs.install();
 //	//demo_regs.worker_start();
@@ -179,6 +189,7 @@ void application_c::menu_devices(bool with_CPU) {
 			if (strlen(memory_filename))
 				printf("m ll             Reload last memory content from file \"%s\"\n",
 						memory_filename);
+			printf("m lp <filename>      Load memory content from absolute papertape image\n");
 			printf("ld                   List all defined devices\n");
 			printf("en <dev>             Enable a device\n");
 			printf("dis <dev>            Disable device\n");
@@ -271,11 +282,16 @@ void application_c::menu_devices(bool with_CPU) {
 			} else if (!strcasecmp(s_opcode, "m") && n_fields == 3
 					&& !strcasecmp(s_param[0], "ll")) {
 				// m ll <filename>
-				load_memory(arbitration_mode, s_param[1], "start");
+				load_memory(arbitration_mode, fileformat_macro11_listing, s_param[1], "start");
 			} else if (!strcasecmp(s_opcode, "m") && n_fields == 2
 					&& !strcasecmp(s_param[0], "ll") && strlen(memory_filename)) {
 				// m ll
-				load_memory(arbitration_mode, memory_filename, "start");
+				load_memory(arbitration_mode, fileformat_macro11_listing, memory_filename,
+						"start");
+			} else if (!strcasecmp(s_opcode, "m") && n_fields == 3
+					&& !strcasecmp(s_param[0], "lp")) {
+				// m lp <filename>
+				load_memory(arbitration_mode, fileformat_papertape, s_param[1], NULL);
 			} else if (!strcasecmp(s_opcode, "ld") && n_fields == 1) {
 				unsigned n;
 				list<device_c *>::iterator it;
@@ -438,10 +454,10 @@ void application_c::menu_devices(bool with_CPU) {
 		delete cpu;
 	}
 
-	LTC->enabled.set(false) ;
-	delete LTC ;
-	DL11->enabled.set(false) ;
-	delete DL11 ;
+	LTC->enabled.set(false);
+	delete LTC;
+	DL11->enabled.set(false);
+	delete DL11;
 
 	RL11->enabled.set(false);
 	delete RL11;

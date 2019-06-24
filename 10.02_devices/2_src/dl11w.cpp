@@ -57,11 +57,12 @@ slu_c::slu_c() : unibusdevice_c() {
 	//ip_port.value = IP_PORT; // not used
 
 	// static config
-	name.value = "SLU";
+	name.value = "DL11";
 	type_name.value = "slu_c";
 	log_label = "slu";
 
-	break_enable.value = 1 ; // SW4-1 per default ON
+	break_enable.value = 1 ; // SW4-1 default ON
+	error_bits_enable.value = 1 ; // SE4-7 default ON
 
 	// SLU has 2 Interrupt vectors: base = RCV, base+= XMT
 	set_default_bus_params(SLU_ADDR, SLU_VECTOR, SLU_LEVEL); // base addr, intr-vector, intr level
@@ -166,10 +167,13 @@ void slu_c::eval_rcsr_dato_value(void) {
 
 // Update RBUF, readonly
 void slu_c::set_rbuf_dati_value(void) {
-	uint16_t val = (rcv_or_err ? RBUF_OR_ERR : 0) | (rcv_fr_err ? RBUF_FR_ERR : 0)
+	uint16_t val = 0 ;
+	if (error_bits_enable.value) {
+		 val = (rcv_or_err ? RBUF_OR_ERR : 0) | (rcv_fr_err ? RBUF_FR_ERR : 0)
 			| (rcv_p_err ? RBUF_P_ERR : 0);
 	if (val) // set general error flag
 		val |= RBUF_ERROR;
+	}
 	val |= rcv_buffer; // received char in bits 7..0
 	set_register_dati_value(reg_rbuf, val, __func__);
 }
@@ -295,14 +299,17 @@ void slu_c::worker_rcv(void) {
 	int n;
 	char buffer[BUFLEN + 1];
 
-	// 1. poll with frequency > baudrate, to see single bits
-	unsigned poll_periods_us = 1000000 / baudrate.value;
+	// poll with frequency > baudrate, to see single bits
+	//unsigned poll_periods_us = 1000000 / baudrate.value;
 
 	/* Receiver not time critical? UARTS are buffering
 	So if thread is swapped out and back a burst of characters appear.
 	-> Wait after each character for transfer time before polling
 	RS232 again.
 	*/
+	unsigned poll_periods_us = (rs232.CharTransmissionTime_us * 9) / 10; 
+	// poll a bit faster to be ahead of char stream. 
+	// don't oversample: PDP-11 must process char in that time
 	
 	// worker_init_realtime_priority(rt_device);
 
@@ -310,7 +317,7 @@ void slu_c::worker_rcv(void) {
 		timeout.wait_us(poll_periods_us);
 		// "query
 		// rcv_active: can only be set by polling the UART input GPIO pin?
-		// at the moments, it is onyl sen on maintenance loopback xmt
+		// at the moments, it is only sent on maintenance loopback xmt
 		/* read serial data, if any */
 		if (rs232.PollComport((unsigned char*) buffer, 1)) {
 			pthread_mutex_lock(&on_after_rcv_register_access_mutex); // signal changes atomic against UNIBUS accesses
@@ -378,7 +385,7 @@ void slu_c::worker_xmt(void) {
 
 		// 3. wait for data byte being shifted out
 		pthread_mutex_unlock(&on_after_xmt_register_access_mutex);
-		timeout.wait_us(rs232.TransmissionTime_us);
+		timeout.wait_us(rs232.CharTransmissionTime_us);
 		pthread_mutex_lock(&on_after_xmt_register_access_mutex);
 		if (xmt_maint)
 			// put sent byte into rcv buffer, receiver will poll it
@@ -407,7 +414,7 @@ ltc_c::ltc_c() :
 {
 
 	// static config
-	name.value = "LTC";
+	name.value = "KW11";
 	type_name.value = "ltc_c";
 	log_label = "ltc";
 
