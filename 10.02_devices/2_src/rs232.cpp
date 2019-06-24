@@ -25,8 +25,8 @@
  ***************************************************************************
  */
 
-/* 2019, June: made C++, Joerg Hoppe */
-/* Last revision: November 22, 2017 */
+/* 2019, June: made C++, added parity/frame/BREAK option, Joerg Hoppe */
+/* Last revision Teunis van Beelen: November 22, 2017 */
 
 /* For more info and how to use this library, visit: http://www.teuniz.net/RS-232/ */
 
@@ -227,7 +227,7 @@ int rs232_c::OpenComport(const char *devname, int baudrate, const char *mode,
 	 */
 	int iflag;
 	if (par_and_break)
-		iflag = IGNBRK | PARMRK | INPCK;
+		iflag =  PARMRK | INPCK;
 	else
 		iflag = ipar;
 
@@ -263,8 +263,8 @@ int rs232_c::OpenComport(const char *devname, int baudrate, const char *mode,
 	new_port_settings.c_iflag = iflag;
 	new_port_settings.c_oflag = 0;
 	new_port_settings.c_lflag = 0;
-	new_port_settings.c_cc[VMIN] = 0; /* block untill n bytes are received */
-	new_port_settings.c_cc[VTIME] = 0; /* block untill a timer expires (n * 100 mSec.) */
+	new_port_settings.c_cc[VMIN] = 0; /* block until n bytes are received */
+	new_port_settings.c_cc[VTIME] = 0; /* block until a timer expires (n * 100 mSec.) */
 
 	cfsetispeed(&new_port_settings, baudr);
 	cfsetospeed(&new_port_settings, baudr);
@@ -340,7 +340,7 @@ int rs232_c::SendBuf(unsigned char *buf, int size) {
 
 // put byte in to rcv queue
 void rs232_c::LoopbackByte(unsigned char byte) {
-	if (ioctl(Cport, TIOCSTI, byte) == -1) {
+	if (ioctl(Cport, TIOCSTI, &byte) == -1) {
 		perror("unable to insert byte into input queue");
 	}
 }

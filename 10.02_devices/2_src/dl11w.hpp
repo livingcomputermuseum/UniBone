@@ -65,23 +65,23 @@ using namespace std;
 #define BUFLEN 32
 
 // register bit definitions
-#define RCSR_RCVR_ACT    	004000
-#define RCSR_RCVR_DONE		000200
-#define RCSR_RCVR_INT_ENB   000100
-#define RCSR_RDR_ENB		000001
+#define RCSR_RCVR_ACT    	0004000
+#define RCSR_RCVR_DONE		0000200
+#define RCSR_RCVR_INT_ENB   0000100
+#define RCSR_RDR_ENB		0000001
 
-#define RBUF_ERROR			(1 << 15)
-#define RBUF_OR_ERR			(1 << 14)
-#define RBUF_FR_ERR			(1 << 13)
-#define RBUF_P_ERR			(1 << 12)
+#define RBUF_ERROR			0100000
+#define RBUF_OR_ERR			0040000
+#define RBUF_FR_ERR			0020000
+#define RBUF_P_ERR			0010000
 
-#define XCSR_XMIT_RDY		000200
-#define XCSR_XMIT_INT_ENB   000100
-#define XCSR_MAINT			000004
-#define XCSR_BREAK          000001
+#define XCSR_XMIT_RDY		0000200
+#define XCSR_XMIT_INT_ENB   0000100
+#define XCSR_MAINT			0000004
+#define XCSR_BREAK          0000001
 
-#define LKS_INT_ENB			000100
-#define LKS_INT_MON			000200
+#define LKS_INT_ENB			0000100
+#define LKS_INT_MON			0000200
 
 // background task sleep times
 #define SLU_MSRATE_MS  10
@@ -154,7 +154,7 @@ public:
 			"Mode: 8N1, 7E1, ... ");
 
 	parameter_bool_c break_enable = parameter_bool_c(this, "break", "b", /*readonly*/false,
-			"Enable BREAK transmission");
+			"Enable BREAK transmission (M7856 SW4-1)");
 
 #ifdef USED
 	// @David: duplicating device registers as parameters is not necessary ...

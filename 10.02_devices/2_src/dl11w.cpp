@@ -61,6 +61,8 @@ slu_c::slu_c() : unibusdevice_c() {
 	type_name.value = "slu_c";
 	log_label = "slu";
 
+	break_enable.value = 1 ; // SW4-1 per default ON
+
 	// SLU has 2 Interrupt vectors: base = RCV, base+= XMT
 	set_default_bus_params(SLU_ADDR, SLU_VECTOR, SLU_LEVEL); // base addr, intr-vector, intr level
 
@@ -191,8 +193,12 @@ void slu_c::eval_xcsr_dato_value(void) {
 	bool new_intr = xmt_ready && xmt_intr_enable;
 	if (!old_intr && new_intr) // raising edge
 		interrupt(intr_vector.value + 4, intr_level.value);
-	if (old_break != xmt_break)
-		rs232.SetBreak(xmt_break);
+	if (old_break != xmt_break) {
+		// re-evaluate break state on bit change
+		if (break_enable.value)
+			rs232.SetBreak(xmt_break);
+		else rs232.SetBreak(0); 
+	}
 }
 
 void slu_c::eval_xbuf_dato_value(void) {
@@ -292,10 +298,18 @@ void slu_c::worker_rcv(void) {
 	// 1. poll with frequency > baudrate, to see single bits
 	unsigned poll_periods_us = 1000000 / baudrate.value;
 
+	/* Receiver not time critical? UARTS are buffering
+	So if thread is swapped out and back a burst of characters appear.
+	-> Wait after each character for transfer time before polling
+	RS232 again.
+	*/
+	
+	// worker_init_realtime_priority(rt_device);
+
 	while (!workers_terminate) {
 		timeout.wait_us(poll_periods_us);
 		// "query
-		// rcv_active: can only be set by polling the UART inpit GPIiO pin?
+		// rcv_active: can only be set by polling the UART input GPIO pin?
 		// at the moments, it is onyl sen on maintenance loopback xmt
 		/* read serial data, if any */
 		if (rs232.PollComport((unsigned char*) buffer, 1)) {
@@ -316,7 +330,6 @@ void slu_c::worker_rcv(void) {
 					n = rs232.PollComport((unsigned char*) buffer, 1);
 					assert(n); // next char after 0xff 0 seq is data"
 					rcv_buffer = buffer[0];
-					rcv_done = 1;
 				} else if (buffer[0] == 0xff) { // enocoded 0xff
 					rcv_buffer = 0xff;
 				} else {
@@ -327,6 +340,7 @@ void slu_c::worker_rcv(void) {
 				// received non escaped data byte
 				rcv_buffer = buffer[0];
 			rcv_done = 1;
+			rcv_active = 0 ;
 			set_rbuf_dati_value();
 			set_rcsr_dati_value(); // INTR!
 			pthread_mutex_unlock(&on_after_rcv_register_access_mutex); // signal changes atomic against UNIBUS accesses
@@ -336,7 +350,12 @@ void slu_c::worker_rcv(void) {
 
 void slu_c::worker_xmt(void) {
 	timeout_c timeout;
+
 	assert(!pthread_mutex_lock(&on_after_register_access_mutex));
+
+	// Transmitter not time critical
+	// worker_init_realtime_priority(rt_device);
+	
 	while (!workers_terminate) {
 		// 1. wait for xmt signal
 		int res = pthread_cond_wait(&on_after_xmt_register_access_cond, &on_after_xmt_register_access_mutex);
