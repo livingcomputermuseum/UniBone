@@ -390,9 +390,11 @@ void slu_c::worker_xmt(void) {
 		if (xmt_maint)
 			// put sent byte into rcv buffer, receiver will poll it
 			rs232.LoopbackByte(xmt_buffer);
+		bool old_xmt_ready = xmt_ready ;
 		xmt_ready = 1;
-		set_rcsr_dati_value(); // generates interrupt
 		set_xcsr_dati_value();
+		if (old_xmt_ready == 0 &&  xmt_ready == 1 && xmt_intr_enable)
+			interrupt(intr_vector.value + 4, intr_level.value);
 		// has rcv or xmt interrupt priority on maintennace loop back
 	}
 	assert(!pthread_mutex_unlock(&on_after_xmt_register_access_mutex));
