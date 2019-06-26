@@ -346,10 +346,15 @@ void slu_c::worker_rcv(void) {
 			} else
 				// received non escaped data byte
 				rcv_buffer = buffer[0];
+			bool old_rcvdone = rcv_done ;
 			rcv_done = 1;
 			rcv_active = 0 ;
 			set_rbuf_dati_value();
 			set_rcsr_dati_value(); // INTR!
+			if (old_rcvdone == 0 &&  rcv_done == 1 && rcv_intr_enable)
+				interrupt(intr_vector.value, intr_level.value);
+
+			
 			pthread_mutex_unlock(&on_after_rcv_register_access_mutex); // signal changes atomic against UNIBUS accesses
 		}
 	}
