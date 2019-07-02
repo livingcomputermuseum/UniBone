@@ -62,41 +62,6 @@
 #include "pru1_statemachine_init.h"
 #include "pru1_statemachine_powercycle.h"
 
-
-
-#ifdef FUNCPTRTEST
-////// TEST
-
-// need a function returning a pointer to type of its own,
-// with "statemachine_state_func" as forward
-// typedef	statemachine_state_func * (*statemachine_state_func)(void);
-// Not possible?! So retirn void * and cast to void *(func(void) on use
-typedef	void * (*sm_state_func)(void);
-
-sm_state_func sm_2(void); // forward
-
-sm_state_func sm_1(void) {
-	//printf("1\n");
-	return (sm_state_func) &sm_2;
-}
-
-statemachine_state_func sm_2(void) {
-	//printf("2\n");
-	return NULL;
-}
-
-int xmain() {
-	//printf("Hello world ... from " __DATE__ " " __TIME__ "!\n");
-	//printf("My sizeof(long) is %u.\n", (unsigned) sizeof(long));
-
-	// excute 2 states indicectly
-	sm_state_func smfunc = (sm_state_func) &sm_1;
-	while ((smfunc = smfunc()))
-		;
-}
-
-#endif 
-
 // supress warnigns about using void * as fucntion pinters
 //	sm_slave_state = (statemachine_state_func)&sm_slave_start;
 	// while (sm_slave_state = sm_slave_state()) << usage
