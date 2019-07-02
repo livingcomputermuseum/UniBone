@@ -21,6 +21,7 @@
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+   29-jun-2019	JH		rework: state returns ptr to next state func
    12-nov-2018  JH      entered beta phase
 
 
@@ -41,8 +42,8 @@
 
 #define _PRU1_STATEMACHINE_POWERCYCLE_C_
 
+#include <stdlib.h>
 #include <stdint.h>
-
 
 #include "mailbox.h"
 #include "pru1_utils.h"
@@ -52,70 +53,60 @@
 
 #include "pru1_statemachine_powercycle.h"
 
-statemachine_powercycle_t sm_powercycle;
-
 // forwards ;                     /
-uint8_t sm_powercycle_state_idle(void);
-static uint8_t sm_powercycle_state_1(void);
-static uint8_t sm_powercycle_state_2(void);
-static uint8_t sm_powercycle_state_3(void);
-static uint8_t sm_powercycle_state_4(void);
+static statemachine_state_func sm_powercycle_state_1(void);
+static statemachine_state_func sm_powercycle_state_2(void);
+static statemachine_state_func sm_powercycle_state_3(void);
+static statemachine_state_func sm_powercycle_state_4(void);
 
 // setup with
-void sm_powercycle_start() {
-	sm_powercycle.state = &sm_powercycle_state_1;
+statemachine_state_func sm_powercycle_start() {
+	return (statemachine_state_func)&sm_powercycle_state_1;
 	// next call to sm_slave.state() starts state machine
 }
 
-uint8_t sm_powercycle_state_idle() {
-	return 1; // ready
-}
 
 // "Line power shutdown": assert ACLO, then wait
-static uint8_t sm_powercycle_state_1() {
+static statemachine_state_func sm_powercycle_state_1() {
 	buslatches_setbits(7, BIT(4), BIT(4)); // ACLO asserted
 	TIMEOUT_SET(MILLISECS(POWERCYCLE_DELAY_MS))
 	; // wait for DC power shutdown
-	sm_powercycle.state = &sm_powercycle_state_2;
 	// DEBUG_OUT(0x01) ;
 	do_event_initializationsignals() ;
 	// DEBUG_OUT(0x02) ;
-	return 0;
+	return (statemachine_state_func)&sm_powercycle_state_2;
 }
 
 // "Power supply switched off": assert DCLO, then wait
-static uint8_t sm_powercycle_state_2() {
+static statemachine_state_func sm_powercycle_state_2() {
 	if (!TIMEOUT_REACHED)
-		return 0;
+		return (statemachine_state_func)&sm_powercycle_state_2; // wait
 	buslatches_setbits(7, BIT(5), BIT(5)); // DCLO asserted
 	TIMEOUT_SET(MILLISECS(POWERCYCLE_DELAY_MS))
 	; // system powered off
-	sm_powercycle.state = &sm_powercycle_state_3;
 	// DEBUG_OUT(0x03) ;
 	do_event_initializationsignals() ;
 	// DEBUG_OUT(0x04) ;
-	return 0;
+	return (statemachine_state_func)&sm_powercycle_state_3;
 }
 
 // "Line power back again": deassert ACLO, then wait
-static uint8_t sm_powercycle_state_3() {
+static statemachine_state_func sm_powercycle_state_3() {
 	if (!TIMEOUT_REACHED)
-		return 0;
+		return (statemachine_state_func)&sm_powercycle_state_3; // wait
 	buslatches_setbits(7, BIT(4), 0); // ACLO deasserted
 	TIMEOUT_SET(MILLISECS(POWERCYCLE_DELAY_MS))
 	; // "power supply stabilizing"
-	sm_powercycle.state = &sm_powercycle_state_4;
 	do_event_initializationsignals() ;
-	return 0;
+	return (statemachine_state_func)&sm_powercycle_state_4;
 }
 
 // "Logic power stabilized": deassert DCLO, ready
-static uint8_t sm_powercycle_state_4() {
+static statemachine_state_func sm_powercycle_state_4() {
 	if (!TIMEOUT_REACHED)
-		return 0;
+		return (statemachine_state_func)&sm_powercycle_state_4;
    	buslatches_setbits(7, BIT(5), 0); // DCLO deasserted
-	sm_powercycle.state = &sm_powercycle_state_idle;
 	do_event_initializationsignals() ;
-	return 1;
+	return NULL;
 }
 

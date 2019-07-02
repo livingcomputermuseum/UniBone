@@ -37,6 +37,12 @@ volatile register uint32_t __R30;
 volatile register uint32_t __R31;
 
 
+// execution of a state. return : next state; or NULL if statemachine stopped
+// return type is void *, but should be statemachine_state_func_ptr recursively
+// typedef	statemachine_state_func * (*statemachine_state_func)(void);
+// Not possible?! So return void * and cast to void *(func(void) on use
+typedef void * (*statemachine_state_func)(void);
+
 
 
 #define MILLION 1000000L

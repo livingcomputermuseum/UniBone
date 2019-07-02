@@ -20,18 +20,15 @@
    IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-
+   29-jun-2019	JH		rework: state returns ptr to next state func
    12-nov-2018  JH      entered beta phase
 */
 #ifndef  _PRU1_STATEMACHINE_ARBITRATION_H_
 #define  _PRU1_STATEMACHINE_ARBITRATION_H_
 
-
-// execution of a state. return : 1, if statemachine stopped
-typedef uint8_t (*sm_arb_state_func_ptr)(void);
+#include "pru1_utils.h"	// statemachine_state_func
 
 typedef struct {
-	sm_arb_state_func_ptr state; // current state as ptr to  "state function"
 	uint8_t priority_bit ; // single priority bit for this arbitration process
 	// one of ARBITRATION_PRIORITY_*
 } statemachine_arbitration_t;
@@ -41,7 +38,7 @@ typedef struct {
 extern statemachine_arbitration_t sm_arb;
 #endif
 
-void sm_arb_start(uint8_t priority_bit);
-uint8_t sm_arb_state_idle(void) ;
+statemachine_state_func sm_arb_start(uint8_t priority_bit);
+statemachine_state_func sm_arb_state_idle(void) ;
 
 #endif

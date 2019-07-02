@@ -21,6 +21,7 @@
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+   29-jun-2019	JH		rework: state returns ptr to next state func
    12-nov-2018  JH      entered beta phase
 
    State machines to transfer an interrupt vector.
@@ -30,6 +31,7 @@
  */
 #define _PRU1_STATEMACHINE_INTR_C_
 
+#include <stdlib.h>
 #include <stdint.h>
 
 //#include "devices.h"
@@ -37,30 +39,23 @@
 #include "pru1_buslatches.h"
 #include "pru1_utils.h"
 
-#include "pru1_statemachine_arbitration.h"
+//#include "pru1_statemachine_arbitration.h"
 #include "pru1_statemachine_intr.h"
 
-statemachine_intr_t sm_intr;
-
 // forwards
-static uint8_t sm_intr_state_idle(void);
-static uint8_t sm_intr_state_1(void);
-static uint8_t sm_intr_state_2(void);
+static statemachine_state_func sm_intr_state_1(void);
+static statemachine_state_func sm_intr_state_2(void);
 
 // BBSY already set, SACK held asserted
-void sm_intr_start() {
+statemachine_state_func sm_intr_start() {
 	//  BBSY already asserted. : latch[1], bit 6
 	// buslatches_setbits(1, BIT(6), BIT(6));
-	sm_intr.state = &sm_intr_state_1;
+	return (statemachine_state_func)&sm_intr_state_1;
 	// next call to sm_intr.state() starts state machine
 }
 
-static uint8_t sm_intr_state_idle() {
-	return 1;
-}
-
 // place vector onto data, then set INTR
-static uint8_t sm_intr_state_1() {
+static statemachine_state_func sm_intr_state_1() {
 	uint16_t vector = mailbox.intr.vector;
 
 	buslatches_setbyte(5, vector & 0xff); // DATA[0..7] = latch[5]
@@ -75,25 +70,24 @@ static uint8_t sm_intr_state_1() {
 	buslatches_setbits(1, BIT(5), 0); // SACK = latch[1], bit 5
 
 	// wait for processor to accept vector (no timeout?)
-	sm_intr.state = &sm_intr_state_2;
-	return 0;
+	return (statemachine_state_func)&sm_intr_state_2;
 }
 
 // wait for SSYN
-static uint8_t sm_intr_state_2() {
+static statemachine_state_func sm_intr_state_2() {
 	if (!(buslatches_getbyte(4) & BIT(5)))
-		return 0;
+		return (statemachine_state_func)&sm_intr_state_2; // wait
 	// received SSYN
 
-	//remove vector, then remove INTR
+	// remove vector, then remove INTR
 	buslatches_setbyte(5, 0); // DATA[0..7] = latch[5]
 	buslatches_setbyte(6, 0); // DATA[8..15] = latch[6]
 	buslatches_setbits(7, BIT(0), 0); // INTR = latch 7, bit 0
 	// deassert BBSY
 	buslatches_setbits(1, BIT(6), 0);
+    // SACK already removed
 
-	sm_intr.state = &sm_intr_state_idle;
-	return 1;
+	return NULL; // ready
 	// master still drives SSYN
 }
 

@@ -176,7 +176,7 @@ void cpu_c::on_init_changed(void) {
 	// write all registers to "reset-values"
 	if (init_asserted) {
 		reset_unibus_registers();
-		INFO("demo_io_c::on_init()");
+		INFO("cpu::on_init()");
 	}
 }
 

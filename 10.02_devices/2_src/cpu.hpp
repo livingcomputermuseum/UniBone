@@ -51,7 +51,7 @@ public:
 	parameter_bool_c runmode = parameter_bool_c(this, "run", "r",/*readonly*/
 	false, "1 = CPU running, 0 = halt");
 	parameter_bool_c init = parameter_bool_c(this, "init", "i",/*readonly*/
-	false, "1 = CPU initalizing");
+	false, "1 = CPU initializing");
 
 	struct Bus bus; // UNIBU Sinterface of CPU
 	struct KA11 ka11; // Angelos CPU state

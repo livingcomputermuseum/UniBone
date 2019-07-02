@@ -56,6 +56,11 @@
 #include "pru1_statemachine_init.h"
 #include "pru1_statemachine_powercycle.h"
 
+// supress warnigns about using void * as fucntion pinters
+//	sm_slave_state = (statemachine_state_func)&sm_slave_start;
+	// while (sm_slave_state = sm_slave_state()) << usage
+#pragma diag_push
+#pragma diag_remark=515
 
 void main(void) {
 
@@ -174,20 +179,22 @@ void main(void) {
 			buslatches_powercycle();
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
-		case ARM2PRU_DMA_ARB_NONE:
-			sm_dma_start(); // without NPR/NPG arbitration
+		case ARM2PRU_DMA_ARB_NONE: {
+			// without NPR/NPG arbitration
+			statemachine_state_func sm_dma_state = (statemachine_state_func)&sm_dma_start;
 			// simply call current state function, until stopped
 			// parallel the BUS-slave statemachine is triggered
 			// by master logic.
-			while (!sm_dma.state())
+			while (sm_dma_state = sm_dma_state())
 				;
+			}
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
 		case ARM2PRU_DDR_FILL_PATTERN:
 			ddrmem_fill_pattern();
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
-		case ARM2PRU_DDR_SLAVE_MEMORY:
+		case ARM2PRU_DDR_SLAVE_MEMORY: 
 			// respond to UNIBUS cycles as slave and
 			// access DDR as UNIBUS memory.
 
@@ -197,9 +204,9 @@ void main(void) {
 			// do UNIBUS slave cycles, until ARM abort this by
 			// writing into mailbox.arm2pru_req
 			while (mailbox.arm2pru_req == ARM2PRU_DDR_SLAVE_MEMORY) {
-				sm_slave_start();
+				statemachine_state_func sm_slave_state = (statemachine_state_func)&sm_slave_start;
 				// do all states of an access, start when MSYN found.
-				while (!sm_slave.state())
+				while (sm_slave_state = sm_slave_state())
 					;
 			}
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
@@ -207,4 +214,5 @@ void main(void) {
 		} // switch
 	} // while
 }
+#pragma diag_pop
 

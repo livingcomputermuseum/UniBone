@@ -21,6 +21,7 @@
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+   29-jun-2019	JH		rework: state returns ptr to next state func
    12-nov-2018  JH      entered beta phase
 
    Statemachine for a pulse on UNIBUS INIT
@@ -29,6 +30,7 @@
 
 #define _PRU1_STATEMACHINE_INIT_C_
 
+#include <stdlib.h>
 #include <stdint.h>
 
 #include "mailbox.h"
@@ -59,33 +61,25 @@ void	do_event_initializationsignals() {
 
 
 
-
-statemachine_init_t sm_init;
-
 // forwards
-uint8_t sm_init_state_idle(void);
-static uint8_t sm_init_state_1(void);
+static statemachine_state_func sm_init_state_1(void);
 
 // setup
-void sm_init_start() {
+statemachine_state_func sm_init_start() {
 	TIMEOUT_SET(MILLISECS(INITPULSE_DELAY_MS))
 	;
 	// INIT: latch[7], bit 3
 	buslatches_setbits(7, BIT(3), BIT(3)); // assert INIT
 	mailbox.events.initialization_signals_prev &= ~INITIALIZATIONSIGNAL_INIT ; // force INIT event
 	do_event_initializationsignals() ;
-	sm_init.state = &sm_init_state_1;
+	return (statemachine_state_func)&sm_init_state_1;
 }
 
-uint8_t sm_init_state_idle() {
-	return 1; // ready
-}
 
-static uint8_t sm_init_state_1() {
+static statemachine_state_func sm_init_state_1() {
 	if (!TIMEOUT_REACHED)
-		return 0;
+		return (statemachine_state_func)&sm_init_state_1; // wait
 	buslatches_setbits(7, BIT(3), 0); // deassert INIT
 	do_event_initializationsignals() ;
-	sm_init.state = &sm_init_state_idle;
-	return 1;
+	return NULL ; // ready
 }

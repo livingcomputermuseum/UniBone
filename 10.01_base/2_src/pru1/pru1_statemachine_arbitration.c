@@ -21,6 +21,7 @@
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+   29-jun-2019	JH		rework: state returns ptr to next state func
    12-nov-2018  JH      entered beta phase
 
   Statemachine for execution of the Priority Arbitration protocol
@@ -71,6 +72,7 @@
 
 #define _PRU1_STATEMACHINE_ARBITRATION_C_
 
+#include <stdlib.h>
 #include <stdint.h>
 
 #include "pru1_utils.h"
@@ -83,61 +85,62 @@
 statemachine_arbitration_t sm_arb;
 
 // forwards ;
-static uint8_t sm_arb_state_1(void);
-static uint8_t sm_arb_state_2(void);
-static uint8_t sm_arb_state_3(void);
-static uint8_t sm_arb_state_4(void);
+static statemachine_state_func sm_arb_state_1(void);
+static statemachine_state_func sm_arb_state_2(void);
+static statemachine_state_func sm_arb_state_3(void);
 
 /********** NPR/NPG/SACK arbitrations **************/
-void sm_arb_start(uint8_t priority_bit) {
+statemachine_state_func sm_arb_start(uint8_t priority_bit) {
 	sm_arb.priority_bit = priority_bit; // single priority bit for this arbitration process
-	sm_arb.state = &sm_arb_state_1;
+	return (statemachine_state_func)&sm_arb_state_1;
 }
 
 // idle. call _start()
 // execute in parallel with slave!
 // pass BGIN[4-7],NPGIN to next device , if DMA engine idle
-uint8_t sm_arb_state_idle() {
+statemachine_state_func sm_arb_state_idle() {
 	uint8_t tmpval;
 	tmpval = buslatches_getbyte(0);
 	// forward all 5 GRANT IN inverted to GRANT OUT
 	buslatches_setbits(0, ARBITRATION_PRIORITY_MASK, ~tmpval)
 	;
-	return 1;
+	return (statemachine_state_func)&sm_arb_state_idle;
 }
 
 // wait for GRANT idle
 // Assert REQUEST, wait for GRANT, assert SACK, wait for NPG==0, set SACK=0 ,
 // execute in parallel with slave!
-static uint8_t sm_arb_state_1() {
+static statemachine_state_func sm_arb_state_1() {
 	uint8_t tmpval;
 	tmpval = buslatches_getbyte(0);
 	// forward all lines, until idle
 	buslatches_setbits(0, ARBITRATION_PRIORITY_MASK, ~tmpval) ;
 		// wait for GRANT idle, other cycle in progress?
 	if (tmpval & sm_arb.priority_bit)
-		return 0;
+		return (statemachine_state_func)&sm_arb_state_1; // wait
 	// no need to wait for SACK: arbitrator responds only with a GRANT IN
 	buslatches_setbits(1, sm_arb.priority_bit, sm_arb.priority_bit); // REQUEST = latch1
-	sm_arb.state = &sm_arb_state_2; // wait for GRANT IN active
-	return 0;
+	return (statemachine_state_func)&sm_arb_state_2; // wait for GRANT IN active
 }
 
 
 
 // wait for BG*,NPG or INIT
 // execute in parallel with slave!
-static uint8_t sm_arb_state_2() {
+static statemachine_state_func sm_arb_state_2() {
 	uint8_t tmpval;
 
+    tmpval = buslatches_getbyte(0);
 	if (buslatches_getbyte(7) & BIT(3)) { // INIT stops transaction: latch[7], bit 3
-		// cleanup: clear all REQUESTS and SACK
+		// cleanup: clear all 5 BR/NPR and SACK
 		buslatches_setbits(1, ARBITRATION_PRIORITY_MASK| BIT(5), 0);
+
+	    // forward all 5 GRANT IN inverted to GRANT OUT
+    	buslatches_setbits(0, ARBITRATION_PRIORITY_MASK, ~tmpval) ;
+	
 		// Todo: signal INIT to ARM!
-		sm_arb.state = &sm_arb_state_idle;
-		return 0 ;
+		return NULL ;
 	}
-	tmpval = buslatches_getbyte(0);
 	// forward all other BG lines
 	// preceding arbitration must see BG removed by master on SACK
 
@@ -147,42 +150,36 @@ static uint8_t sm_arb_state_2() {
 		buslatches_setbits(0, ARBITRATION_PRIORITY_MASK, ~tmpval); // forward all without our GRANT
 		// set SACK
 		buslatches_setbits(1, BIT(5), BIT(5));
-		sm_arb.state = &sm_arb_state_3;
-	} else
+		return (statemachine_state_func)&sm_arb_state_3;
+	} else {
 		buslatches_setbits(0, ARBITRATION_PRIORITY_MASK, ~tmpval); // forward all
-	return 0;
+		return (statemachine_state_func)&sm_arb_state_2 ; // wait 
+	}
 }
 
 // GRANT received. wait for previous bus master to complete transaction,
 // then become bus master
 // Forwarding of other GRANTs not necessary ... arbitrator granted us.
-static uint8_t sm_arb_state_3() {
+static statemachine_state_func sm_arb_state_3() {
 	if (buslatches_getbyte(7) & BIT(3)) { // INIT stops transaction: latch[7], bit 3
 		// cleanup: clear all REQUESTS and SACk
 		buslatches_setbits(1, ARBITRATION_PRIORITY_MASK| BIT(5), 0);
 		// Todo: signal INIT to ARM!
-		sm_arb.state = &sm_arb_state_idle;
-		return 1;
+		return NULL;
 	}
 	if (buslatches_getbyte(0) & sm_arb.priority_bit) // wait for GRANT IN to be deasserted
-		return 0;
+		return (statemachine_state_func)&sm_arb_state_3; // wait
 	// wait until old bus master cleared BBSY
 	if (buslatches_getbyte(1) & BIT(6))
-		return 0;
+		return (statemachine_state_func)&sm_arb_state_3; // wait
 	// wait until SSYN deasserted by old slave
 	if (buslatches_getbyte(4) & BIT(5))
-		return 0;
+		return (statemachine_state_func)&sm_arb_state_3; // wait
 	// now become new bus master: Set BBSY, Clear REQUEST
 	// BBSY= bit 6
 	buslatches_setbits(1, sm_arb.priority_bit | BIT(6), BIT(6));
 	// SACK is cleared later in "data transfer" statemachines (DMA or INTR)
-	sm_arb.state = &sm_arb_state_4;  // bus mastership acquired
-	return 1;
-}
-
-// bus mastership acquired. DMA data transfer must terminate this state
-static uint8_t sm_arb_state_4() {
-	return 1;
+	return NULL;  // bus mastership acquired
 }
 
 #ifdef USED

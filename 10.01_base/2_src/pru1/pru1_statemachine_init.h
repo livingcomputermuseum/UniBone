@@ -21,6 +21,7 @@
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+   29-jun-2019	JH		rework: state returns ptr to next state func
    12-nov-2018  JH      entered beta phase
 */
 #ifndef  _PRU1_STATEMACHINE_INIT_H_
@@ -28,24 +29,17 @@
 
 #include <stdint.h>
 
-
+#include "pru1_utils.h"	// statemachine_state_func
 
 #define INITPULSE_DELAY_MS	250 	// length of INIT pulse
 
-// execution of a state. return : 1, if statemachine stopped
-typedef uint8_t (*sm_powercycle_init_func_ptr)(void);
-
-typedef struct {
-	sm_powercycle_init_func_ptr state; // current state as ptr to  "state function"
-} statemachine_init_t;
 
 #ifndef  _PRU1_STATEMACHINE_INIT_C_
 extern uint8_t prev_initialization_signals ;
-extern statemachine_init_t sm_init;
 #endif
 
 void	do_event_initializationsignals(void) ;
 
-void sm_init_start();
+statemachine_state_func sm_init_start();
 
 #endif

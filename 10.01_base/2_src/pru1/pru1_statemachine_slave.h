@@ -21,27 +21,15 @@
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+   29-jun-2019	JH		rework: state returns ptr to next state func
    12-nov-2018  JH      entered beta phase
 */
 #ifndef  _PRU1_STATEMACHINE_SLAVE_H_
 #define  _PRU1_STATEMACHINE_SLAVE_H_
 
 #include <stdint.h>
+#include "pru1_utils.h"	// statemachine_state_func
 
-// execution of a state. return : 1, if statemachine stopped
-typedef uint8_t (*sm_slave_state_func_ptr)(void);
-
-typedef struct {
-	sm_slave_state_func_ptr state; // current state as ptr to  "state function"
-//	uint32_t addr; // adress fetched from bus on MSYN
-//	uint8_t control; // C1,C0 fetched from bus on MSYN
-//	uint16_t data; // data  fetched from bus on MSYN/ to be written to BUS on SSYN
-} statemachine_slave_t;
-
-#ifndef  _PRU1_STATEMACHINE_SLAVE_C_
-extern statemachine_slave_t sm_slave;
-#endif
-
-void sm_slave_start();
+statemachine_state_func sm_slave_start(void);
 
 #endif

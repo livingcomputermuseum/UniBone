@@ -21,6 +21,7 @@
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+   29-jun-2019	JH		rework: state returns ptr to next state func
    12-nov-2018  JH      entered beta phase
 
 
@@ -51,6 +52,7 @@
  */
 #define _PRU1_STATEMACHINE_DMA_C_
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -72,31 +74,31 @@ statemachine_dma_t sm_dma;
 
 /********** Master DATA cycles **************/
 // forwards ;
-static uint8_t sm_dma_state_1(void);
-static uint8_t sm_dma_state_11(void);
-static uint8_t sm_dma_state_21(void);
-static uint8_t sm_dma_state_99(void);
+static statemachine_state_func sm_dma_state_1(void);
+static statemachine_state_func sm_dma_state_11(void);
+static statemachine_state_func sm_dma_state_21(void);
+static statemachine_state_func sm_dma_state_99(void);
 
 // dma mailbox setup with
 // startaddr, wordcount, cycle, words[]   ?
 // "cycle" must be UNIBUS_CONTROL_DATI or UNIBUS_CONTROL_DATO
 // BBSY already set, SACK held asserted
-void sm_dma_start() {
+statemachine_state_func sm_dma_start() {
 	// assert BBSY: latch[1], bit 6
 	// buslatches_setbits(1, BIT(6), BIT(6));
 
 	mailbox.dma.cur_addr = mailbox.dma.startaddr;
 	sm_dma.dataptr = (uint16_t *) mailbox.dma.words; // point to start of data buffer
-	sm_dma.state = &sm_dma_state_1;
 	sm_dma.cur_wordsleft = mailbox.dma.wordcount;
 	mailbox.dma.cur_status = DMA_STATE_RUNNING;
 	// next call to sm_dma.state() starts state machine
+	return (statemachine_state_func)&sm_dma_state_1 ;
 }
 
 // place address and control bits onto bus, also data for DATO
 // If slave address is internal (= implemented by UniBone),
 // fast UNIBUS slave protocol is generated on the bus.
-static uint8_t sm_dma_state_1() {
+static statemachine_state_func sm_dma_state_1() {
 	uint32_t tmpval;
 	uint32_t addr = mailbox.dma.cur_addr; // non-volatile snapshot
 	uint16_t data;
@@ -107,7 +109,7 @@ static uint8_t sm_dma_state_1() {
  
 	// should test SACK and BBSY !
 	if (mailbox.dma.cur_status != DMA_STATE_RUNNING || mailbox.dma.wordcount == 0)
-		return 1; // still stopped
+		return NULL; // still stopped
 
 
 	if (sm_dma.cur_wordsleft == 1) {
@@ -178,12 +180,12 @@ static uint8_t sm_dma_state_1() {
 			while (mailbox.events.eventmask) ;
 
 			buslatches_setbits(4, BIT(5), 0); // slave deassert SSYN
-			sm_dma.state = &sm_dma_state_99; // next word
+			return (statemachine_state_func)&sm_dma_state_99; // next word
 		} else {
 			// DATO to external slave
 			// wait for a slave SSYN
 			TIMEOUT_SET(NANOSECS(1000*UNIBUS_TIMEOUT_PERIOD_US));
-			sm_dma.state = &sm_dma_state_21; // wait SSYN DATAO
+			return (statemachine_state_func)&sm_dma_state_21; // wait SSYN DATAO
 		}
 	} else {
 		// DATI or DATIP
@@ -224,25 +226,23 @@ static uint8_t sm_dma_state_1() {
 			while (mailbox.events.eventmask) ;
 
 			buslatches_setbits(4, BIT(5), 0); // slave deassert SSYN
-			sm_dma.state = &sm_dma_state_99; // next word
+			return (statemachine_state_func)&sm_dma_state_99; // next word
 		} else {
 			// DATI to external slave
 			// wait for a slave SSYN
 			TIMEOUT_SET(NANOSECS(1000*UNIBUS_TIMEOUT_PERIOD_US));
-			sm_dma.state = &sm_dma_state_11; // wait SSYN DATI
+			return (statemachine_state_func)&sm_dma_state_11; // wait SSYN DATI
 		}
 	}
-
-	return 0; // still running
 }
 
 // DATI to external slave: MSYN set, wait for SSYN or timeout
-static uint8_t sm_dma_state_11() {
+static statemachine_state_func sm_dma_state_11() {
 	uint16_t tmpval;
 	sm_dma.state_timeout = TIMEOUT_REACHED;
 	// SSYN = latch[4], bit 5
 	if (!sm_dma.state_timeout && !(buslatches_getbyte(4) & BIT(5)))
-		return 0; // no SSYN yet: wait
+		return (statemachine_state_func)&sm_dma_state_11; // no SSYN yet: wait
 	// SSYN set by slave (or timeout). read data
 	__delay_cycles(NANOSECS(75) - 6); // assume 2*3 cycles for buslatches_getbyte
 
@@ -257,16 +257,15 @@ static uint8_t sm_dma_state_11() {
 	buslatches_setbits(4, BIT(4), 0);
 	// DATI: remove address,control, MSYN,SSYN from bus, 75ns after MSYN inactive
 	__delay_cycles(NANOSECS(75) - 8); // assume 8 cycles for state change
-	sm_dma.state = &sm_dma_state_99;
-	return 0; // still running
+	return (statemachine_state_func)&sm_dma_state_99;
 }
 
 // DATO to external slave: wait for SSYN or timeout
-static uint8_t sm_dma_state_21() {
+static statemachine_state_func sm_dma_state_21() {
 	sm_dma.state_timeout = TIMEOUT_REACHED; // SSYN timeout?
 	// SSYN = latch[4], bit 5
 	if (!sm_dma.state_timeout && !(buslatches_getbyte(4) & BIT(5)))
-		return 0; // no SSYN yet: wait
+		return (statemachine_state_func)&sm_dma_state_21; // no SSYN yet: wait
 
 	// SSYN set by slave (or timeout): negate MSYN, remove DATA from bus
 	buslatches_setbits(4, BIT(4), 0); // deassert MSYN
@@ -274,12 +273,11 @@ static uint8_t sm_dma_state_21() {
 	buslatches_setbyte(6, 0);
 	// DATO: remove address,control, MSYN,SSYN from bus, 75ns after MSYN inactive
 	__delay_cycles(NANOSECS(75) - 8); // assume 8 cycles for state change
-	sm_dma.state = &sm_dma_state_99;
-	return 0; // still running
+	return  (statemachine_state_func)&sm_dma_state_99;
 }
 
 // word is transfered, or timeout.
-static uint8_t sm_dma_state_99() {
+static statemachine_state_func sm_dma_state_99() {
 	uint8_t final_dma_state;
 	// from state_12, state_21
 
@@ -302,14 +300,12 @@ static uint8_t sm_dma_state_99() {
 			buslatches_setbits(1, BIT(5), 0); // deassert SACK = latch[1], bit 5
 		} else
 			final_dma_state = DMA_STATE_RUNNING; // more words:  continue
-
 	}
-	sm_dma.state = &sm_dma_state_1; // in any case, reloop
 
 	if (final_dma_state == DMA_STATE_RUNNING) {
-		// dataptr and wordsleft already incremented
+		// dataptr and words_left already incremented
 		mailbox.dma.cur_addr += 2; // signal progress to ARM
-		return 0;
+		return (statemachine_state_func)&sm_dma_state_1; // reloop
 	} else {
 		// remove addr and control from bus
 		buslatches_setbyte(2, 0);
@@ -317,10 +313,9 @@ static uint8_t sm_dma_state_99() {
 		buslatches_setbits(4, 0x3f, 0);
 		// remove BBSY: latch[1], bit 6
 		buslatches_setbits(1, BIT(6), 0);
-		// terminate arbitration state
-		sm_arb.state = &sm_arb_state_idle;
+        // SACK already de-asserted at wordcount==1
 		mailbox.dma.cur_status = final_dma_state; // signal to ARM
-		return 1; // now stopped
+		return NULL; // now stopped
 	}
 }
 

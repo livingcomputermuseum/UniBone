@@ -21,6 +21,7 @@
    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
+   29-jun-2019	JH		rework: state returns ptr to next state func
    12-nov-2018  JH      entered beta phase
 */
 
@@ -28,14 +29,11 @@
 #define  _PRU1_STATEMACHINE_DMA_H_
 
 
-
-// execution of a state. return : 1, if statemachine stopped
-typedef uint8_t (*sm_dma_state_func_ptr)(void);
+#include "pru1_utils.h"	// statemachine_state_func
 
 
 // Transfers a block of worst as data cycles
 typedef struct {
-	sm_dma_state_func_ptr state; // current state as ptr to  "state fucntion"
 	uint8_t state_timeout; // timeout occured?
 	uint16_t *dataptr ; // points to current word in mailbox.words[] ;
 	uint16_t cur_wordsleft; // # of words left to transfer
@@ -48,6 +46,6 @@ extern statemachine_dma_t sm_dma;
 #endif
 
 
-void sm_dma_start(void) ;
+statemachine_state_func sm_dma_start(void) ;
 
 #endif

@@ -62,7 +62,63 @@
 #include "pru1_statemachine_init.h"
 #include "pru1_statemachine_powercycle.h"
 
+
+
+#ifdef FUNCPTRTEST
+////// TEST
+
+// need a function returning a pointer to type of its own,
+// with "statemachine_state_func" as forward
+// typedef	statemachine_state_func * (*statemachine_state_func)(void);
+// Not possible?! So retirn void * and cast to void *(func(void) on use
+typedef	void * (*sm_state_func)(void);
+
+sm_state_func sm_2(void); // forward
+
+sm_state_func sm_1(void) {
+	//printf("1\n");
+	return (sm_state_func) &sm_2;
+}
+
+statemachine_state_func sm_2(void) {
+	//printf("2\n");
+	return NULL;
+}
+
+int xmain() {
+	//printf("Hello world ... from " __DATE__ " " __TIME__ "!\n");
+	//printf("My sizeof(long) is %u.\n", (unsigned) sizeof(long));
+
+	// excute 2 states indicectly
+	sm_state_func smfunc = (sm_state_func) &sm_1;
+	while ((smfunc = smfunc()))
+		;
+}
+
+#endif 
+
+// supress warnigns about using void * as fucntion pinters
+//	sm_slave_state = (statemachine_state_func)&sm_slave_start;
+	// while (sm_slave_state = sm_slave_state()) << usage
+#pragma diag_push
+#pragma diag_remark=515
+
+
+void test(){ 
+		while(1) {
+			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+			}
+}		
+
+
 void main(void) {
+	// state function pointer for different state machines
+	statemachine_state_func sm_slave_state ;
+	statemachine_state_func sm_arb_state ;
+	statemachine_state_func sm_dma_state ;
+	statemachine_state_func sm_intr_state ;
+	statemachine_state_func sm_init_state ;
+	statemachine_state_func sm_powercycle_state ;
 
 	/* Clear SYSCFG[STANDBY_INIT] to enable OCP master port */
 	CT_CFG.SYSCFG_bit.STANDBY_INIT = 0;
@@ -96,15 +152,15 @@ void main(void) {
 	// buslatches_pulse_debug ;
 
 	// base operation: accept and execute slave cycles
-	sm_slave_start();
-
 	while (true) {
 		uint32_t arm2pru_req_cached;
 		// do all states of an access, start when MSYN found.
 
 		// slave cycles may trigger events to ARM, which changes "active" registers
 		// and issues interrupts
-		while (!sm_slave.state())
+
+		sm_slave_state = (statemachine_state_func)&sm_slave_start;
+		while (sm_slave_state = sm_slave_state())
 			; // execute complete slave cycle, then check NPR/INTR
 
 		// update state of init lines
@@ -129,9 +185,10 @@ void main(void) {
 			break;
 		case ARM2PRU_DMA_ARB_NONE: // ignore SACK condition
 		case ARM2PRU_DMA_ARB_MASTER: // also without arbitration, TODO!
-			sm_dma_start();
-			while (!sm_dma.state())
+			sm_dma_state = (statemachine_state_func)&sm_dma_start;
+			while (sm_dma_state = sm_dma_state())
 				;
+		
 			// a dma cycle into a device register may trigger an interrupt
 			// do not delete that condition
 			if (mailbox.arm2pru_req == arm2pru_req_cached)
@@ -140,22 +197,24 @@ void main(void) {
 		case ARM2PRU_DMA_ARB_CLIENT:
 			// start DMA cycle
 			// can not run parallel with INTR levels
-			sm_arb_start(ARBITRATION_PRIORITY_BIT_NP);
-			while (!sm_arb.state()) {
+			
+			sm_arb_state = (statemachine_state_func)sm_arb_start(ARBITRATION_PRIORITY_BIT_NP);
+			while (sm_arb_state && (sm_arb_state = sm_arb_state())) {
 				// sm_slave is most time critical, as it must keep track with MSYN/SSYN bus traffic.
 				// so give it more cpu cycles
-				while (!sm_slave.state())
+				sm_slave_state = (statemachine_state_func)&sm_slave_start;
+				while (sm_slave_state = sm_slave_state())
 					;
 			}
 			// now SACK held and BBSY set, slave state machine ended, since BBSY found inactive
 
 			// debug pin reset by bus access
 			//DEBUG_PIN_SET(1) ;
-			sm_dma_start();
-			//DEBUG_PIN_SET(1) ;
-			while (!sm_dma.state())
+			sm_dma_state = (statemachine_state_func)&sm_dma_start;
+			while (sm_dma_state = sm_dma_state())
 				//DEBUG_PIN_SET(1) ;
 				;// execute dma master cycles
+			
 			// a dma cycle into a device register may trigger an interrupt
 			// do not delete that condition
 			if (mailbox.arm2pru_req == arm2pru_req_cached)
@@ -165,37 +224,49 @@ void main(void) {
 			// start one INTR cycle. May be raised in midst of slave cycle
 			// by ARM, if access to "active" register triggers INTR.
 			// no multiple levels simultaneously allowed, not parallel with DMA !
-			sm_arb_start(mailbox.intr.priority_bit);
+			sm_arb_state = (statemachine_state_func)sm_arb_start(mailbox.intr.priority_bit);
 			// wait while INTR is accepted. This may take long time,
 			// if system is at high processor priority (PSW register)
-			while (!sm_arb.state()) {
+			while (sm_arb_state && (sm_arb_state = sm_arb_state())) {
 				// sm_slave is most time critical, as it must keep track with MSYN/SSYN bus traffic.
 				// so give it more cpu cycles
-				while (!sm_slave.state())
+				sm_slave_state = (statemachine_state_func)&sm_slave_start;
+				while (sm_slave_state = sm_slave_state())
 					;
 			}
+			
 			// now SACK held and BBSY set, slave state machine ended, since BBSY found inactive
-			sm_intr_start();
-			while (!sm_intr.state())
+			sm_intr_state = (statemachine_state_func)&sm_intr_start;
+			while (sm_intr_state = sm_intr_state())
 				; // execute intr cycle as bus master
 			mailbox.arm2pru_req = ARM2PRU_NONE; // clear request
 			break;
 		case ARM2PRU_INITPULSE: // generate a pulse on UNIBUS INIT
 			// only busmaster may assert INIT. violated here!
-			sm_slave_start();
-			sm_init_start();
-			while (!sm_slave.state() || !sm_init.state())
-				;
+
+			// while INIT cycle is running, do slave cycles
+			sm_init_state = (statemachine_state_func)&sm_init_start;
+			while(sm_init_state=sm_init_state()) {
+				if (sm_slave_state)
+					sm_slave_state = sm_slave_state() ;
+				else // restart
+					sm_slave_state = (statemachine_state_func)&sm_slave_start;
+			}
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
 		case ARM2PRU_POWERCYCLE: // do ACLO/DCLO power cycle
 			// Runs for 4* POWERCYCLE_DELAY_MS millsecs, approx 1 sec.
 			// perform slave states in parallel, so emulated memory
 			// is existent for power fail trap and reboot
-			sm_slave_start();
-			sm_powercycle_start();
-			while (!sm_slave.state() || !sm_powercycle.state())
-				;
+
+			// while power cycle is running, do slave cycles
+			sm_powercycle_state = (statemachine_state_func)&sm_powercycle_start;
+			while(sm_powercycle_state=sm_powercycle_state()) {
+				if (sm_slave_state)
+					sm_slave_state = sm_slave_state() ;
+				else // restart
+					sm_slave_state = (statemachine_state_func)&sm_slave_start;
+			}
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
 
@@ -206,4 +277,5 @@ void main(void) {
 
 	// never reached
 }
+#pragma diag_pop
 
