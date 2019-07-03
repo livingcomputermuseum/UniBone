@@ -35,6 +35,7 @@
 
 #include "mailbox.h"
 #include "pru1_utils.h"
+#include "pru1_timeouts.h"
 
 #include "pru1_buslatches.h"
 #include "pru1_statemachine_init.h"
@@ -66,7 +67,7 @@ static statemachine_state_func sm_init_state_1(void);
 
 // setup
 statemachine_state_func sm_init_start() {
-	TIMEOUT_SET(MILLISECS(INITPULSE_DELAY_MS))
+	timeout_set(TIMEOUT_INIT, MILLISECS(INITPULSE_DELAY_MS))
 	;
 	// INIT: latch[7], bit 3
 	buslatches_setbits(7, BIT(3), BIT(3)); // assert INIT
@@ -77,9 +78,10 @@ statemachine_state_func sm_init_start() {
 
 
 static statemachine_state_func sm_init_state_1() {
-	if (!TIMEOUT_REACHED)
+	if (!timeout_reached(TIMEOUT_INIT))
 		return (statemachine_state_func)&sm_init_state_1; // wait
 	buslatches_setbits(7, BIT(3), 0); // deassert INIT
 	do_event_initializationsignals() ;
+	timeout_cleanup(TIMEOUT_INIT) ;
 	return NULL ; // ready
 }

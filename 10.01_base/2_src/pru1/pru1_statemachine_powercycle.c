@@ -47,6 +47,7 @@
 
 #include "mailbox.h"
 #include "pru1_utils.h"
+#include "pru1_timeouts.h"
 
 #include "pru1_buslatches.h"
 #include "pru1_statemachine_init.h"
@@ -69,8 +70,7 @@ statemachine_state_func sm_powercycle_start() {
 // "Line power shutdown": assert ACLO, then wait
 static statemachine_state_func sm_powercycle_state_1() {
 	buslatches_setbits(7, BIT(4), BIT(4)); // ACLO asserted
-	TIMEOUT_SET(MILLISECS(POWERCYCLE_DELAY_MS))
-	; // wait for DC power shutdown
+	timeout_set(TIMEOUT_POWERCYCLE, MILLISECS(POWERCYCLE_DELAY_MS))	; // wait for DC power shutdown
 	// DEBUG_OUT(0x01) ;
 	do_event_initializationsignals() ;
 	// DEBUG_OUT(0x02) ;
@@ -79,10 +79,10 @@ static statemachine_state_func sm_powercycle_state_1() {
 
 // "Power supply switched off": assert DCLO, then wait
 static statemachine_state_func sm_powercycle_state_2() {
-	if (!TIMEOUT_REACHED)
+	if (!timeout_reached(TIMEOUT_POWERCYCLE))
 		return (statemachine_state_func)&sm_powercycle_state_2; // wait
 	buslatches_setbits(7, BIT(5), BIT(5)); // DCLO asserted
-	TIMEOUT_SET(MILLISECS(POWERCYCLE_DELAY_MS))
+	timeout_set(TIMEOUT_POWERCYCLE, MILLISECS(POWERCYCLE_DELAY_MS))
 	; // system powered off
 	// DEBUG_OUT(0x03) ;
 	do_event_initializationsignals() ;
@@ -92,10 +92,10 @@ static statemachine_state_func sm_powercycle_state_2() {
 
 // "Line power back again": deassert ACLO, then wait
 static statemachine_state_func sm_powercycle_state_3() {
-	if (!TIMEOUT_REACHED)
+	if (!timeout_reached(TIMEOUT_POWERCYCLE))
 		return (statemachine_state_func)&sm_powercycle_state_3; // wait
 	buslatches_setbits(7, BIT(4), 0); // ACLO deasserted
-	TIMEOUT_SET(MILLISECS(POWERCYCLE_DELAY_MS))
+	timeout_set(TIMEOUT_POWERCYCLE, MILLISECS(POWERCYCLE_DELAY_MS))
 	; // "power supply stabilizing"
 	do_event_initializationsignals() ;
 	return (statemachine_state_func)&sm_powercycle_state_4;
@@ -103,10 +103,11 @@ static statemachine_state_func sm_powercycle_state_3() {
 
 // "Logic power stabilized": deassert DCLO, ready
 static statemachine_state_func sm_powercycle_state_4() {
-	if (!TIMEOUT_REACHED)
+	if (!timeout_reached(TIMEOUT_POWERCYCLE))
 		return (statemachine_state_func)&sm_powercycle_state_4;
    	buslatches_setbits(7, BIT(5), 0); // DCLO deasserted
 	do_event_initializationsignals() ;
+	timeout_cleanup(TIMEOUT_POWERCYCLE) ;
 	return NULL;
 }
 

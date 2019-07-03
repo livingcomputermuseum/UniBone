@@ -96,17 +96,6 @@ http://theembeddedkitchen.net/beaglelogic-building-a-logic-analyzer-with-the-pru
 * introduces delay in PRU0 outputs!
 
  */
-#define TIMEOUT_INTERNAL_CYCLES	24
-#define TIMEOUT_SET(cycles)	do {	\
-	PRU1_CTRL.CTRL_bit.CTR_EN = 0;	\
-	PRU1_CTRL.CYCLE = 0 ;		\
-	timeout_target = ((cycles) > TIMEOUT_INTERNAL_CYCLES) ? ((cycles) - TIMEOUT_INTERNAL_CYCLES) : 0 ; /* 4 cycle used in TIMEOUT_REACHED */	\
-	PRU1_CTRL.CTRL_bit.CTR_EN = 1;	\
-} while(0)
-
-#define TIMEOUT_REACHED 	\
-	( (PRU1_CTRL.CYCLE >= timeout_target))
-
 
 // set PRU1_12 to 0 or 1
 #define DEBUG_PIN_SET(val) ( (val) ? (__R30 |= (1 << 12) ) : (__R30 &= ~(1<< 12)) )

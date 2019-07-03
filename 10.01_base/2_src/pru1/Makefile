@@ -75,6 +75,7 @@ OBJECTS_COMMON= \
     $(OBJ_DIR)/pru1_statemachine_intr.object  \
     $(OBJ_DIR)/pru1_statemachine_powercycle.object  \
     $(OBJ_DIR)/pru1_statemachine_slave.object  \
+    $(OBJ_DIR)/pru1_timeouts.object	\
     $(OBJ_DIR)/pru1_utils.object
 
 

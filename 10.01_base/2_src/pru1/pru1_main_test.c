@@ -42,6 +42,7 @@
 #include "resource_table_empty.h"
 
 #include "pru1_utils.h"
+#include "pru1_timeouts.h"
 
 #include "pru_pru_mailbox.h"
 #include "mailbox.h"
@@ -66,6 +67,8 @@ void main(void) {
 
 	/* Clear SYSCFG[STANDBY_INIT] to enable OCP master port */
 	CT_CFG.SYSCFG_bit.STANDBY_INIT = 0;
+
+	timeout_init() ;
 
 	// clear all tables, as backup if ARM fails todo
 	iopageregisters_init();

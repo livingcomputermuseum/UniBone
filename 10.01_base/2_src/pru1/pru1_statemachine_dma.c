@@ -60,6 +60,7 @@
 #include "mailbox.h"
 #include "pru1_buslatches.h"
 #include "pru1_utils.h"
+#include "pru1_timeouts.h"
 
 #include "pru1_statemachine_arbitration.h"
 #include "pru1_statemachine_dma.h"
@@ -184,7 +185,7 @@ static statemachine_state_func sm_dma_state_1() {
 		} else {
 			// DATO to external slave
 			// wait for a slave SSYN
-			TIMEOUT_SET(NANOSECS(1000*UNIBUS_TIMEOUT_PERIOD_US));
+			timeout_set(TIMEOUT_DMA, MICROSECS(UNIBUS_TIMEOUT_PERIOD_US));
 			return (statemachine_state_func)&sm_dma_state_21; // wait SSYN DATAO
 		}
 	} else {
@@ -230,7 +231,7 @@ static statemachine_state_func sm_dma_state_1() {
 		} else {
 			// DATI to external slave
 			// wait for a slave SSYN
-			TIMEOUT_SET(NANOSECS(1000*UNIBUS_TIMEOUT_PERIOD_US));
+			timeout_set(TIMEOUT_DMA, MICROSECS(UNIBUS_TIMEOUT_PERIOD_US));
 			return (statemachine_state_func)&sm_dma_state_11; // wait SSYN DATI
 		}
 	}
@@ -239,7 +240,7 @@ static statemachine_state_func sm_dma_state_1() {
 // DATI to external slave: MSYN set, wait for SSYN or timeout
 static statemachine_state_func sm_dma_state_11() {
 	uint16_t tmpval;
-	sm_dma.state_timeout = TIMEOUT_REACHED;
+	sm_dma.state_timeout = timeout_reached(TIMEOUT_DMA);
 	// SSYN = latch[4], bit 5
 	if (!sm_dma.state_timeout && !(buslatches_getbyte(4) & BIT(5)))
 		return (statemachine_state_func)&sm_dma_state_11; // no SSYN yet: wait
@@ -262,7 +263,7 @@ static statemachine_state_func sm_dma_state_11() {
 
 // DATO to external slave: wait for SSYN or timeout
 static statemachine_state_func sm_dma_state_21() {
-	sm_dma.state_timeout = TIMEOUT_REACHED; // SSYN timeout?
+	sm_dma.state_timeout = timeout_reached(TIMEOUT_DMA); // SSYN timeout?
 	// SSYN = latch[4], bit 5
 	if (!sm_dma.state_timeout && !(buslatches_getbyte(4) & BIT(5)))
 		return (statemachine_state_func)&sm_dma_state_21; // no SSYN yet: wait
@@ -314,6 +315,7 @@ static statemachine_state_func sm_dma_state_99() {
 		// remove BBSY: latch[1], bit 6
 		buslatches_setbits(1, BIT(6), 0);
         // SACK already de-asserted at wordcount==1
+		timeout_cleanup(TIMEOUT_DMA) ;
 		mailbox.dma.cur_status = final_dma_state; // signal to ARM
 		return NULL; // now stopped
 	}
