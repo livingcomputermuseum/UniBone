@@ -8,8 +8,11 @@ m i			# install max UNIBUS memory
 # Deposit bootloader into memory
 m ll dl.lst
 
+en rl			# enable RL11 controller
+
 # mount RT11 v5.5 in RL02 #0 and start
-sd rl0			# select drive #0
+en rl0			# enable drive #0
+sd rl0			# select
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
 # set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
@@ -18,7 +21,8 @@ p image rt11v5.5_34.rl02 # mount image file with test pattern
 p runstopbutton 1	# press RUN/STOP, will start
 
 # mount RT11 GAMES in RL02 #1 and start
-sd rl1			# select drive #1
+en rl1			# enable drive #1
+sd rl1			# select
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
 # set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
@@ -27,7 +31,8 @@ p image rt11v5.5_games_34.rl02	# mount image file with test pattern
 p runstopbutton 1	# press RUN/STOP, will start
 
 # mount scratch2 in RL02 #2 and start
-sd rl2			# select drive #2
+en rl2			# enable drive #2
+sd rl2			# select
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
 # set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
@@ -36,7 +41,8 @@ p image scratch2.rl02 	# mount image file with test pattern
 p runstopbutton 1	# press RUN/STOP, will start
 
 # mount scratch3 in RL02 #3 and start
-sd rl3			# select drive #3
+en rl3			# enable drive #3
+sd rl3			# select
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
 # set type to "rl02"
 p runstopbutton 0	# released: "LOAD"

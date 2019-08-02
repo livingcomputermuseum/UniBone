@@ -25,8 +25,13 @@ rk11_c::rk11_c() :
     name.value = "rk";
     type_name.value = "RK11";
     log_label = "rk";
-	
-	set_default_bus_params(0777400, 0220, 5) ; // base addr, intr-vector, intr level
+
+	// base addr, intr-vector, intr level
+	set_default_bus_params(0777400, 10, 0220, 5) ;
+	dma_request.set_priority_slot(default_priority_slot) ;
+	intr_request.set_priority_slot(default_priority_slot) ;
+	intr_request.set_level(default_intr_level) ;
+	intr_request.set_vector(default_intr_vector) ;
 
     // The RK11 controller has seven registers,
     // We allocate 8 because one address in the address space is unused.
@@ -139,23 +144,24 @@ void rk11_c::dma_transfer(DMARequest &request)
         {
             // Write FROM buffer TO unibus memory, IBA on:
             // We only need to write the last word in the buffer to memory.
-            request.timeout = !unibusadapter->request_client_DMA(
+				unibusadapter->DMA(dma_request, true,
                 UNIBUS_CONTROL_DATO,
                 request.address,
                 request.buffer + request.count - 1,
-                1, NULL);
+                1);
+            request.timeout = !dma_request.success ;
         }
         else
         {
             // Read FROM unibus memory TO buffer, IBA on:
             // We read a single word from the unibus and fill the
             // entire buffer with this value. 
-            request.timeout = !unibusadapter->request_client_DMA(
+            unibusadapter->DMA(dma_request, true,
                 UNIBUS_CONTROL_DATI,
                 request.address,
                 request.buffer,
-                1, 
-                NULL);
+                1);
+		request.timeout = !dma_request.success ;
         } 
     }
     else
@@ -164,22 +170,22 @@ void rk11_c::dma_transfer(DMARequest &request)
         if (request.write)
         {
             // Write FROM buffer TO unibus memory
-            request.timeout = !unibusadapter->request_client_DMA(
+            unibusadapter->DMA(dma_request, true,
                 UNIBUS_CONTROL_DATO,
                 request.address,
                 request.buffer,
-                request.count, 
-                NULL);
+                request.count);
+		request.timeout = !dma_request.success ;
         }
         else
         {
             // Read FROM unibus memory TO buffer
-            request.timeout = !unibusadapter->request_client_DMA(
+            unibusadapter->DMA(dma_request, true,
                 UNIBUS_CONTROL_DATI, 
                 request.address,
                 request.buffer,
-                request.count, 
-                NULL);
+                request.count);
+		request.timeout = !dma_request.success ;
         }
     }
 
@@ -960,7 +966,7 @@ void rk11_c::invoke_interrupt(void)
     //
     if (_ide)
     {
-        interrupt(); 
+        unibusadapter->INTR(intr_request, NULL, 0); // todo: link to interupt register
     }
 }
 

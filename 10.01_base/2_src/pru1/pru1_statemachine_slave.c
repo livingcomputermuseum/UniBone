@@ -1,37 +1,37 @@
 /* pru1_statemachine_slave.c: state machine for execution of slave DATO* or DATI* cycles
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   29-jun-2019	JH		rework: state returns ptr to next state func
-   12-nov-2018  JH      entered beta phase
+ 29-jun-2019	JH		rework: state returns ptr to next state func
+ 12-nov-2018  JH      entered beta phase
 
-   Statemachine for execution of slave DATO* or DATI* cycles.
-   All references "PDP11BUS handbook 1979"
+ Statemachine for execution of slave DATO* or DATI* cycles.
+ All references "PDP11BUS handbook 1979"
 
-   Slave reponds not to INIT on this level, master must stop bus transactions.
+ Slave reponds not to INIT on this level, master must stop bus transactions.
 
-   - Slave waits for MSYN L->H
-   - slaves fetches address and control lines
-   - address is evaluated, ggf mem access
+ - Slave waits for MSYN L->H
+ - slaves fetches address and control lines
+ - address is evaluated, ggf mem access
  */
 
 #define _PRU1_STATEMACHINE_SLAVE_C_
@@ -53,7 +53,6 @@
 static statemachine_state_func sm_slave_state_10(void);
 static statemachine_state_func sm_slave_state_20(void);
 static statemachine_state_func sm_slave_state_99(void);
-
 
 // check for MSYN active
 statemachine_state_func sm_slave_start() {
@@ -110,14 +109,13 @@ statemachine_state_func sm_slave_start() {
 			buslatches_setbyte(5, data & 0xff);
 			// DATA[8..15] = latch[6]
 			buslatches_setbyte(6, data >> 8);
-			//DEBUG_PIN_PULSE ; // trigger scope/LA. auto cleared on next reg_sel
 			// set SSYN = latch[4], bit 5
 			buslatches_setbits(4, BIT(5), BIT(5));
-			return (statemachine_state_func)&sm_slave_state_20;
+			return (statemachine_state_func) &sm_slave_state_20;
 			// perhaps PRU2ARM_INTERRUPT now active
 		} else
 			// no address match: wait for MSYN to go inactive
-			return (statemachine_state_func)&sm_slave_state_99;
+			return (statemachine_state_func) &sm_slave_state_99;
 	case UNIBUS_CONTROL_DATO:
 		// fetch data in any case
 		// DATA[0..7] = latch[5]
@@ -125,16 +123,15 @@ statemachine_state_func sm_slave_start() {
 		// DATA[8..15] = latch[6]
 		w |= (uint16_t) buslatches_getbyte(6) << 8;
 		if (iopageregisters_write_w(addr, w)) {
-			//DEBUG_PIN_PULSE ; // trigger scope/LA. auto cleared on next reg_sel
 
 			// SSYN = latch[4], bit 5
 			buslatches_setbits(4, BIT(5), BIT(5));
 			// wait for MSYN to go inactive, then SSYN inactive
-			return (statemachine_state_func)&sm_slave_state_10;
+			return (statemachine_state_func) &sm_slave_state_10;
 			// perhaps PRU2ARM_INTERRUPT now active
 		} else
 			// no address match: wait for MSYN to go inactive
-			return (statemachine_state_func)&sm_slave_state_99;
+			return (statemachine_state_func) &sm_slave_state_99;
 	case UNIBUS_CONTROL_DATOB:
 		// A00 = 1, odd address: get upper byte
 		// A00 = 0: even address, get lower byte
@@ -150,13 +147,13 @@ statemachine_state_func sm_slave_start() {
 			// SSYN = latch[4], bit 5
 			buslatches_setbits(4, BIT(5), BIT(5));
 			// wait for MSYN to go inactive, then SSYN inactive
-			return (statemachine_state_func)&sm_slave_state_10;
+			return (statemachine_state_func) &sm_slave_state_10;
 			// perhaps PRU2ARM_INTERRUPT now active
 		} else
 			// no address match: wait for MSYN to go inactive
-			return (statemachine_state_func)&sm_slave_state_99;
+			return (statemachine_state_func) &sm_slave_state_99;
 	}
-	return NULL ; // not reached
+	return NULL; // not reached
 }
 
 // End DATO: wait for MSYN to go inactive, then SSYN inactive
@@ -164,11 +161,13 @@ statemachine_state_func sm_slave_start() {
 static statemachine_state_func sm_slave_state_10() {
 	// MSYN = latch[4], bit 4
 	if (buslatches_getbyte(4) & BIT(4))
-		return (statemachine_state_func)&sm_slave_state_10; // wait, MSYN still active
-	if (mailbox.events.eventmask)
-		return (statemachine_state_func)&sm_slave_state_10; // wait, long SSYN delay until ARM acknowledges all events
+		return (statemachine_state_func) &sm_slave_state_10; // wait, MSYN still active
+	if (mailbox.events.event_deviceregister)
+		// unibusadapter.worker() did not yet run on_after_register_access() 
+		// => wait, long SSYN delay until ARM acknowledges event
+		return (statemachine_state_func) &sm_slave_state_10;
 	// if ARM was triggered by event and changed the device state,
-	// now an Interrupt arbitration may be pending!
+	// now an Interrupt arbitration may be pending.
 
 	// clear SSYN = latch[4], bit 5
 	buslatches_setbits(4, BIT(5), 0);
@@ -181,11 +180,13 @@ static statemachine_state_func sm_slave_state_10() {
 static statemachine_state_func sm_slave_state_20() {
 	// MSYN = latch[4], bit 4
 	if (buslatches_getbyte(4) & BIT(4))
-		return (statemachine_state_func)&sm_slave_state_20; // wait, MSYN still active
-	if (mailbox.events.eventmask)
-		return (statemachine_state_func)&sm_slave_state_20; // wait, long SSYN delay until ARM acknowledges event
+		return (statemachine_state_func) &sm_slave_state_20; // wait, MSYN still active
+	if (mailbox.events.event_deviceregister)
+		// unibusadapter.worker() did not yet run on_after_register_access() 
+		// => wait, long SSYN delay until ARM acknowledges event
+		return (statemachine_state_func) &sm_slave_state_20;
 	// if ARM was triggered by event and changed the device state,
-	// now an Interrupt arbitration may be pending!
+	// now an Interrupt arbitration may be pending.
 
 	// clear first data, then SSYN
 	// DATA[0..7] = latch[5]
@@ -201,7 +202,7 @@ static statemachine_state_func sm_slave_state_20() {
 static statemachine_state_func sm_slave_state_99() {
 	// MSYN = latch[4], bit 4
 	if (buslatches_getbyte(4) & BIT(4))
-		return (statemachine_state_func)&sm_slave_state_99; // wait, MSYN still active
+		return (statemachine_state_func) &sm_slave_state_99; // wait, MSYN still active
 
 	return NULL; // ready
 }

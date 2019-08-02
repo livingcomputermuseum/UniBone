@@ -439,7 +439,7 @@ void paneldriver_c::i2c_sync_all_params() {
  Update controls and parameters
  */
 void paneldriver_c::worker(unsigned instance) {
-	UNUSED(instance) ; // only one
+	UNUSED(instance); // only one
 	timeout_c timeout;
 
 	while (!workers_terminate) {

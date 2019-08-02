@@ -40,6 +40,7 @@
 #include "parameter.hpp"
 #include "unibus.h"
 #include "memoryimage.hpp"
+#include "unibusadapter.hpp"
 
 //#include "unibusadapter.hpp"
 //#include "unibusdevice.hpp"
@@ -58,7 +59,7 @@ void application_c::menu_device_exercisers(void) {
 
 //	iopageregisters_init();
 	// UNIBUS activity
-	hardware_startup(pru_c::PRUCODE_UNIBUS);
+	hardware_startup(pru_c::PRUCODE_UNIBUS, unibus_c::ARBITRATION_MODE_CLIENT);
 	buslatches_output_enable(true);
 
 	// instantiate different device exercisers
@@ -82,8 +83,7 @@ void application_c::menu_device_exercisers(void) {
 			} else
 				printf("    No current device selected\n");
 			if (memory_installed) {
-				printf(
-						"    UNIBUS memory emulated from %06o to %06o.\n",
+				printf("    UNIBUS memory emulated from %06o to %06o.\n",
 						emulated_memory_start_addr, emulated_memory_end_addr);
 			} else
 				printf("    NO UNIBUS memory installed ... device test limited!\n");
@@ -143,17 +143,14 @@ void application_c::menu_device_exercisers(void) {
 				bool timeout;
 				uint16_t fillword = 0;
 				if (n_fields == 3)
-					fillword = strtol(s_param[1], NULL, 8);
+					parse_word(s_param[1], &fillword);
 				membuffer->set_addr_range(emulated_memory_start_addr, emulated_memory_end_addr);
 				membuffer->fill(fillword);
 				// write buffer-> UNIBUS
-				printf(
-						"Fill memory with %06o, writing UNIBUS memory[%06o:%06o] with blocksize %u words\n",
-						fillword, emulated_memory_start_addr, emulated_memory_end_addr,
-						unibus->dma_wordcount);
+				printf("Fill memory with %06o, writing UNIBUS memory[%06o:%06o]\n", fillword,
+						emulated_memory_start_addr, emulated_memory_end_addr);
 				unibus->mem_write(arbitration_mode, membuffer->data.words,
-						emulated_memory_start_addr, emulated_memory_end_addr,
-						unibus->dma_wordcount, &timeout);
+						emulated_memory_start_addr, emulated_memory_end_addr, &timeout);
 				if (timeout)
 					printf("Error writing UNIBUS memory!\n");
 			} else if (memory_installed && !strcasecmp(s_opcode, "m") && n_fields == 2
@@ -163,14 +160,13 @@ void application_c::menu_device_exercisers(void) {
 				bool timeout;
 				// 1. read UNIBUS memory
 				uint32_t end_addr = unibus->test_sizer(arbitration_mode) - 2;
-				printf("Reading UNIBUS memory[0:%06o] with DMA blocks of %u words\n", end_addr,
-						unibus->dma_wordcount);
+				printf("Reading UNIBUS memory[0:%06o] with DMA\n", end_addr);
 				//  clear memory buffer, to be sure content changed
 				membuffer->set_addr_range(0, end_addr);
 				membuffer->fill(0);
 
 				unibus->mem_read(arbitration_mode, membuffer->data.words, 0, end_addr,
-						unibus->dma_wordcount, &timeout);
+						&timeout);
 				if (timeout)
 					printf("Error reading UNIBUS memory!\n");
 				else {
@@ -226,27 +222,27 @@ void application_c::menu_device_exercisers(void) {
 				}
 			} else if (!strcasecmp(s_opcode, "d") && n_fields == 3) {
 				uint32_t addr;
+				uint16_t wordbuffer;
 				// interpret as 18 bit address
-				addr = strtol(s_param[0], NULL, 8);
-
-				mailbox->dma.words[0] = strtol(s_param[1], NULL, 8);
-				bool timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATO, addr, 1);
-				printf("DEPOSIT %06o <- %06o\n", addr, mailbox->dma.words[0]);
+				parse_addr18(s_param[0], &addr);
+				parse_word(s_param[1], &wordbuffer);
+				bool timeout = !unibus->dma(arbitration_mode, true, UNIBUS_CONTROL_DATO, addr,
+						&wordbuffer, 1);
+				printf("DEPOSIT %06o <- %06o\n", addr, wordbuffer);
 				if (timeout)
-					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);
+					printf("Bus timeout at %06o.\n", unibus->dma_request->unibus_end_addr);
 			} else if (!strcasecmp(s_opcode, "e") && n_fields <= 2) {
-				unsigned blocksize = 0; // default: no EXAM
-				bool timeout;
+				uint16_t wordbuffer;
+				bool timeout=false;
 				uint32_t addr;
 				if (n_fields == 2) { // single reg number given
-					blocksize = 1; // exam 1 word
-					addr = strtol(s_param[0], NULL, 8); 	// interpret as 18 bit address
-					timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATI, addr,
-							blocksize);
-					printf("EXAM %06o -> %06o\n", addr, mailbox->dma.words[0]);
+					parse_addr18(s_param[0], &addr); 	// interpret as 18 bit address
+					timeout = !unibus->dma(arbitration_mode, true, UNIBUS_CONTROL_DATI, addr,
+							&wordbuffer, 1);
+					printf("EXAM %06o -> %06o\n", addr, wordbuffer);
 				}
 				if (timeout)
-					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);
+					printf("Bus timeout at %06o.\n", addr);
 				// cur_addr now on last address in block
 
 			} else {

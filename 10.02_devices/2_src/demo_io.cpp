@@ -46,7 +46,7 @@ demo_io_c::demo_io_c() :
 	type_name.value = "demo_io_c";
 	log_label = "di";
 
-	set_default_bus_params(0760100, 0, 0) ; // base addr, intr-vector, intr level
+	set_default_bus_params(0760100, 31, 0, 0); // base addr, intr-vector, intr level
 
 	// init parameters
 	switch_feedback.value = false;
@@ -183,7 +183,7 @@ void demo_io_c::gpio_set_output(unsigned output_index, unsigned value) {
 // background worker.
 // udpate LEDS, poll switches direct to register flipflops
 void demo_io_c::worker(unsigned instance) {
-	UNUSED(instance) ; // only one
+	UNUSED(instance); // only one
 	timeout_c timeout;
 	while (!workers_terminate) {
 		timeout.wait_ms(100);

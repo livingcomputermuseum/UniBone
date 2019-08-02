@@ -89,8 +89,8 @@ public:
 	int worker_sched_priority;
 
 	enum worker_priority_e {
-		none_rt, // under all RT priorities
-		rt_device, // all controeller and storage worker
+		none_rt, // lower than all RT priorities
+		rt_device, // all controller and storage worker
 		rt_max // 100% CPU, uninterruptable
 	};
 	void worker_init_realtime_priority(enum worker_priority_e priority);
@@ -126,7 +126,7 @@ public:
 	// default background worker function for devices without need.
 	virtual void worker(unsigned instance) {
 		UNUSED(instance);
-		printf("Warning: default device_c::worker() called, better  use set_worker_count(0) ") ;
+		printf("Warning: default device_c::worker() called, better  use set_worker_count(0) ");
 	}
 };
 

@@ -23,8 +23,8 @@ PRUSS_INCLUDE_DIR = $(PRU_PACKAGE_ROOT)/include
 # ARM LIBRARIES
 PRUSS_DRV_LIB = $(PRU_PACKAGE_ROOT)/bin-bbb/libprussdrv.a
 
-# -static: do not used shared libs, include all coide into the binary
-# (big binary, but BBB neds no shared libs of certain versions installed)
+# -static: do not used shared libs, include all code into the binary
+# (big binary, but BBB needs no shared libs of certain versions installed)
 # Example: demo binary goes from 594K to 12.3MB !
 LDFLAGS+= -static -lstdc++ -lpthread $(PRUSS_DRV_LIB)
 
@@ -109,17 +109,19 @@ OBJECTS = $(OBJDIR)/application.o	\
 	$(OBJDIR)/storagedrive.o	\
     $(OBJDIR)/storagecontroller.o	\
     $(OBJDIR)/demo_io.o	\
-    $(OBJDIR)/demo_regs.o	\
+    $(OBJDIR)/testcontroller.o	\
     $(OBJDIR)/unibusdevice.o	\
     $(OBJDIR)/device.o	\
     $(OBJDIR)/parameter.o	\
 	$(OBJDIR)/panel.o	\
+	$(OBJDIR)/priorityrequest.o	\
 	$(OBJDIR)/unibusadapter.o	\
 	$(OBJDIR)/unibus.o	\
 	$(OBJDIR)/gpios.o	\
 	$(OBJDIR)/stringgrid.o	\
 	$(OBJDIR)/mcout.o	\
 	$(OBJDIR)/inputline.o	\
+	$(OBJDIR)/kbhit.o	\
 	$(OBJDIR)/bitcalc.o	\
 	$(OBJDIR)/pru.o \
 	$(OBJDIR)/mailbox.o	\
@@ -250,7 +252,7 @@ $(OBJDIR)/storagecontroller.o :  $(BASE_SRC_DIR)/storagecontroller.cpp $(BASE_SR
 $(OBJDIR)/demo_io.o :  $(DEVICE_SRC_DIR)/demo_io.cpp $(DEVICE_SRC_DIR)/demo_io.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
-$(OBJDIR)/demo_regs.o :  $(DEVICE_SRC_DIR)/demo_regs.cpp $(DEVICE_SRC_DIR)/demo_regs.hpp
+$(OBJDIR)/testcontroller.o :  $(DEVICE_SRC_DIR)/testcontroller.cpp $(DEVICE_SRC_DIR)/testcontroller.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/unibusdevice.o :  $(BASE_SRC_DIR)/unibusdevice.cpp $(BASE_SRC_DIR)/unibusdevice.hpp
@@ -278,6 +280,9 @@ $(OBJDIR)/mcout.o :  $(COMMON_SRC_DIR)/mcout.c $(COMMON_SRC_DIR)/mcout.h
 	$(CC) $(CCFLAGS) -xc++ $< -o $@
 
 $(OBJDIR)/inputline.o :  $(COMMON_SRC_DIR)/inputline.c $(COMMON_SRC_DIR)/inputline.h
+	$(CC) $(CCFLAGS) -xc++ $< -o $@
+
+$(OBJDIR)/kbhit.o :  $(COMMON_SRC_DIR)/kbhit.c $(COMMON_SRC_DIR)/kbhit.h
 	$(CC) $(CCFLAGS) -xc++ $< -o $@
 
 $(OBJDIR)/bitcalc.o :  $(COMMON_SRC_DIR)/bitcalc.cpp $(COMMON_SRC_DIR)/bitcalc.h
@@ -315,6 +320,9 @@ $(OBJDIR)/ddrmem.o :  $(BASE_SRC_DIR)/ddrmem.cpp $(SHARED_SRC_DIR)/ddrmem.h
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/iopageregister.o :  $(BASE_SRC_DIR)/iopageregister.cpp $(SHARED_SRC_DIR)/iopageregister.h
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/priorityrequest.o :  $(BASE_SRC_DIR)/priorityrequest.cpp $(BASE_SRC_DIR)/priorityrequest.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/unibusadapter.o :  $(BASE_SRC_DIR)/unibusadapter.cpp $(BASE_SRC_DIR)/unibusadapter.hpp

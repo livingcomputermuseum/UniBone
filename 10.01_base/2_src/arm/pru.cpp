@@ -134,7 +134,6 @@ int pru_c::start(enum prucode_enum prucode_id) {
 	// use stop() before restart()
 	assert(this->prucode_id == PRUCODE_NONE);
 
-
 	/* initialize PRU */
 	if ((rtn = prussdrv_init()) != 0) {
 		ERROR("prussdrv_init() failed");
@@ -152,7 +151,6 @@ int pru_c::start(enum prucode_enum prucode_id) {
 		ERROR("prussdrv_pruintc_init() failed");
 		goto error;
 	}
-
 
 	/*
 	 http://credentiality2.blogspot.com/2015/09/beaglebone-pru-ddr-memory-access.html
@@ -208,7 +206,7 @@ int pru_c::start(enum prucode_enum prucode_id) {
 	// verify PRU1 is executing its command loop
 	mailbox->arm2pru_req = ARM2PRU_NOP;
 	timeout.wait_ms(1);
-	if (mailbox->arm2pru_req != ARM2PRU_NONE)  {
+	if (mailbox->arm2pru_req != ARM2PRU_NONE) {
 		FATAL("PRU1 is not executing its command loop");
 		goto error;
 	}

@@ -9,13 +9,18 @@ m i			# install max UNIBUS memory
 # Deposit bootloader into memory
 m ll dk.lst
 
-sd rk0			# select drive #0
+en rk			# enable RK11 controller
+
+en rk0			# enable drive #0
+sd rk0			# select
 p image v6bin.rk
 
-sd rk1			# select drive #1
+en rk1			# enable drive #1
+sd rk1			# select
 p image v6doc.rk
 
-sd rk2			# select drive #2
+en rk2			# enable drive #2
+sd rk2			# select
 p image v6src.rk
 
 .print Disk drive now on track after 5 secs

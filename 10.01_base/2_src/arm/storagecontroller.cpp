@@ -48,7 +48,7 @@ bool storagecontroller_c::on_param_changed(parameter_c *param) {
 			// on enable, leave them disabled (user may decide which to use)
 			for (unsigned i = 0; i < drivecount; i++)
 				storagedrives[i]->enabled.set(false);
-	} 
+	}
 	return unibusdevice_c::on_param_changed(param); // more actions (for enable)
 }
 

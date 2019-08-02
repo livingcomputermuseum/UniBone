@@ -6,7 +6,8 @@ dc			# "device with cpu" menu
 
 m i   			# emulate missing memory
 
-sd cpu20		# selected emualted 11/20 CPU
+en cpu20		# switch on emulated 11/20 CPU
+sd cpu20		# select
 
 m ll serial.lst		# load test program
 

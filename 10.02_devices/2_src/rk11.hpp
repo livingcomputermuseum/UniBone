@@ -14,6 +14,7 @@
 using namespace std;
 
 #include "utils.hpp"
+#include "unibusadapter.hpp"
 #include "unibusdevice.hpp"
 #include "storagecontroller.hpp"
 #include "rk05.hpp"
@@ -149,6 +150,12 @@ private:
        Worker_Finish = 2,
     } _worker_state;
 
+	// Unibusadapter: RK11 has one INTR and DMA
+	// should be merged with RK11::DMARequest
+	dma_request_c dma_request = dma_request_c(this) ; // operated by unibusadapter
+	intr_request_c intr_request = intr_request_c(this) ;
+
+	
 public:
 
     rk11_c();

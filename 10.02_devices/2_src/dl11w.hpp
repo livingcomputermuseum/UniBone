@@ -44,20 +44,22 @@ using namespace std;
 #define DL11A 1
 #if DL11A // console (teletype keyboard & printer)
 #define SLU_ADDR	0777560
+#define SLU_SLOT	1	// Close to CPU.  RCV, also SLOT+1 is used for XMT
 #define SLU_LEVEL	04
 #define SLU_VECTOR	060	// RCV +0, XMT +4
 #elif DL11B // paper tape punch and reader
+#define SLU_SLOT	1	// Close to CPU.  RCV, also SLOT+1 is used for XMT
 #define SLU_ADDR	0777550
 #define SLU_LEVEL	04
 #define SLU_VECTOR	070
 #else // other serial device
 #define SLU_ADDR	0776500
+#define SLU_SLOT	1	// Close to CPU.  RCV, also SLOT+1 is used for XMT
 #define SLU_LEVEL	04
 #define SLU_VECTOR	0300
 #endif
-//#define LTC_ADDR	0777546
-// moved here to avoid clash with physical LTC installed
-#define LTC_ADDR	0777544
+#define LTC_ADDR	0777546
+#define LTC_SLOT	(SLU_SLOT+2) 
 #define LTC_LEVEL   06
 #define LTC_VECTOR  0100
 
@@ -92,10 +94,6 @@ enum slu_reg_index {
 	slu_idx_rcsr = 0, slu_idx_rbuf, slu_idx_xcsr, slu_idx_xbuf, slu_idx_count,
 };
 
-enum ltc_reg_index {
-	ltc_idx_lks = 0, ltc_idx_count,
-};
-
 // ------------------------------------------ SLU -----------------------------
 class slu_c: public unibusdevice_c {
 private:
@@ -105,6 +103,10 @@ private:
 	unibusdevice_register_t *reg_rbuf;
 	unibusdevice_register_t *reg_xcsr;
 	unibusdevice_register_t *reg_xbuf;
+
+	// two interrupts of same level, need slot and slot+1
+	intr_request_c rcvintr_request = intr_request_c(this);
+	intr_request_c xmtintr_request = intr_request_c(this);
 
 	/*** SLU is infact 2 independend devices: RCV and XMT ***/
 	pthread_cond_t on_after_rcv_register_access_cond = PTHREAD_COND_INITIALIZER;
@@ -120,8 +122,7 @@ private:
 	uint8_t rcv_buffer;bool rcv_rdr_enb; // reader enable. Cleared by receive or init
 
 	pthread_cond_t on_after_xmt_register_access_cond = PTHREAD_COND_INITIALIZER;
-	pthread_mutex_t on_after_xmt_register_access_mutex = PTHREAD_MUTEX_INITIALIZER;
-	bool xmt_ready;// transmitter ready. INTR,  cleared on XBUF access
+	pthread_mutex_t on_after_xmt_register_access_mutex = PTHREAD_MUTEX_INITIALIZER;bool xmt_ready; // transmitter ready. INTR,  cleared on XBUF access
 	bool xmt_intr_enable; // receiver interrupt enabled
 
 	bool xmt_maint; // set 1 for local loop back
@@ -129,10 +130,12 @@ private:
 	uint8_t xmt_buffer;
 
 	// convert between register ansd state variables	
-	void set_rcsr_dati_value(void);
+	bool get_rcv_intr_level(void);bool get_xmt_intr_level(void);
+
+	void set_rcsr_dati_value_and_INTR(void);
 	void eval_rcsr_dato_value(void);
 	void set_rbuf_dati_value(void);
-	void set_xcsr_dati_value(void);
+	void set_xcsr_dati_value_and_INTR(void);
 	void eval_xcsr_dato_value(void);
 	void eval_xbuf_dato_value(void);
 
@@ -144,7 +147,7 @@ public:
 	//parameter_string_c   ip_host = parameter_string_c(  this, "SLU socket IP host", "host", /*readonly*/ false, "ip hostname");
 	//parameter_unsigned_c ip_port = parameter_unsigned_c(this, "SLU socket IP serialport", "serialport", /*readonly*/ false, "", "%d", "ip serialport", 32, 10);
 	parameter_string_c serialport = parameter_string_c(this, "serialport", "p", /*readonly*/
-			false, "Linux serial port: \"ttyS1\" or \"ttyS2\"");
+	false, "Linux serial port: \"ttyS1\" or \"ttyS2\"");
 
 	parameter_unsigned_c baudrate = parameter_unsigned_c(this, "baudrate", "b", /*readonly*/
 	false, "", "%d", "Baudrate: 110, 300, ... 38400", 38400, 10);
@@ -153,8 +156,8 @@ public:
 	parameter_string_c mode = parameter_string_c(this, "mode", "m", /*readonly*/false,
 			"Mode: 8N1, 7E1, ... ");
 
-	parameter_bool_c error_bits_enable = parameter_bool_c(this, "errorbits", "eb", /*readonly*/false,
-			"Enable error bits (M7856 SW4-7)");
+	parameter_bool_c error_bits_enable = parameter_bool_c(this, "errorbits", "eb", /*readonly*/
+	false, "Enable error bits (M7856 SW4-7)");
 
 	parameter_bool_c break_enable = parameter_bool_c(this, "break", "b", /*readonly*/false,
 			"Enable BREAK transmission (M7856 SW4-1)");
@@ -200,19 +203,25 @@ private:
 
 	unibusdevice_register_t *reg_lks;
 
+	// KW11 has one interrupt
+	intr_request_c intr_request = intr_request_c(this);
+
+	bool clock_signal; // value of 50Hz square wave signal
+	bool intr_enable; // interrupt enable, LKS bit 6
+	bool intr_monitor ; // LKS bit 7
+
+	bool get_intr_signal_level(void);
+	void set_lks_dati_value_and_INTR(void);
+
 public:
 
 	ltc_c();
 	~ltc_c();
 
-	parameter_unsigned_c lks = parameter_unsigned_c(this, "Line Clock Status Register", "lks", /*readonly*/
-	false, "", "%o", "Internal state", 32, 8);
-	parameter_bool_c lke = parameter_bool_c(this, "LKS timer enable", "lke",/*readonly*/false,
-			"1 = enable update of LKS_IMON by timer");
-	parameter_bool_c ltc_input = parameter_bool_c(this, "LTC input enable", "ltc",/*readonly*/
-	false, "1 = enable update of LKS_IMON by LTC Input");
-	parameter_bool_c ltc_interrupt_enable = parameter_bool_c(this, "LTC interrupt enable",
-			"lie",/*readonly*/false, "1 = enable interrupt");
+	parameter_unsigned_c frequency = parameter_unsigned_c(this, "Line clock frequency", "freq", /*readonly*/
+	false, "", "%d", "50/60 Hz", 32, 10);
+	parameter_bool_c ltc_enable = parameter_bool_c(this, "LTC input enable", "ltc",/*readonly*/
+	false, "1 = enable update of LKS by LTC Input");
 
 	// background worker function
 	void worker(unsigned instance) override;
@@ -224,10 +233,6 @@ public:
 	bool on_param_changed(parameter_c *param) override;  // must implement
 	void on_power_changed(void) override;
 	void on_init_changed(void) override;
-	/*
-	 void change_state(unsigned new_state);
-	 void do_command_done(void);
-	 */
 };
 
 #endif

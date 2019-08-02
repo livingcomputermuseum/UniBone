@@ -43,7 +43,7 @@
 #include "unibusdevice.hpp"
 
 #define PROGNAME	"demo"
-#define VERSION	"v1.1.0"
+#define VERSION	"v1.5.0"
 
 class application_c: public logsource_c {
 public:
@@ -68,18 +68,26 @@ public:
 	void parse_commandline(int argc, char **argv);
 
 	void hardware_startup(enum pru_c::prucode_enum prucode_id);
+	void hardware_startup(enum pru_c::prucode_enum prucode_id,
+			enum unibus_c::arbitration_mode_enum arbitration_mode);
+
 	void hardware_shutdown(void);
 
 	// UniBone should emulate this address range
 	uint32_t emulated_memory_start_addr;
 	uint32_t emulated_memory_end_addr;
 
-	void print_arbitration_info(enum unibus_c::arbitration_mode_enum arbitration_mode, const char *indent);
-	char *getchoice(void);
-    bool emulate_memory(enum unibus_c::arbitration_mode_enum arbitration_mode);
+	void print_arbitration_info(enum unibus_c::arbitration_mode_enum arbitration_mode,
+			const char *indent);
+	char *getchoice(void);bool emulate_memory(
+			enum unibus_c::arbitration_mode_enum arbitration_mode);
 	void print_params(parameterized_c *parameterized, parameter_c *p);
 
 	unibusdevice_register_t * device_register_by_id(unibusdevice_c *device, char *specifier);
+
+	bool parse_word(char *txt, uint16_t *word);bool parse_addr18(char *txt, uint32_t *addr);bool parse_level(
+			char *txt, uint8_t *level);bool parse_vector(char *txt, uint16_t max_vector,
+			uint16_t *vector);bool parse_slot(char *txt, uint8_t *priority_slot);
 
 	void menu_info(void);
 	void menu_gpio(void);

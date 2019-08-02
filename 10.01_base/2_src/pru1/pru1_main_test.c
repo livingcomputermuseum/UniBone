@@ -38,6 +38,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 #include <pru_cfg.h>
 #include "resource_table_empty.h"
 
@@ -57,9 +58,9 @@
 #include "pru1_statemachine_init.h"
 #include "pru1_statemachine_powercycle.h"
 
-// supress warnigns about using void * as fucntion pinters
-//	sm_slave_state = (statemachine_state_func)&sm_slave_start;
-	// while (sm_slave_state = sm_slave_state()) << usage
+// Supress warnings about using void * as function pointers
+//		sm_slave_state = (statemachine_state_func)&sm_slave_start;
+// while (sm_slave_state = sm_slave_state()) << usage
 #pragma diag_push
 #pragma diag_remark=515
 
@@ -68,7 +69,7 @@ void main(void) {
 	/* Clear SYSCFG[STANDBY_INIT] to enable OCP master port */
 	CT_CFG.SYSCFG_bit.STANDBY_INIT = 0;
 
-	timeout_init() ;
+	timeout_init();
 
 	// clear all tables, as backup if ARM fails todo
 	iopageregisters_init();
@@ -76,10 +77,7 @@ void main(void) {
 	buslatches_reset(); // all deasserted
 
 	// init mailbox
-	mailbox.arm2pru_req = ARM2PRU_NONE;
-	mailbox.events.eventmask = 0;
-	mailbox.events.initialization_signals_prev = 0;
-	mailbox.events.initialization_signals_cur = 0;
+	memset((void *) &mailbox, 0, sizeof(mailbox));
 
 	while (1) {
 		// display opcode (active for one cycle
@@ -107,7 +105,7 @@ void main(void) {
 			__halt(); // that's it
 			break;
 #ifdef USED
-		case ARM2PRU_MAILBOXTEST1:
+			case ARM2PRU_MAILBOXTEST1:
 			// simulate a register read access.
 #ifdef TEST_TIMEOUT
 			while (1) {
@@ -128,8 +126,8 @@ void main(void) {
 			// pru_pru_mailbox.pru0_r30 = mailbox.mailbox_test.addr & 0xff;
 			// __R30 = (mailbox.mailbox_test.addr & 0xf) << 8;
 			mailbox.mailbox_test.val = mailbox.mailbox_test.addr;
-			__R30 = (mailbox.arm2pru_req & 0xf) << 8; // optical ACK
-			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+			__R30 = (mailbox.arm2pru_req & 0xf) << 8;// optical ACK
+			mailbox.arm2pru_req = ARM2PRU_NONE;// ACK: done
 			break;
 #endif
 		case ARM2PRU_BUSLATCH_INIT: // set all mux registers to "neutral"
@@ -159,10 +157,10 @@ void main(void) {
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
 		}
-	case ARM2PRU_BUSLATCH_EXERCISER: 	// exercise 8 byte accesses to mux registers
-		buslatches_exerciser() ;
-		mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
-		break ;
+		case ARM2PRU_BUSLATCH_EXERCISER: 	// exercise 8 byte accesses to mux registers
+			buslatches_exerciser();
+			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+			break;
 
 		case ARM2PRU_BUSLATCH_TEST: {
 			buslatches_test(mailbox.buslatch_test.addr_0_7, mailbox.buslatch_test.addr_8_15,
@@ -171,33 +169,33 @@ void main(void) {
 			break;
 		}
 		case ARM2PRU_INITPULSE: // generate a pulse on UNIBUS INIT
-		// INIT: latch[7], bit 3
+			// INIT: latch[7], bit 3
 			buslatches_setbits(7, BIT(3), BIT(3)); // assert INIT
 			__delay_cycles(MILLISECS(250)); // INIT is 250ms
 			buslatches_setbits(7, BIT(3), 0); // deassert INIT
-				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
 
 		case ARM2PRU_POWERCYCLE: // do ACLO/DCLO power cycle
 			buslatches_powercycle();
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
-		case ARM2PRU_DMA_ARB_NONE: {
+		case ARM2PRU_DMA: {
 			// without NPR/NPG arbitration
-			statemachine_state_func sm_dma_state = (statemachine_state_func)&sm_dma_start;
+			statemachine_state_func sm_dma_state = (statemachine_state_func) &sm_dma_start;
 			// simply call current state function, until stopped
 			// parallel the BUS-slave statemachine is triggered
 			// by master logic.
 			while (sm_dma_state = sm_dma_state())
 				;
-			}
+		}
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
 		case ARM2PRU_DDR_FILL_PATTERN:
 			ddrmem_fill_pattern();
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
-		case ARM2PRU_DDR_SLAVE_MEMORY: 
+		case ARM2PRU_DDR_SLAVE_MEMORY:
 			// respond to UNIBUS cycles as slave and
 			// access DDR as UNIBUS memory.
 
@@ -207,7 +205,8 @@ void main(void) {
 			// do UNIBUS slave cycles, until ARM abort this by
 			// writing into mailbox.arm2pru_req
 			while (mailbox.arm2pru_req == ARM2PRU_DDR_SLAVE_MEMORY) {
-				statemachine_state_func sm_slave_state = (statemachine_state_func)&sm_slave_start;
+				statemachine_state_func sm_slave_state =
+						(statemachine_state_func) &sm_slave_start;
 				// do all states of an access, start when MSYN found.
 				while (sm_slave_state = sm_slave_state())
 					;

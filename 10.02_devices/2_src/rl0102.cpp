@@ -634,7 +634,7 @@ bool RL0102_c::cmd_write_next_sector_data(uint16_t *buffer, unsigned buffer_size
 
 // thread
 void RL0102_c::worker(unsigned instance) {
-	UNUSED(instance) ; // only one
+	UNUSED(instance); // only one
 	timeout_c timeout;
 
 	// set prio to RT, but less than RL11 controller

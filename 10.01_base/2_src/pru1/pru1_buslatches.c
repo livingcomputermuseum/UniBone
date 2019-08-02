@@ -352,8 +352,6 @@ void buslatches_test(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
 	// spruh73n, chapter 4.4.1.2.3.2,
 	CT_CFG.GPCFG1_bit.PRU1_GPI_MODE = 0;
 
-	DEBUG_PIN_SET(0); // clear, no error
-
 #ifdef TEST_66MHZ
 	while (1) {
 		__R30 |= (1 << 12); // set PRU1.12
@@ -396,16 +394,16 @@ void buslatches_test(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
 		uint8_t resvar;
 		// echo DATA0 read only
 		buslatches_test_get(2,resvar);
-		DEBUG_PIN_SET(buslatches_getbyte(2) != a);
+		PRU_DEBUG_PIN(buslatches_getbyte(2) != a);
 		// buslatches_debug_set(resvar & 1);
 		buslatches_test_get(3,resvar);
-		DEBUG_PIN_SET(buslatches_getbyte(3) != b);
+		PRU_DEBUG_PIN(buslatches_getbyte(3) != b);
 		//buslatches_debug_set(resvar & 1);
 		buslatches_test_get(5,resvar);
-		DEBUG_PIN_SET(buslatches_getbyte(5) != c);
+		PRU_DEBUG_PIN(buslatches_getbyte(5) != c);
 		//buslatches_debug_set(resvar & 1);
 		buslatches_test_get(6,resvar);
-		DEBUG_PIN_SET(buslatches_getbyte(6) != d);
+		PRU_DEBUG_PIN(buslatches_getbyte(6) != d);
 		//buslatches_debug_set(resvar & 1);
 	}
 #endif
@@ -423,16 +421,16 @@ void buslatches_test(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
 		buslatches_setbyte(5, c)
 		;
 		if (buslatches_getbyte(2) != a)
-		DEBUG_PIN_PULSE_100NS
+		PRU_DEBUG_PIN_PULSE_100NS
 		;// show error flag. cleared by next reg_sel
 		buslatches_setbyte(6, d)
 		;
 		if (buslatches_getbyte(3) != b)
-		DEBUG_PIN_PULSE_100NS;
+		PRU_DEBUG_PIN_PULSE_100NS;
 		if (buslatches_getbyte(5) != c)
-		DEBUG_PIN_PULSE_100NS;
+		PRU_DEBUG_PIN_PULSE_100NS;
 		if (buslatches_getbyte(6) != d)
-		DEBUG_PIN_PULSE_100NS;
+		PRU_DEBUG_PIN_PULSE_100NS;
 		a++;
 		b++;
 		c++;

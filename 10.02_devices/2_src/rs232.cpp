@@ -227,7 +227,7 @@ int rs232_c::OpenComport(const char *devname, int baudrate, const char *mode,
 	 */
 	int iflag;
 	if (par_and_break)
-		iflag =  PARMRK | INPCK;
+		iflag = PARMRK | INPCK;
 	else
 		iflag = ipar;
 

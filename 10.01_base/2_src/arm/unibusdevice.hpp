@@ -33,9 +33,12 @@
 #include "device.hpp"
 
 #include "iopageregister.h"
+#include "priorityrequest.hpp"
 
+// forwards
 class unibusdevice_c;
-typedef struct {
+
+typedef struct unibusdevice_register_struct {
 	// backlink
 	unibusdevice_c *device;
 	char name[40]; // for display
@@ -77,33 +80,49 @@ typedef struct {
 } unibusdevice_register_t;
 
 class unibusdevice_c: public device_c {
+public:
+	static unibusdevice_c *find_by_request_slot(uint8_t priority_slot) ;
+
 private:
 	// setup address tables, also in shared memory
 	// start both threads
-	void install(void); 
+	void install(void);
 
-	void uninstall(void);
-	bool is_installed() {
+	void uninstall(void);bool is_installed() {
 		return (handle > 0);
 	}
 
 public:
 	uint8_t handle; // assigned by "unibus.adapter.register
 
+	// !!! slot, vector, level READONLY. If user shoudl change,
+	// !! add logic to update dma_request_c and intr_request_c
+
 	// 0 = not "Plugged" in to UNIBUS
 	parameter_unsigned_c base_addr = parameter_unsigned_c(this, "base_addr", "addr", true, "",
 			"%06o", "controller base address in IO page", 18, 8);
+	parameter_unsigned_c priority_slot = parameter_unsigned_c(this, "slot", "sl", true, "",
+			"%d", "backplane slot #, interrupt priority within one level, 0 = next to CPU", 16,
+			10);
+	// dump devices without buffers toward CPU, smart buffering devices other end
+
 	parameter_unsigned_c intr_vector = parameter_unsigned_c(this, "intr_vector", "iv", true, "",
 			"%03o", "interrupt vector address", 9, 8);
 	parameter_unsigned_c intr_level = parameter_unsigned_c(this, "intr_level", "il", true, "",
-			"%o", "interrupt bus request level", 3, 8);
+			"%o", "interrupt bus request level: 4,5,6,7", 3, 8);
 
 	// DEC defaults as defined by device type
 	uint32_t default_base_addr;
-	unsigned default_intr_vector;
-	unsigned default_intr_level;
-	void set_default_bus_params(uint32_t default_base_addr, unsigned default_intr_vector, unsigned default_intr_level) ;
-	
+	uint8_t default_priority_slot;
+	uint8_t default_intr_level;
+	uint16_t default_intr_vector;
+
+	// requests in use
+	std::vector<dma_request_c *> dma_requests;
+	std::vector<intr_request_c *> intr_requests;
+
+	void set_default_bus_params(uint32_t default_base_addr, unsigned default_priority_slot,
+			unsigned default_intr_vector, unsigned default_intr_level);
 
 	// controller register data as pointer to registers in shared PRU RAM
 	// UNIBUS addr of register[i] = base_addr + 2*i
@@ -131,10 +150,6 @@ public:
 	unibusdevice_register_t *register_by_name(string name);
 	unibusdevice_register_t *register_by_unibus_address(uint32_t addr);
 
-	// set an UNIBUS interrupt condition with parameters intr_vector and intr_level
-	void interrupt(void);
-	void interrupt(unsigned vector, unsigned level) ;
-
 	// callback to be called on controller register DATI/DATO events.
 	// must ACK mailbox.event.signal. Asynchron!
 	// May not generate direct INTR or DMA.
@@ -148,6 +163,8 @@ public:
 	pthread_mutex_t on_after_register_access_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 	void log_register_event(const char *change_info, unibusdevice_register_t *changed_reg);
+
+	char *get_unibus_resource_info(void) ;
 
 };
 

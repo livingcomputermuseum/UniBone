@@ -2,37 +2,37 @@
 
  Copyright (c) 2017, Joerg Hoppe, j_hoppe@t-online.de, www.retrocmp.com
 
-  All rights reserved.
+ All rights reserved.
 
-  Redistribution and use in source and binary forms, with or without
-  modification, are permitted provided that the following conditions
-  are met:
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
 
-  - Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
+ - Redistributions of source code must retain the above copyright
+ notice, this list of conditions and the following disclaimer.
 
-  - Redistributions in binary form must reproduce the above copyright
-    notice, this list of conditions and the following disclaimer in the
-    documentation and/or other materials provided with the distribution.
+ - Redistributions in binary form must reproduce the above copyright
+ notice, this list of conditions and the following disclaimer in the
+ documentation and/or other materials provided with the distribution.
 
-  - Neither the name of the copyright holder nor the names of its
-    contributors may be used to endorse or promote products derived from
-    this software without specific prior written permission.
+ - Neither the name of the copyright holder nor the names of its
+ contributors may be used to endorse or promote products derived from
+ this software without specific prior written permission.
 
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-  HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-  TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+ TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-  12-nov-2018  JH      entered beta phase
-  18-Jun-2017  JH      created
+ 12-nov-2018  JH      entered beta phase
+ 18-Jun-2017  JH      created
 
  */
 #define	_MEMORYIMAGE_CPP_
@@ -132,7 +132,7 @@ bool memoryimage_c::load_binary(const char *fname) {
 	unsigned wordidx, n;
 	fin = fopen(fname, "rb");
 	if (!fin) {
-		printf("%s\n",fileErrorText("Error opening file %s for read", fname));
+		printf("%s\n", fileErrorText("Error opening file %s for read", fname));
 		return false;
 	}
 	// try to read max address range, shorter files are OK
@@ -149,7 +149,7 @@ void memoryimage_c::save_binary(const char *fname, unsigned bytecount) {
 	unsigned n;
 	fout = fopen(fname, "wb");
 	if (!fout) {
-		printf("%s\n",fileErrorText("Error opening file %s for write", fname));
+		printf("%s\n", fileErrorText("Error opening file %s for write", fname));
 		return;
 	}
 	// try to read max address range, shorter files are OK
@@ -204,7 +204,7 @@ bool memoryimage_c::load_addr_value_text(const char *fname) {
 
 	fin = fopen(fname, "r");
 	if (!fin) {
-		printf("%s\n", fileErrorText("Error opening file %s for write", fname)) ;
+		printf("%s\n", fileErrorText("Error opening file %s for write", fname));
 		return false;
 	}
 	entry_address = MEMORY_ADDRESS_INVALID; // not known
@@ -467,7 +467,7 @@ bool memoryimage_c::load_macro11_listing(const char *fname, const char *entrylab
 		tokenidx = 0; // # of number processed
 		ready = false;
 		addr = 0;
-		line_addr = 0 ;
+		line_addr = 0;
 		while (!ready) {
 			while (*tp && isspace(*tp))
 				tp++; // skip white space
@@ -538,7 +538,7 @@ bool memoryimage_c::load_papertape(const char *fname) {
 	entry_address = MEMORY_ADDRESS_INVALID; // not yet known
 
 	stream_byte_index = 0;
-    block_byte_size = addr = 0 ; // -Wmaybe-uninitialized
+	block_byte_size = addr = 0; // -Wmaybe-uninitialized
 	while (!feof(fin)) {
 		b = fgetc(fin);
 		// ERROR("[0x%04x] state=%d b=0x%02x sum=0x%02x block_byte_idx=%d",

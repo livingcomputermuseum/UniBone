@@ -1,6 +1,13 @@
 # inputfile for demo to select a rl1 device in the "device test" menu.
 # Read in with command line option  "demo --cmdfile ..."
 d			# device test menu
+
+# first, make a serial port. Default ist
+# sd dl11
+# p p ttyS2		# use "UART2 connector
+# en dl11
+
+
 pwr
 .wait 3000		# wait for PDP-11 to reset
 m i			# install max UNIBUS memory
@@ -8,8 +15,11 @@ m i			# install max UNIBUS memory
 # Deposit bootloader into memory
 m ll dl.lst
 
+en rl			# enable RL11 controller
+
 # mount XXDP22 in RL02 #0 and start
-sd rl0			# select drive #0
+en rl0			# enable drive #0
+sd rl0			# select
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
 # set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
@@ -19,7 +29,8 @@ p runstopbutton 1	# press RUN/STOP, will start
 #.end
 
 # mount XXDP25 in RL02 #1 and start
-sd rl1			# select drive #1
+en rl1			# enable drive #1
+sd rl1			# select
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
 # set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
@@ -28,7 +39,8 @@ p image xxdp25.rl02 	# mount image file with test pattern
 p runstopbutton 1	# press RUN/STOP, will start
 
 # mount scratch2 in RL02 #2 and start
-sd rl2			# select drive #2
+en rl2			# enable drive #2
+sd rl2			# select
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
 # set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
@@ -37,7 +49,8 @@ p image scratch2.rl02 	# mount image file with test pattern
 p runstopbutton 1	# press RUN/STOP, will start
 
 # mount scratch3 in RL02 #3 and start
-sd rl3			# select drive #3
+en rl3			# enable drive #3
+sd rl3			# select
 p emulation_speed 10	# 10x speed. Load disk in 5 seconds
 # set type to "rl02"
 p runstopbutton 0	# released: "LOAD"

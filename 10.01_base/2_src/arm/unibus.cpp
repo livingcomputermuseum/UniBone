@@ -20,7 +20,7 @@
  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-
+ jul-2019     JH      rewrite: multiple parallel arbitration levels
  12-nov-2018  JH      entered beta phase
  */
 
@@ -40,6 +40,8 @@
 #include "memoryimage.hpp"
 #include "mailbox.h" // for test of PRU code
 #include "utils.hpp" // for test of PRU code
+#include "unibusadapter.hpp" // DMA, INTR
+
 #include "unibus.h"
 
 /* Singleton */
@@ -47,8 +49,14 @@ unibus_c *unibus;
 
 unibus_c::unibus_c() {
 	log_label = "UNIBUS";
-	dma_bandwidth_percent = 50;
-	dma_wordcount = MAX_DMA_WORDCOUNT;
+	dma_request = new dma_request_c(NULL);
+	// priority backplane slot # for helper DMA not important, as typically used stand-alone
+	// (no other devioces on the backplane active, except perhaps "testcontroller")
+	dma_request->set_priority_slot(16);
+}
+
+unibus_c::~unibus_c() {
+	delete dma_request;
 }
 
 /* return a 16 bit result, or TIMEOUT
@@ -96,40 +104,31 @@ void unibus_c::init(void) {
 	 timeout.wait_ms(duration_ms);
 	 buslatches_setval(7, BIT(3), 0);
 	 */
-	mailbox_execute(ARM2PRU_INITPULSE, ARM2PRU_NONE);
+	mailbox_execute(ARM2PRU_INITPULSE);
 }
 
 /* Simulate a power cycle
  */
 void unibus_c::powercycle(void) {
-	mailbox_execute(ARM2PRU_POWERCYCLE, ARM2PRU_NONE);
+	mailbox_execute(ARM2PRU_POWERCYCLE);
 }
 
-// do an UNIBUS INTR transaction with Arbitration by PDP-11 CPU
-// todo: ARBITRATOR_MASTER?
-void unibus_c::interrupt(uint8_t priority, uint16_t vector) {
-	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
-	switch (priority) {
-	case 4:
-		mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B4;
+void unibus_c::set_arbitration_mode(arbitration_mode_enum arbitration_mode) {
+	// switch pru to desired mode
+	switch (arbitration_mode) {
+	case unibus_c::ARBITRATION_MODE_NONE:
+		mailbox_execute(ARM2PRU_ARB_MODE_NONE);
 		break;
-	case 5:
-		mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B5;
+	case unibus_c::ARBITRATION_MODE_CLIENT:
+		mailbox_execute(ARM2PRU_ARB_MODE_CLIENT);
 		break;
-	case 6:
-		mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B6;
-		break;
-	case 7:
-		mailbox->intr.priority_bit = ARBITRATION_PRIORITY_BIT_B7;
+	case unibus_c::ARBITRATION_MODE_MASTER:
+		mailbox_execute(ARM2PRU_ARB_MODE_MASTER);
 		break;
 	default:
-		ERROR("unibus_interrupt(): Illegal priority %u, aborting", priority);
-		return;
+		printf("Illegal arbitration_mode  %d\n", (int) arbitration_mode);
+		exit(1);
 	}
-	mailbox->intr.vector = vector;
-	// mail last infinite, if processor priority above "priority"
-	// timeout ??
-	mailbox_execute(ARM2PRU_INTR, ARM2PRU_NONE);
 }
 
 // do a DMA transaction with or without abritration (arbitration_client)
@@ -137,36 +136,19 @@ void unibus_c::interrupt(uint8_t priority, uint16_t vector) {
 // if result = timeout: =
 // 0 = bus time, error address =  mailbox->dma.cur_addr
 // 1 = all transfered
-bool unibus_c::dma(enum unibus_c::arbitration_mode_enum arbitration_mode, uint8_t control,
-		uint32_t startaddr, unsigned blocksize) {
+// A limit for time used by DMA can be compiled-in
+bool unibus_c::dma(enum unibus_c::arbitration_mode_enum arbitration_mode, bool blocking,
+		uint8_t control, uint32_t startaddr, uint16_t *buffer, unsigned wordcount) {
+	int dma_bandwidth_percent = 50; // use 50% of time for DMA, rest for running PDP-11 CPU
 	uint64_t dmatime_ns, totaltime_ns;
-	uint8_t dma_opcode = ARBITRATION_MODE_NONE; // inihibit compiler warnings
 
 	// can access bus with DMA when there's a Bus Arbitrator
 	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
-// TODO: assert pru->prucode_features & (PRUCODE_FEATURE_DMA) ???
-	// TODO: Arbitration Master waits for SACK, 11/34 blocks?
 
-	mailbox->dma.startaddr = startaddr;
-	mailbox->dma.control = control;
-	mailbox->dma.wordcount = blocksize;
+	set_arbitration_mode(arbitration_mode); // changes PRU behaviour
+
 	timeout.start(0); // no timeout, just running timer
-
-	switch (arbitration_mode) {
-	case unibus_c::ARBITRATION_MODE_NONE:
-		dma_opcode = ARM2PRU_DMA_ARB_NONE;
-		break;
-	case unibus_c::ARBITRATION_MODE_CLIENT:
-		dma_opcode = ARM2PRU_DMA_ARB_CLIENT;
-		break;
-	case unibus_c::ARBITRATION_MODE_MASTER:
-		dma_opcode = ARM2PRU_DMA_ARB_MASTER;
-		break;
-	default:
-		FATAL("Illegal arbitration_mode");
-	}
-	// wait until PRU ready
-	mailbox_execute(dma_opcode, ARM2PRU_NONE);
+	unibusadapter->DMA(*dma_request, blocking, control, startaddr, buffer, wordcount);
 
 	dmatime_ns = timeout.elapsed_ns();
 	// wait before next transaction, to reduce Unibus bandwidth
@@ -176,31 +158,26 @@ bool unibus_c::dma(enum unibus_c::arbitration_mode_enum arbitration_mode, uint8_
 	// 25% -> total = 4* dma
 	totaltime_ns = (dmatime_ns * 100) / dma_bandwidth_percent;
 	// whole transaction requires totaltime, dma already done
-//INFO("DMA time= %lluus, waiting %lluus", dmatime_ns/1000, (totaltime_ns - dmatime_ns)/1000) ;
 	timeout.wait_ns(totaltime_ns - dmatime_ns);
 
-	return (mailbox->dma.cur_status == DMA_STATE_READY);
-	// all other end states are errors, only error is bus timeout
+	return dma_request->success; // only useful if blocking
 }
 
 /* scan unibus addresses ascending from 0.
  * Stop on error, return first invalid address
  * return 0: no memory found at all
  * arbitration_active: if 1, perform NPR/NPG/SACK arbitration before mem accesses
+ * words[]: buffer for whole UNIBUS address range, is filled with data
  */
 uint32_t unibus_c::test_sizer(enum unibus_c::arbitration_mode_enum arbitration_mode) {
 	// tests chunks of 128 word
-	bool timeout;
 	unsigned addr = 0;
-	//SET_DEBUG_PIN0(0) ;
-	do {
-		// printf("unibus_test_sizer(): %06o..%06o\n", addr, addr+2*unibus_dma_wordcount-2) ;
-		timeout = !dma(arbitration_mode, UNIBUS_CONTROL_DATI, addr, dma_wordcount);
-		addr += 2 * dma_wordcount; // prep for next round
-	} while (!timeout);
-	//SET_DEBUG_PIN0(1) ; // signal end
-	//SET_DEBUG_PIN0(0) ;
-	return mailbox->dma.cur_addr; // first non implemented address
+
+	set_arbitration_mode(arbitration_mode); // changes PRU behaviour
+	// one big transaction, automatically split in chunks
+	unibusadapter->DMA(*dma_request, true, UNIBUS_CONTROL_DATI, addr, testwords,
+	UNIBUS_WORDCOUNT);
+	return dma_request->unibus_end_addr; // first non implemented address
 }
 
 /*
@@ -213,32 +190,15 @@ uint32_t unibus_c::test_sizer(enum unibus_c::arbitration_mode_enum arbitration_m
 //
 // DMA blocksize can be choosen arbitrarily
 void unibus_c::mem_write(enum unibus_c::arbitration_mode_enum arbitration_mode, uint16_t *words,
-		unsigned start_addr, unsigned end_addr, unsigned block_wordcount,
-		bool *timeout) {
-	unsigned block_start_addr = 0;
-	unsigned n;
+		unsigned unibus_start_addr, unsigned unibus_end_addr, bool *timeout) {
+	unsigned wordcount = (unibus_end_addr - unibus_start_addr) / 2 + 1;
+	uint16_t *buffer_start_addr = words + unibus_start_addr / 2;
 	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
-	assert(block_wordcount <= MAX_DMA_WORDCOUNT);
-	*timeout = 0;
-	for (block_start_addr = start_addr; !*timeout && block_start_addr <= end_addr;
-			block_start_addr += 2 * block_wordcount) {
-		// trunc last block
-		n = (end_addr - block_start_addr) / 2 + 1; // words left until memend
-		if (n < block_wordcount)
-			block_wordcount = n; //trunc last buffer
-		// fill data into dma buffer
-		memcpy((void*) (mailbox->dma.words), (void*) (words + block_start_addr / 2),
-				2 * block_wordcount);
-		/*		for (n = 0; n < block_wordcount; n++) {
-		 cur_addr = block_start_addr + 2 * n;
-		 mailbox->dma.words[n] = words[cur_addr / 2];
-		 }
-		 */*timeout = !dma(arbitration_mode, UNIBUS_CONTROL_DATO, block_start_addr,
-				block_wordcount);
-		if (*timeout) {
-			printf("\nWrite timeout @ 0%6o\n", mailbox->dma.cur_addr);
-			return;
-		}
+	*timeout = !dma(arbitration_mode, true, UNIBUS_CONTROL_DATO, unibus_start_addr,
+			buffer_start_addr, wordcount);
+	if (*timeout) {
+		printf("\nWrite timeout @ 0%6o\n", mailbox->dma.cur_addr);
+		return;
 	}
 }
 
@@ -247,34 +207,54 @@ void unibus_c::mem_write(enum unibus_c::arbitration_mode_enum arbitration_mode, 
 // DMA blocksize can be choosen arbitrarily
 // arbitration_active: if 1, perform NPR/NPG/SACK arbitration before mem accesses
 void unibus_c::mem_read(enum unibus_c::arbitration_mode_enum arbitration_mode, uint16_t *words,
-		uint32_t start_addr, uint32_t end_addr, unsigned block_wordcount,
-		bool *timeout) {
-	unsigned block_start_addr = 0;
-	unsigned n;
+		uint32_t unibus_start_addr, uint32_t unibus_end_addr, bool *timeout) {
+	unsigned wordcount = (unibus_end_addr - unibus_start_addr) / 2 + 1;
+	uint16_t *buffer_start_addr = words + unibus_start_addr / 2;
 	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
-	assert(block_wordcount <= MAX_DMA_WORDCOUNT);
 
-	*timeout = 0;
-	for (block_start_addr = start_addr; !*timeout && block_start_addr <= end_addr;
-			block_start_addr += 2 * block_wordcount) {
-		// trunc last block
-		n = (end_addr - block_start_addr) / 2 + 1; // words left until memend
-		if (n < block_wordcount)
-			block_wordcount = n; //trunc last buffer
-		*timeout = !dma(arbitration_mode, UNIBUS_CONTROL_DATI, block_start_addr,
-				block_wordcount);
+	*timeout = !dma(arbitration_mode, true, UNIBUS_CONTROL_DATI, unibus_start_addr,
+			buffer_start_addr, wordcount);
+	if (*timeout) {
+		printf("\nRead timeout @ 0%6o\n", mailbox->dma.cur_addr);
+		return;
+	}
+}
+
+// read or write
+void unibus_c::mem_access_random(enum unibus_c::arbitration_mode_enum arbitration_mode,
+		uint8_t unibus_control, uint16_t *words, uint32_t unibus_start_addr,
+		uint32_t unibus_end_addr, bool *timeout, uint32_t *block_counter) {
+	uint32_t block_unibus_start_addr, block_unibus_end_addr;
+	// in average, make 16 sub transactions 
+	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
+	assert(unibus_control == UNIBUS_CONTROL_DATI || unibus_control == UNIBUS_CONTROL_DATO);
+	block_unibus_start_addr = unibus_start_addr;
+	// split transaction in random sized blocks
+	uint32_t max_block_wordcount = (unibus_end_addr - unibus_start_addr + 2) / 2;
+
+	do {
+		uint16_t *block_buffer_start = words + block_unibus_start_addr / 2;
+		uint32_t block_wordcount;
+		do {
+			block_wordcount = random32_log(max_block_wordcount);
+		} while (block_wordcount < 1);
+		assert(block_wordcount < max_block_wordcount);
+		// wordcount limited by "words left to transfer"
+		block_wordcount = std::min(block_wordcount,
+				(unibus_end_addr - block_unibus_start_addr) / 2 + 1);
+		block_unibus_end_addr = block_unibus_start_addr + 2 * block_wordcount - 2;
+		assert(block_unibus_end_addr <= unibus_end_addr);
+		(*block_counter) += 1;
+		// printf("%06d: %5u words %06o-0%06o\n", *block_counter, block_wordcount, block_unibus_start_addr, block_unibus_end_addr) ;
+		*timeout = !dma(arbitration_mode, true, unibus_control, block_unibus_start_addr,
+				block_buffer_start, block_wordcount);
 		if (*timeout) {
-			printf("\nRead timeout @ 0%6o\n", mailbox->dma.cur_addr);
+			printf("\n%s timeout @ 0%6o\n", control2text(unibus_control),
+					mailbox->dma.cur_addr);
 			return;
 		}
-		// move from DMA buffer into words[]
-		memcpy((void*) (words + block_start_addr / 2), (void*) (mailbox->dma.words),
-				2 * block_wordcount);
-		/*		for (n = 0; n < block_wordcount; n++) {
-		 cur_addr = block_start_addr + 2 * n;
-		 words[cur_addr / 2] = mailbox->dma.words[n];
-		 }
-		 */}
+		block_unibus_start_addr = block_unibus_end_addr + 2;
+	} while (block_unibus_start_addr <= unibus_end_addr);
 }
 
 // arbitration_active: if 1, perform NPR/NPG/SACK arbitration before mem accesses
@@ -285,7 +265,7 @@ void unibus_c::test_mem(enum unibus_c::arbitration_mode_enum arbitration_mode,
 	bool timeout = 0, mismatch = 0;
 	unsigned mismatch_count = 0;
 	uint32_t cur_test_addr;
-	unsigned block_wordcount;
+	unsigned pass_count = 0, total_read_block_count = 0, total_write_block_count = 0;
 
 	assert(pru->prucode_id == pru_c::PRUCODE_UNIBUS);
 
@@ -298,25 +278,28 @@ void unibus_c::test_mem(enum unibus_c::arbitration_mode_enum arbitration_mode,
 			testwords[cur_test_addr / 2] = (cur_test_addr >> 1) & 0xffff;
 		/**** 2. Write memory ****/
 		progress.put("W");  //info : full memory write
-		block_wordcount = 113; // something queer
-		mem_write(arbitration_mode, testwords, start_addr, end_addr, block_wordcount, &timeout);
+		mem_write(arbitration_mode, testwords, start_addr, end_addr, &timeout);
 
 		/**** 3. read until ^C ****/
 		while (!SIGINTreceived && !timeout && !mismatch_count) {
+			pass_count++;
+			if (pass_count % 10 == 0)
+				progress.putf(" %d ", pass_count);
+			total_write_block_count++; // not randomized
+			total_read_block_count++;
 			progress.put("R");
-			block_wordcount = 67; // something queer
 			// read back into unibus_membuffer[]
-			mem_read(arbitration_mode, membuffer->data.words, start_addr, end_addr,
-					block_wordcount, &timeout);
+			mem_read(arbitration_mode, membuffer->data.words, start_addr, end_addr, &timeout);
 			// compare
-			SET_DEBUG_PIN0(0) ;
 			for (mismatch_count = 0, cur_test_addr = start_addr; cur_test_addr <= end_addr;
 					cur_test_addr += 2) {
 				uint16_t cur_mem_val = membuffer->data.words[cur_test_addr / 2];
 				mismatch = (testwords[cur_test_addr / 2] != cur_mem_val);
 				if (mismatch) {
-					SET_DEBUG_PIN0(1) ; // trigger
-					SET_DEBUG_PIN0(0) ;
+					ARM_DEBUG_PIN0(1)
+					; // trigger
+					ARM_DEBUG_PIN0(0)
+					;
 				}
 				if (mismatch && ++mismatch_count <= MAX_ERROR_COUNT) // print only first errors
 					printf(
@@ -329,32 +312,39 @@ void unibus_c::test_mem(enum unibus_c::arbitration_mode_enum arbitration_mode,
 
 	case 2: // full write, full read
 		/**** 1. Full write generate test values */
+//		start_addr = 0;
+//		end_addr = 076;
 		while (!SIGINTreceived && !timeout && !mismatch_count) {
+			pass_count++;
+			if (pass_count % 10 == 0)
+				progress.putf(" %d ", pass_count);
+
 			for (cur_test_addr = start_addr; cur_test_addr <= end_addr; cur_test_addr += 2)
-				testwords[cur_test_addr / 2] = random24() & 0xffff;
+				testwords[cur_test_addr / 2] = random24() & 0xffff; // random
+//				testwords[cur_test_addr / 2] = (cur_test_addr >> 1) & 0xffff; // linear
+
 			progress.put("W");  //info : full memory write
-			block_wordcount = 97; // something queer
-			mem_write(arbitration_mode, testwords, start_addr, end_addr, block_wordcount,
-					&timeout);
+			mem_access_random(arbitration_mode, UNIBUS_CONTROL_DATO, testwords, start_addr,
+					end_addr, &timeout, &total_write_block_count);
 
 			if (SIGINTreceived || timeout)
 				break; // leave loop
 
 			// first full read
 			progress.put("R");  //info : full memory write
-			block_wordcount = 111; // something queer
 			// read back into unibus_membuffer[]
-			mem_read(arbitration_mode, membuffer->data.words, start_addr, end_addr,
-					block_wordcount, &timeout);
+			mem_access_random(arbitration_mode, UNIBUS_CONTROL_DATI, membuffer->data.words,
+					start_addr, end_addr, &timeout, &total_read_block_count);
 			// compare
-			SET_DEBUG_PIN0(0) ;
 			for (mismatch_count = 0, cur_test_addr = start_addr; cur_test_addr <= end_addr;
 					cur_test_addr += 2) {
 				uint16_t cur_mem_val = membuffer->data.words[cur_test_addr / 2];
 				mismatch = (testwords[cur_test_addr / 2] != cur_mem_val);
 				if (mismatch) {
-					SET_DEBUG_PIN0(1) ; // trigger
-					SET_DEBUG_PIN0(0) ;
+					ARM_DEBUG_PIN0(1)
+					; // trigger
+					ARM_DEBUG_PIN0(0)
+					;
 				}
 				if (mismatch && ++mismatch_count <= MAX_ERROR_COUNT) // print only first errors
 					printf(
@@ -370,44 +360,7 @@ void unibus_c::test_mem(enum unibus_c::arbitration_mode_enum arbitration_mode,
 		printf("Stopped by error: %stimeout, %d mismatches\n", (timeout ? "" : "no "),
 				mismatch_count);
 	else
-		printf("All OK!\n");
+		printf("All OK! Total %d passes, split into %d block writes and %d block reads\n",
+				pass_count, total_write_block_count, total_read_block_count);
 }
-
-#ifdef USED
-/* load a word buffer from file
- * words assumed to be little endian (LSB first)
- */
-void unibus_c::loadfromfile(char *fname, uint16_t *words, unsigned *bytecount) {
-	FILE *f;
-	unsigned n;
-	f = fopen(fname, "rb");
-	if (!f) {
-		ERROR("unibus_loadfromfile(): could not open file \"%s\" for read.", fname);
-		return;
-	}
-	// try to read max address range, shorter files are OK
-	n = fread((void *) words, 1, 2 * UNIBUS_WORDCOUNT, f);
-	fclose(f);
-	*bytecount = n;
-	INFO("Read %d bytes from \"%s\".", *bytecount, fname);
-}
-
-/* save a word buffer to file */
-void unibus_c::savetofile(char *fname, uint16_t *words, unsigned bytecount) {
-	FILE *f;
-	unsigned n;
-	f = fopen(fname, "w");
-	if (!f) {
-		ERROR("unibus_savetofile(): could not open file \"%s\" for write.", fname);
-		return;
-	}
-	n = fwrite((void *) words, 1, bytecount, f);
-	if (n != bytecount) {
-		ERROR("unibus_savetofile(): tried to write %u bytes, only %d successful.", bytecount,
-				n);
-	}
-	fclose(f);
-	INFO("Wrote %d bytes to \"%s\".", n, fname);
-}
-#endif
 

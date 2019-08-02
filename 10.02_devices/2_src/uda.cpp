@@ -46,7 +46,12 @@ uda_c::uda_c() :
     type_name.value = "UDA50";
     log_label = "uda";
 
-	set_default_bus_params(0772150, 0154, 5) ; // base addr, intr-vector, intr level
+	// base addr, intr-vector, intr level
+	set_default_bus_params(0772150, 20, 0154, 5) ;
+	dma_request.set_priority_slot(default_priority_slot) ;
+	intr_request.set_priority_slot(default_priority_slot) ;
+	intr_request.set_level(default_intr_level) ;
+	intr_request.set_vector(default_intr_vector) ;
 
     // The UDA50 controller has two registers.
     register_count = 2;
@@ -807,7 +812,7 @@ uda_c::Interrupt(void)
 {
     if ((_interruptEnable || _initStep == InitializationStep::Complete) && _interruptVector != 0)
     {
-        interrupt();
+        unibusadapter->INTR(intr_request, NULL, 0); // todo: link to interupt register
     }
 }
 
@@ -940,11 +945,12 @@ uda_c::DMAWrite(
     assert ((lengthInBytes % 2) == 0);
     assert (address < 0x40000);
 
-    return unibusadapter->request_client_DMA(
+    unibusadapter->DMA(dma_request, true,
             UNIBUS_CONTROL_DATO,
             address,
             reinterpret_cast<uint16_t*>(buffer),
-            lengthInBytes >> 1, NULL);
+            lengthInBytes >> 1);
+	return dma_request.success ;
 }
 
 //
@@ -971,13 +977,13 @@ uda_c::DMARead(
 
     memset(reinterpret_cast<uint8_t*>(buffer), 0xc3, bufferSize);
 
-    bool success = unibusadapter->request_client_DMA(
+    unibusadapter->DMA(dma_request, true,
                 UNIBUS_CONTROL_DATI,
                 address,
                 buffer,
-                lengthInBytes >> 1, NULL);
+                lengthInBytes >> 1);
 
-    if (success)
+    if (dma_request.success)
     { 
 	return reinterpret_cast<uint8_t*>(buffer);
     }

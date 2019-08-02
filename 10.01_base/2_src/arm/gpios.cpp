@@ -616,7 +616,7 @@ void buslatches_register() {
 // PRU1 does it
 void buslatches_pru_reset() {
 	assert(pru->prucode_id == pru_c::PRUCODE_TEST);
-	mailbox_execute(ARM2PRU_BUSLATCH_INIT, ARM2PRU_NONE);
+	mailbox_execute(ARM2PRU_BUSLATCH_INIT);
 }
 
 // read the REG_DATIN[0..7] pins
@@ -627,7 +627,7 @@ unsigned buslatches_getval(unsigned reg_sel) {
 	while (mailbox->buslatch.addr != reg_sel)
 		; // cache !
 
-	mailbox_execute(ARM2PRU_BUSLATCH_GET, ARM2PRU_NONE);
+	mailbox_execute(ARM2PRU_BUSLATCH_GET);
 
 	return mailbox->buslatch.val; // PRU1 has put the result here
 }
@@ -639,7 +639,7 @@ void buslatches_setval(unsigned reg_sel, unsigned bitmask, unsigned val) {
 	mailbox->buslatch.bitmask = bitmask & 0xff;
 	mailbox->buslatch.val = val;
 
-	mailbox_execute(ARM2PRU_BUSLATCH_SET, ARM2PRU_NONE);
+	mailbox_execute(ARM2PRU_BUSLATCH_SET);
 }
 
 // some pattern tests on a register latch
@@ -849,7 +849,7 @@ void buslatches_test_simple_pattern_multi(unsigned pattern) {
 		mailbox->buslatch_exerciser.pattern = (pass_no
 				% MAILBOX_BUSLATCH_EXERCISER_PATTERN_COUNT);
 
-		mailbox_execute(ARM2PRU_BUSLATCH_EXERCISER, ARM2PRU_NONE);
+		mailbox_execute(ARM2PRU_BUSLATCH_EXERCISER);
 
 		// check: mailbox readvalues == write values ?
 		for (unsigned i = 0; i < BUSLATCHES_COUNT; i++) {

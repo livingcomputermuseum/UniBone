@@ -46,6 +46,9 @@ public:
 	cpu_c();
 	~cpu_c();
 
+	// CPU accesses memory actively
+	dma_request_c dma_request = dma_request_c(this);
+
 	bool on_param_changed(parameter_c *param) override;  // must implement
 
 	parameter_bool_c runmode = parameter_bool_c(this, "run", "r",/*readonly*/

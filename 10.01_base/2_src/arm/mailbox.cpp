@@ -1,29 +1,28 @@
 /* mailbox.cpp: datastructs common to ARM and PRU
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   12-nov-2018  JH      entered beta phase
-*/
-
+ 12-nov-2018  JH      entered beta phase
+ */
 
 #define _MAILBOX_CPP_
 
@@ -39,8 +38,7 @@
 // is located in PRU 12kb shared memory.
 // address symbol "" fetched from linker map
 
-volatile mailbox_t *mailbox;
-
+volatile mailbox_t *mailbox = NULL;
 
 // Init all fields, most to 0's
 int mailbox_connect(void) {
@@ -57,7 +55,7 @@ int mailbox_connect(void) {
 
 	// now ARM and PRU can access the mailbox
 
-	memset((void*)mailbox, 0, sizeof(mailbox_t)) ;
+	memset((void*) mailbox, 0, sizeof(mailbox_t));
 
 	// tell PRU location of shared DDR RAM
 	mailbox->ddrmem_base_physical = (ddrmem_t *) ddrmem->base_physical;
@@ -65,11 +63,9 @@ int mailbox_connect(void) {
 	return 0;
 }
 
-
-
 void mailbox_print(void) {
 	printf("INFO: Content of mailbox to PRU:\n"
-	"arm2pru: req=0x%x, resp=0x%x\n", mailbox->arm2pru_req, mailbox->arm2pru_resp);
+			"arm2pru: req=0x%x, resp=0x%x\n", mailbox->arm2pru_req, mailbox->arm2pru_resp);
 }
 
 /* simulate simple register accesses:
@@ -103,21 +99,19 @@ void mailbox_test1() {
 }
 
 /* start cmd to PRU via mailbox. Wait until ready
- * mailbox union members must have been filled
+ * mailbox union members must have been filled.
  */
-uint32_t xxx ;
-void mailbox_execute(uint8_t request, uint8_t stopcode) {
+uint32_t xxx;
+void mailbox_execute(uint8_t request) {
 // write to arm2pru_req must be last memory operation
 	__sync_synchronize();
+	while (mailbox->arm2pru_req != ARM2PRU_NONE)
+		; // wait to complete
+
 	mailbox->arm2pru_req = request; // go!
 	do {
-			xxx = mailbox-> arm2pru_req ;
-if (mailbox->events.eventmask) {
-	// event not processed? will hang DMA.
-//	printf("WARNING: Unprocessed mailbox.events.eventmask = 0x%x\n", (unsigned) mailbox->events.eventmask) ;
-//	mailbox->events.eventmask = 0 ;
-}
-	} while (xxx != stopcode) ;
-	while (mailbox->arm2pru_req != stopcode)
+		xxx = mailbox->arm2pru_req;
+	} while (xxx != ARM2PRU_NONE);
+	while (mailbox->arm2pru_req != ARM2PRU_NONE)
 		; // wait until processed
 }

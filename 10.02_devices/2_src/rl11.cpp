@@ -136,7 +136,12 @@ RL11_c::RL11_c(void) :
 	type_name.value = "RL11";
 	log_label = "rl";
 
-	set_default_bus_params(0774400, 0160, 5) ; // base addr, intr-vector, intr level
+	// base addr, intr-vector, intr level
+	set_default_bus_params(0774400, 15, 0160, 5);
+	dma_request.set_priority_slot(default_priority_slot);
+	intr_request.set_priority_slot(default_priority_slot);
+	intr_request.set_level(default_intr_level);
+	intr_request.set_vector(default_intr_vector);
 
 	// add 4 RL disk drives
 	drivecount = 4;
@@ -201,7 +206,7 @@ bool RL11_c::on_param_changed(parameter_c *param) {
 			// disabled
 			disconnect_from_panel();
 		}
-	} 
+	}
 	return storagecontroller_c::on_param_changed(param); // more actions (for enable)
 }
 
@@ -506,16 +511,12 @@ void RL11_c::do_command_done(void) {
 		 * RDY interrupt too late and at wrong program position
 		 */
 //		worker_boost_realtime_priority();
-//		SET_DEBUG_PIN1(1)
-		;
-
 		change_state(RL11_STATE_CONTROLLER_READY);
 		// scheduler may inject time here, if called from low prio worker() !
 		// pending interrupt triggered
-		interrupt();
+		//TODO: connect to itnerrupt register busreg_CS
+		unibusadapter->INTR(intr_request, NULL, 0);
 		DEBUG("Interrupt!");
-//		SET_DEBUG_PIN1(0)
-		;
 //		worker_restore_realtime_priority();
 	} else
 		// no intr
@@ -723,26 +724,32 @@ void RL11_c::state_readwrite() {
 			//logger.debug_hexdump(LC_RL, "Read data between disk access and DMA",
 			//		(uint8_t *) silo, sizeof(silo), NULL);
 			// start DMA transmission of SILO into memory
-			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATO,
-					unibus_address, silo, dma_wordcount, &unibus_address);
+			unibusadapter->DMA(dma_request, true, UNIBUS_CONTROL_DATO, unibus_address, silo,
+					dma_wordcount);
+			error_dma_timeout = !dma_request.success;
+			unibus_address = dma_request.unibus_end_addr;
 		} else if (function_code == CMD_WRITE_CHECK) {
 			// read sector data to compare with sector data
 			drive->cmd_read_next_sector_data(silo, 128);
 			// logger.debug_hexdump(LC_RL, "Read data between disk access and DMA",
 			//		(uint8_t *) silo, sizeof(silo), NULL);
 			// start DMA transmission of memory to compare with SILO
-			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATI,
-					unibus_address, silo_compare, dma_wordcount, &unibus_address);
+			unibusadapter->DMA(dma_request, true, UNIBUS_CONTROL_DATI, unibus_address,
+					silo_compare, dma_wordcount);
+			error_dma_timeout = !dma_request.success;
+			unibus_address = dma_request.unibus_end_addr;
 		} else if (function_code == CMD_WRITE_DATA) {
 			// start DMA transmission of memory into SILO
-			error_dma_timeout = !unibusadapter->request_client_DMA(UNIBUS_CONTROL_DATI,
-					unibus_address, silo, dma_wordcount, &unibus_address);
+			unibusadapter->DMA(dma_request, true, UNIBUS_CONTROL_DATI, unibus_address, silo,
+					dma_wordcount);
+			error_dma_timeout = !dma_request.success;
+			unibus_address = dma_request.unibus_end_addr;
 		}
 
 		// request_client_DMA() was blocking, DMA processed now.
 		// unibus_address updated to last accesses address
 		unibus_address += 2; // was last address, is now next to fill
-		// if timeout: addr AFTER illegal address (verified)
+		// if timeout: yes, current addr is addr AFTER illegal address (verified)
 		update_unibus_address(unibus_address); // set addr msb to cs
 
 		if (error_dma_timeout) {
@@ -802,7 +809,7 @@ void RL11_c::state_readwrite() {
 // thread
 // excutes commands
 void RL11_c::worker(unsigned instance) {
-	UNUSED(instance) ; // only one
+	UNUSED(instance); // only one
 	assert(!pthread_mutex_lock(&on_after_register_access_mutex));
 
 	// set prio to RT, but less than unibus_adapter

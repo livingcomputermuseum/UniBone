@@ -121,7 +121,7 @@ public:
 	volatile uint16_t status_word; // visible to controller
 
 	parameter_unsigned_c rotation_umin = parameter_unsigned_c(this, "rotation", "rot",/*readonly*/
-			true, "rpm", "%d", "Current speed of disk", 32, 10);
+	true, "rpm", "%d", "Current speed of disk", 32, 10);
 	// RL0102_STATE_*. no enum, is param
 	parameter_unsigned_c state = parameter_unsigned_c(this, "state", "st", /*readonly*/
 	true, "", "%d", "Internal state", 32, 10);
@@ -138,9 +138,9 @@ public:
 	parameter_bool_c fault_lamp = parameter_bool_c(this, "faultlamp", "fl", /*readonly*/
 	true, "State of FAULT lamp");
 	parameter_bool_c writeprotect_lamp = parameter_bool_c(this, "writeprotectlamp", "wpl", /*readonly*/
-			true, "State of WRITE PROTECT lamp");
+	true, "State of WRITE PROTECT lamp");
 	parameter_bool_c writeprotect_button = parameter_bool_c(this, "writeprotectbutton", "wpb", /*readonly*/
-			false, "Writeprotect button pressed");
+	false, "Writeprotect button pressed");
 
 	// cover normally always "closed", need to get opened for ZRLI
 	parameter_bool_c cover_open = parameter_bool_c(this, "coveropen", "co", /*readonly*/

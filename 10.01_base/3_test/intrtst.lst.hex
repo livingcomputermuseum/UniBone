@@ -7,50 +7,57 @@
        7                                	; 1.1. print a start message,
        8                                	; 1.2. echoes chars typed to the output until ^C is hit
        9                                	;      Chars 0..7 set the new processor priority level.
-      10                                	; 1.3. prints an end message and HALTs.
+      10                                	; 1.3  prints an end message and HALTs.
       11                                	; 1.4. on CONT it repeats.
       12                                	;
       13                                	; 2. For INTR test, the 256 vectors 0,4,10,14,..374 each print
       14                                	; a string on interrupt.
-      15                                	;
-      16                                	; Contact: Joerg Hoppe / j_hoppe@t-online.de / www.retromcp.com
-      17                                
-      18  FF70h                         dladr	=	177560	; DL11 console base address
-      19  FFFEh                         psw	=	177776	; processor status
-      20                                
-      21                                
-      22                                	; count of automatically generated interrupt vectors
-      23  0040h                         veccnt	= 100
+      15                                	; In "Slow" mode, the ISR prints the vector directly
+      16                                	;	(ISR rountine > 100ms)
+      17                                	; In "Fast" mode, the ISR logs the vector in a list
+      18                                	;	(It can be printed later with "F"
+      19                                	;
+      20                                	; As alternative to input over DL11,
+      21                                	; "keyboard input chars" can be deposited into 7776
+      22                                	;
+      23                                	; Contact: Joerg Hoppe / j_hoppe@t-online.de / www.retromcp.com
       24                                
-      25                                	; ------- macro to define interrupt vector #<vecidx> ------
-      26                                	.macro vector	vecidx
-      27                                	.=4*vecidx	 ; vector #vecidx
-      28                                	.word	isr'vecidx	; new PC of ISR
-      29                                	.word	340		; new PSW: priority is max = 7
-      30                                	.endm
+      25  FF70h                         dladr	=	177560	; DL11 console base address
+      26  FFFEh                         psw	=	177776	; processor status
+      27                                
+      28                                
+      29                                	; count of automatically generated interrupt vectors
+      30  0040h                         veccnt	= 100
       31                                
-      32                                	; ----- macro to define ISR for vector #n -------
-      33                                	.macro isr	vecidx
-      34                                isr'vecidx:
-      35                                	mov	r0,-(sp)
-      36                                	mov	#vecidx*4,r0 ; vector in r0
-      37                                	call	@#doisr    ; print message for vector in r0
-      38                                	mov	(sp)+,r0
-      39                                	rti
-      40                                	.endm
-      41                                
-      42                                
-      43                                
-      44                                
-      45                                	.asect
-      46                                
-      47  0000h                         	. = 0
-      48                                	; ---- "veccnt" Interrupt Vectors ---------
-      49  0000h                         	n=0
-      50                                	.rept	veccnt
-      51                                	vector	\n
-      52                                	n=n+1
-      53                                       .endr
+      32                                	; ------- macro to define interrupt vector #<vecidx> ------
+      33                                	.macro vector	vecidx
+      34                                	.=4*vecidx	 ; vector #vecidx
+      35                                	.word	isr'vecidx	; new PC of ISR
+      36                                	.word	340		; new PSW: priority is max = 7
+      37                                	.endm
+      38                                
+      39                                	; ----- macro to define ISR for vector #n -------
+      40                                	.macro isr	vecidx
+      41                                isr'vecidx:
+      42                                	mov	r0,-(sp)
+      43                                	mov	#vecidx*4,r0 ; vector in r0
+      44                                	call	@#doisr    ; print message for vector in r0
+      45                                	mov	(sp)+,r0
+      46                                	rti
+      47                                	.endm
+      48                                
+      49                                
+      50                                
+      51                                
+      52                                	.asect
+      53                                
+      54  0000h                         	. = 0
+      55                                	; ---- "veccnt" Interrupt Vectors ---------
+      56  0000h                         	n=0
+      57                                	.rept	veccnt
+      58                                	vector	\n
+      59                                	n=n+1
+      60                                       .endr
        1                                	vector	\n
        1  0000h                         	.=4*0	 ; vector #0
        2  0000h  0100h                  	.word	isr0	; new PC of ISR
@@ -371,18 +378,18 @@
        2  00FCh  0472h                  	.word	isr77	; new PC of ISR
        3  00FEh  00E0h                  	.word	340		; new PSW: priority is max = 7
        2  0040h                         	n=n+1
-      54                                
-      55                                	; ---- veccnt ISRs ---------
-      56  0000h                         	n=0
-      57                                	.rept	veccnt
-      58                                	isr  \n
-      59                                	n=n+1
-      60                                	.endr
+      61                                
+      62                                	; ---- veccnt ISRs ---------
+      63  0000h                         	n=0
+      64                                	.rept	veccnt
+      65                                	isr  \n
+      66                                	n=n+1
+      67                                	.endr
        1                                	isr  \n
        1                                isr0:
        2  0100h  1026h                  	mov	r0,-(sp)
        3  0102h  15C0h   0000h          	mov	#0*4,r0 ; vector in r0
-       4  0106h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0106h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  010Ah  1580h                  	mov	(sp)+,r0
        6  010Ch  0002h                  	rti
        2  0001h                         	n=n+1
@@ -390,7 +397,7 @@
        1                                isr1:
        2  010Eh  1026h                  	mov	r0,-(sp)
        3  0110h  15C0h   0004h          	mov	#1*4,r0 ; vector in r0
-       4  0114h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0114h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0118h  1580h                  	mov	(sp)+,r0
        6  011Ah  0002h                  	rti
        2  0002h                         	n=n+1
@@ -398,7 +405,7 @@
        1                                isr2:
        2  011Ch  1026h                  	mov	r0,-(sp)
        3  011Eh  15C0h   0008h          	mov	#2*4,r0 ; vector in r0
-       4  0122h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0122h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0126h  1580h                  	mov	(sp)+,r0
        6  0128h  0002h                  	rti
        2  0003h                         	n=n+1
@@ -406,7 +413,7 @@
        1                                isr3:
        2  012Ah  1026h                  	mov	r0,-(sp)
        3  012Ch  15C0h   000Ch          	mov	#3*4,r0 ; vector in r0
-       4  0130h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0130h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0134h  1580h                  	mov	(sp)+,r0
        6  0136h  0002h                  	rti
        2  0004h                         	n=n+1
@@ -414,7 +421,7 @@
        1                                isr4:
        2  0138h  1026h                  	mov	r0,-(sp)
        3  013Ah  15C0h   0010h          	mov	#4*4,r0 ; vector in r0
-       4  013Eh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  013Eh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0142h  1580h                  	mov	(sp)+,r0
        6  0144h  0002h                  	rti
        2  0005h                         	n=n+1
@@ -422,7 +429,7 @@
        1                                isr5:
        2  0146h  1026h                  	mov	r0,-(sp)
        3  0148h  15C0h   0014h          	mov	#5*4,r0 ; vector in r0
-       4  014Ch  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  014Ch  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0150h  1580h                  	mov	(sp)+,r0
        6  0152h  0002h                  	rti
        2  0006h                         	n=n+1
@@ -430,7 +437,7 @@
        1                                isr6:
        2  0154h  1026h                  	mov	r0,-(sp)
        3  0156h  15C0h   0018h          	mov	#6*4,r0 ; vector in r0
-       4  015Ah  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  015Ah  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  015Eh  1580h                  	mov	(sp)+,r0
        6  0160h  0002h                  	rti
        2  0007h                         	n=n+1
@@ -438,7 +445,7 @@
        1                                isr7:
        2  0162h  1026h                  	mov	r0,-(sp)
        3  0164h  15C0h   001Ch          	mov	#7*4,r0 ; vector in r0
-       4  0168h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0168h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  016Ch  1580h                  	mov	(sp)+,r0
        6  016Eh  0002h                  	rti
        2  0008h                         	n=n+1
@@ -446,7 +453,7 @@
        1                                isr10:
        2  0170h  1026h                  	mov	r0,-(sp)
        3  0172h  15C0h   0020h          	mov	#10*4,r0 ; vector in r0
-       4  0176h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0176h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  017Ah  1580h                  	mov	(sp)+,r0
        6  017Ch  0002h                  	rti
        2  0009h                         	n=n+1
@@ -454,7 +461,7 @@
        1                                isr11:
        2  017Eh  1026h                  	mov	r0,-(sp)
        3  0180h  15C0h   0024h          	mov	#11*4,r0 ; vector in r0
-       4  0184h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0184h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0188h  1580h                  	mov	(sp)+,r0
        6  018Ah  0002h                  	rti
        2  000Ah                         	n=n+1
@@ -462,7 +469,7 @@
        1                                isr12:
        2  018Ch  1026h                  	mov	r0,-(sp)
        3  018Eh  15C0h   0028h          	mov	#12*4,r0 ; vector in r0
-       4  0192h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0192h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0196h  1580h                  	mov	(sp)+,r0
        6  0198h  0002h                  	rti
        2  000Bh                         	n=n+1
@@ -470,7 +477,7 @@
        1                                isr13:
        2  019Ah  1026h                  	mov	r0,-(sp)
        3  019Ch  15C0h   002Ch          	mov	#13*4,r0 ; vector in r0
-       4  01A0h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  01A0h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  01A4h  1580h                  	mov	(sp)+,r0
        6  01A6h  0002h                  	rti
        2  000Ch                         	n=n+1
@@ -478,7 +485,7 @@
        1                                isr14:
        2  01A8h  1026h                  	mov	r0,-(sp)
        3  01AAh  15C0h   0030h          	mov	#14*4,r0 ; vector in r0
-       4  01AEh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  01AEh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  01B2h  1580h                  	mov	(sp)+,r0
        6  01B4h  0002h                  	rti
        2  000Dh                         	n=n+1
@@ -486,7 +493,7 @@
        1                                isr15:
        2  01B6h  1026h                  	mov	r0,-(sp)
        3  01B8h  15C0h   0034h          	mov	#15*4,r0 ; vector in r0
-       4  01BCh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  01BCh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  01C0h  1580h                  	mov	(sp)+,r0
        6  01C2h  0002h                  	rti
        2  000Eh                         	n=n+1
@@ -494,7 +501,7 @@
        1                                isr16:
        2  01C4h  1026h                  	mov	r0,-(sp)
        3  01C6h  15C0h   0038h          	mov	#16*4,r0 ; vector in r0
-       4  01CAh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  01CAh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  01CEh  1580h                  	mov	(sp)+,r0
        6  01D0h  0002h                  	rti
        2  000Fh                         	n=n+1
@@ -502,7 +509,7 @@
        1                                isr17:
        2  01D2h  1026h                  	mov	r0,-(sp)
        3  01D4h  15C0h   003Ch          	mov	#17*4,r0 ; vector in r0
-       4  01D8h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  01D8h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  01DCh  1580h                  	mov	(sp)+,r0
        6  01DEh  0002h                  	rti
        2  0010h                         	n=n+1
@@ -510,7 +517,7 @@
        1                                isr20:
        2  01E0h  1026h                  	mov	r0,-(sp)
        3  01E2h  15C0h   0040h          	mov	#20*4,r0 ; vector in r0
-       4  01E6h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  01E6h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  01EAh  1580h                  	mov	(sp)+,r0
        6  01ECh  0002h                  	rti
        2  0011h                         	n=n+1
@@ -518,7 +525,7 @@
        1                                isr21:
        2  01EEh  1026h                  	mov	r0,-(sp)
        3  01F0h  15C0h   0044h          	mov	#21*4,r0 ; vector in r0
-       4  01F4h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  01F4h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  01F8h  1580h                  	mov	(sp)+,r0
        6  01FAh  0002h                  	rti
        2  0012h                         	n=n+1
@@ -526,7 +533,7 @@
        1                                isr22:
        2  01FCh  1026h                  	mov	r0,-(sp)
        3  01FEh  15C0h   0048h          	mov	#22*4,r0 ; vector in r0
-       4  0202h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0202h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0206h  1580h                  	mov	(sp)+,r0
        6  0208h  0002h                  	rti
        2  0013h                         	n=n+1
@@ -534,7 +541,7 @@
        1                                isr23:
        2  020Ah  1026h                  	mov	r0,-(sp)
        3  020Ch  15C0h   004Ch          	mov	#23*4,r0 ; vector in r0
-       4  0210h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0210h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0214h  1580h                  	mov	(sp)+,r0
        6  0216h  0002h                  	rti
        2  0014h                         	n=n+1
@@ -542,7 +549,7 @@
        1                                isr24:
        2  0218h  1026h                  	mov	r0,-(sp)
        3  021Ah  15C0h   0050h          	mov	#24*4,r0 ; vector in r0
-       4  021Eh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  021Eh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0222h  1580h                  	mov	(sp)+,r0
        6  0224h  0002h                  	rti
        2  0015h                         	n=n+1
@@ -550,7 +557,7 @@
        1                                isr25:
        2  0226h  1026h                  	mov	r0,-(sp)
        3  0228h  15C0h   0054h          	mov	#25*4,r0 ; vector in r0
-       4  022Ch  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  022Ch  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0230h  1580h                  	mov	(sp)+,r0
        6  0232h  0002h                  	rti
        2  0016h                         	n=n+1
@@ -558,7 +565,7 @@
        1                                isr26:
        2  0234h  1026h                  	mov	r0,-(sp)
        3  0236h  15C0h   0058h          	mov	#26*4,r0 ; vector in r0
-       4  023Ah  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  023Ah  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  023Eh  1580h                  	mov	(sp)+,r0
        6  0240h  0002h                  	rti
        2  0017h                         	n=n+1
@@ -566,7 +573,7 @@
        1                                isr27:
        2  0242h  1026h                  	mov	r0,-(sp)
        3  0244h  15C0h   005Ch          	mov	#27*4,r0 ; vector in r0
-       4  0248h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0248h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  024Ch  1580h                  	mov	(sp)+,r0
        6  024Eh  0002h                  	rti
        2  0018h                         	n=n+1
@@ -574,7 +581,7 @@
        1                                isr30:
        2  0250h  1026h                  	mov	r0,-(sp)
        3  0252h  15C0h   0060h          	mov	#30*4,r0 ; vector in r0
-       4  0256h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0256h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  025Ah  1580h                  	mov	(sp)+,r0
        6  025Ch  0002h                  	rti
        2  0019h                         	n=n+1
@@ -582,7 +589,7 @@
        1                                isr31:
        2  025Eh  1026h                  	mov	r0,-(sp)
        3  0260h  15C0h   0064h          	mov	#31*4,r0 ; vector in r0
-       4  0264h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0264h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0268h  1580h                  	mov	(sp)+,r0
        6  026Ah  0002h                  	rti
        2  001Ah                         	n=n+1
@@ -590,7 +597,7 @@
        1                                isr32:
        2  026Ch  1026h                  	mov	r0,-(sp)
        3  026Eh  15C0h   0068h          	mov	#32*4,r0 ; vector in r0
-       4  0272h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0272h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0276h  1580h                  	mov	(sp)+,r0
        6  0278h  0002h                  	rti
        2  001Bh                         	n=n+1
@@ -598,7 +605,7 @@
        1                                isr33:
        2  027Ah  1026h                  	mov	r0,-(sp)
        3  027Ch  15C0h   006Ch          	mov	#33*4,r0 ; vector in r0
-       4  0280h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0280h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0284h  1580h                  	mov	(sp)+,r0
        6  0286h  0002h                  	rti
        2  001Ch                         	n=n+1
@@ -606,7 +613,7 @@
        1                                isr34:
        2  0288h  1026h                  	mov	r0,-(sp)
        3  028Ah  15C0h   0070h          	mov	#34*4,r0 ; vector in r0
-       4  028Eh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  028Eh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0292h  1580h                  	mov	(sp)+,r0
        6  0294h  0002h                  	rti
        2  001Dh                         	n=n+1
@@ -614,7 +621,7 @@
        1                                isr35:
        2  0296h  1026h                  	mov	r0,-(sp)
        3  0298h  15C0h   0074h          	mov	#35*4,r0 ; vector in r0
-       4  029Ch  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  029Ch  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  02A0h  1580h                  	mov	(sp)+,r0
        6  02A2h  0002h                  	rti
        2  001Eh                         	n=n+1
@@ -622,7 +629,7 @@
        1                                isr36:
        2  02A4h  1026h                  	mov	r0,-(sp)
        3  02A6h  15C0h   0078h          	mov	#36*4,r0 ; vector in r0
-       4  02AAh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  02AAh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  02AEh  1580h                  	mov	(sp)+,r0
        6  02B0h  0002h                  	rti
        2  001Fh                         	n=n+1
@@ -630,7 +637,7 @@
        1                                isr37:
        2  02B2h  1026h                  	mov	r0,-(sp)
        3  02B4h  15C0h   007Ch          	mov	#37*4,r0 ; vector in r0
-       4  02B8h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  02B8h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  02BCh  1580h                  	mov	(sp)+,r0
        6  02BEh  0002h                  	rti
        2  0020h                         	n=n+1
@@ -638,7 +645,7 @@
        1                                isr40:
        2  02C0h  1026h                  	mov	r0,-(sp)
        3  02C2h  15C0h   0080h          	mov	#40*4,r0 ; vector in r0
-       4  02C6h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  02C6h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  02CAh  1580h                  	mov	(sp)+,r0
        6  02CCh  0002h                  	rti
        2  0021h                         	n=n+1
@@ -646,7 +653,7 @@
        1                                isr41:
        2  02CEh  1026h                  	mov	r0,-(sp)
        3  02D0h  15C0h   0084h          	mov	#41*4,r0 ; vector in r0
-       4  02D4h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  02D4h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  02D8h  1580h                  	mov	(sp)+,r0
        6  02DAh  0002h                  	rti
        2  0022h                         	n=n+1
@@ -654,7 +661,7 @@
        1                                isr42:
        2  02DCh  1026h                  	mov	r0,-(sp)
        3  02DEh  15C0h   0088h          	mov	#42*4,r0 ; vector in r0
-       4  02E2h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  02E2h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  02E6h  1580h                  	mov	(sp)+,r0
        6  02E8h  0002h                  	rti
        2  0023h                         	n=n+1
@@ -662,7 +669,7 @@
        1                                isr43:
        2  02EAh  1026h                  	mov	r0,-(sp)
        3  02ECh  15C0h   008Ch          	mov	#43*4,r0 ; vector in r0
-       4  02F0h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  02F0h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  02F4h  1580h                  	mov	(sp)+,r0
        6  02F6h  0002h                  	rti
        2  0024h                         	n=n+1
@@ -670,7 +677,7 @@
        1                                isr44:
        2  02F8h  1026h                  	mov	r0,-(sp)
        3  02FAh  15C0h   0090h          	mov	#44*4,r0 ; vector in r0
-       4  02FEh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  02FEh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0302h  1580h                  	mov	(sp)+,r0
        6  0304h  0002h                  	rti
        2  0025h                         	n=n+1
@@ -678,7 +685,7 @@
        1                                isr45:
        2  0306h  1026h                  	mov	r0,-(sp)
        3  0308h  15C0h   0094h          	mov	#45*4,r0 ; vector in r0
-       4  030Ch  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  030Ch  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0310h  1580h                  	mov	(sp)+,r0
        6  0312h  0002h                  	rti
        2  0026h                         	n=n+1
@@ -686,7 +693,7 @@
        1                                isr46:
        2  0314h  1026h                  	mov	r0,-(sp)
        3  0316h  15C0h   0098h          	mov	#46*4,r0 ; vector in r0
-       4  031Ah  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  031Ah  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  031Eh  1580h                  	mov	(sp)+,r0
        6  0320h  0002h                  	rti
        2  0027h                         	n=n+1
@@ -694,7 +701,7 @@
        1                                isr47:
        2  0322h  1026h                  	mov	r0,-(sp)
        3  0324h  15C0h   009Ch          	mov	#47*4,r0 ; vector in r0
-       4  0328h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0328h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  032Ch  1580h                  	mov	(sp)+,r0
        6  032Eh  0002h                  	rti
        2  0028h                         	n=n+1
@@ -702,7 +709,7 @@
        1                                isr50:
        2  0330h  1026h                  	mov	r0,-(sp)
        3  0332h  15C0h   00A0h          	mov	#50*4,r0 ; vector in r0
-       4  0336h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0336h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  033Ah  1580h                  	mov	(sp)+,r0
        6  033Ch  0002h                  	rti
        2  0029h                         	n=n+1
@@ -710,7 +717,7 @@
        1                                isr51:
        2  033Eh  1026h                  	mov	r0,-(sp)
        3  0340h  15C0h   00A4h          	mov	#51*4,r0 ; vector in r0
-       4  0344h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0344h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0348h  1580h                  	mov	(sp)+,r0
        6  034Ah  0002h                  	rti
        2  002Ah                         	n=n+1
@@ -718,7 +725,7 @@
        1                                isr52:
        2  034Ch  1026h                  	mov	r0,-(sp)
        3  034Eh  15C0h   00A8h          	mov	#52*4,r0 ; vector in r0
-       4  0352h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0352h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0356h  1580h                  	mov	(sp)+,r0
        6  0358h  0002h                  	rti
        2  002Bh                         	n=n+1
@@ -726,7 +733,7 @@
        1                                isr53:
        2  035Ah  1026h                  	mov	r0,-(sp)
        3  035Ch  15C0h   00ACh          	mov	#53*4,r0 ; vector in r0
-       4  0360h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0360h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0364h  1580h                  	mov	(sp)+,r0
        6  0366h  0002h                  	rti
        2  002Ch                         	n=n+1
@@ -734,7 +741,7 @@
        1                                isr54:
        2  0368h  1026h                  	mov	r0,-(sp)
        3  036Ah  15C0h   00B0h          	mov	#54*4,r0 ; vector in r0
-       4  036Eh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  036Eh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0372h  1580h                  	mov	(sp)+,r0
        6  0374h  0002h                  	rti
        2  002Dh                         	n=n+1
@@ -742,7 +749,7 @@
        1                                isr55:
        2  0376h  1026h                  	mov	r0,-(sp)
        3  0378h  15C0h   00B4h          	mov	#55*4,r0 ; vector in r0
-       4  037Ch  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  037Ch  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0380h  1580h                  	mov	(sp)+,r0
        6  0382h  0002h                  	rti
        2  002Eh                         	n=n+1
@@ -750,7 +757,7 @@
        1                                isr56:
        2  0384h  1026h                  	mov	r0,-(sp)
        3  0386h  15C0h   00B8h          	mov	#56*4,r0 ; vector in r0
-       4  038Ah  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  038Ah  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  038Eh  1580h                  	mov	(sp)+,r0
        6  0390h  0002h                  	rti
        2  002Fh                         	n=n+1
@@ -758,7 +765,7 @@
        1                                isr57:
        2  0392h  1026h                  	mov	r0,-(sp)
        3  0394h  15C0h   00BCh          	mov	#57*4,r0 ; vector in r0
-       4  0398h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0398h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  039Ch  1580h                  	mov	(sp)+,r0
        6  039Eh  0002h                  	rti
        2  0030h                         	n=n+1
@@ -766,7 +773,7 @@
        1                                isr60:
        2  03A0h  1026h                  	mov	r0,-(sp)
        3  03A2h  15C0h   00C0h          	mov	#60*4,r0 ; vector in r0
-       4  03A6h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  03A6h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  03AAh  1580h                  	mov	(sp)+,r0
        6  03ACh  0002h                  	rti
        2  0031h                         	n=n+1
@@ -774,7 +781,7 @@
        1                                isr61:
        2  03AEh  1026h                  	mov	r0,-(sp)
        3  03B0h  15C0h   00C4h          	mov	#61*4,r0 ; vector in r0
-       4  03B4h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  03B4h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  03B8h  1580h                  	mov	(sp)+,r0
        6  03BAh  0002h                  	rti
        2  0032h                         	n=n+1
@@ -782,7 +789,7 @@
        1                                isr62:
        2  03BCh  1026h                  	mov	r0,-(sp)
        3  03BEh  15C0h   00C8h          	mov	#62*4,r0 ; vector in r0
-       4  03C2h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  03C2h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  03C6h  1580h                  	mov	(sp)+,r0
        6  03C8h  0002h                  	rti
        2  0033h                         	n=n+1
@@ -790,7 +797,7 @@
        1                                isr63:
        2  03CAh  1026h                  	mov	r0,-(sp)
        3  03CCh  15C0h   00CCh          	mov	#63*4,r0 ; vector in r0
-       4  03D0h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  03D0h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  03D4h  1580h                  	mov	(sp)+,r0
        6  03D6h  0002h                  	rti
        2  0034h                         	n=n+1
@@ -798,7 +805,7 @@
        1                                isr64:
        2  03D8h  1026h                  	mov	r0,-(sp)
        3  03DAh  15C0h   00D0h          	mov	#64*4,r0 ; vector in r0
-       4  03DEh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  03DEh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  03E2h  1580h                  	mov	(sp)+,r0
        6  03E4h  0002h                  	rti
        2  0035h                         	n=n+1
@@ -806,7 +813,7 @@
        1                                isr65:
        2  03E6h  1026h                  	mov	r0,-(sp)
        3  03E8h  15C0h   00D4h          	mov	#65*4,r0 ; vector in r0
-       4  03ECh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  03ECh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  03F0h  1580h                  	mov	(sp)+,r0
        6  03F2h  0002h                  	rti
        2  0036h                         	n=n+1
@@ -814,7 +821,7 @@
        1                                isr66:
        2  03F4h  1026h                  	mov	r0,-(sp)
        3  03F6h  15C0h   00D8h          	mov	#66*4,r0 ; vector in r0
-       4  03FAh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  03FAh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  03FEh  1580h                  	mov	(sp)+,r0
        6  0400h  0002h                  	rti
        2  0037h                         	n=n+1
@@ -822,7 +829,7 @@
        1                                isr67:
        2  0402h  1026h                  	mov	r0,-(sp)
        3  0404h  15C0h   00DCh          	mov	#67*4,r0 ; vector in r0
-       4  0408h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0408h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  040Ch  1580h                  	mov	(sp)+,r0
        6  040Eh  0002h                  	rti
        2  0038h                         	n=n+1
@@ -830,7 +837,7 @@
        1                                isr70:
        2  0410h  1026h                  	mov	r0,-(sp)
        3  0412h  15C0h   00E0h          	mov	#70*4,r0 ; vector in r0
-       4  0416h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0416h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  041Ah  1580h                  	mov	(sp)+,r0
        6  041Ch  0002h                  	rti
        2  0039h                         	n=n+1
@@ -838,7 +845,7 @@
        1                                isr71:
        2  041Eh  1026h                  	mov	r0,-(sp)
        3  0420h  15C0h   00E4h          	mov	#71*4,r0 ; vector in r0
-       4  0424h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0424h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0428h  1580h                  	mov	(sp)+,r0
        6  042Ah  0002h                  	rti
        2  003Ah                         	n=n+1
@@ -846,7 +853,7 @@
        1                                isr72:
        2  042Ch  1026h                  	mov	r0,-(sp)
        3  042Eh  15C0h   00E8h          	mov	#72*4,r0 ; vector in r0
-       4  0432h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0432h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0436h  1580h                  	mov	(sp)+,r0
        6  0438h  0002h                  	rti
        2  003Bh                         	n=n+1
@@ -854,7 +861,7 @@
        1                                isr73:
        2  043Ah  1026h                  	mov	r0,-(sp)
        3  043Ch  15C0h   00ECh          	mov	#73*4,r0 ; vector in r0
-       4  0440h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0440h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0444h  1580h                  	mov	(sp)+,r0
        6  0446h  0002h                  	rti
        2  003Ch                         	n=n+1
@@ -862,7 +869,7 @@
        1                                isr74:
        2  0448h  1026h                  	mov	r0,-(sp)
        3  044Ah  15C0h   00F0h          	mov	#74*4,r0 ; vector in r0
-       4  044Eh  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  044Eh  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0452h  1580h                  	mov	(sp)+,r0
        6  0454h  0002h                  	rti
        2  003Dh                         	n=n+1
@@ -870,7 +877,7 @@
        1                                isr75:
        2  0456h  1026h                  	mov	r0,-(sp)
        3  0458h  15C0h   00F4h          	mov	#75*4,r0 ; vector in r0
-       4  045Ch  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  045Ch  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  0460h  1580h                  	mov	(sp)+,r0
        6  0462h  0002h                  	rti
        2  003Eh                         	n=n+1
@@ -878,7 +885,7 @@
        1                                isr76:
        2  0464h  1026h                  	mov	r0,-(sp)
        3  0466h  15C0h   00F8h          	mov	#76*4,r0 ; vector in r0
-       4  046Ah  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  046Ah  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  046Eh  1580h                  	mov	(sp)+,r0
        6  0470h  0002h                  	rti
        2  003Fh                         	n=n+1
@@ -886,263 +893,430 @@
        1                                isr77:
        2  0472h  1026h                  	mov	r0,-(sp)
        3  0474h  15C0h   00FCh          	mov	#77*4,r0 ; vector in r0
-       4  0478h  09DFh   106Ah          	call	@#doisr    ; print message for vector in r0
+       4  0478h  09DFh   109Eh          	call	@#doisr    ; print message for vector in r0
        5  047Ch  1580h                  	mov	(sp)+,r0
        6  047Eh  0002h                  	rti
        2  0040h                         	n=n+1
-      61                                
-      62                                
-      63                                
-      64                                
-      65                                	; ---- foreground thread ---------
-      66  1000h                         	.=10000
-      67                                
-      68  0FFEh                         stack	=	. - 2		; stack growns down from start
+      68                                
       69                                
-      70                                start:
-      71  1000h  15C6h   0FFEh          	mov	#stack,sp	; init stack
-      72  1004h  0A1Fh   FFFEh          	clr	   @#psw	; clear priority, allow all interupts
-      73                                
-      74                                	; 1. print "Hello" msg
-      75  1008h  15C1h   1104h          	mov	#shello,r1
-      76  100Ch  09DFh   1096h          	call	@#puts
-      77                                
-      78                                	; test vecnum printout
-      79                                	; mov	  #123456,r0
-      80                                	; call	  @#isrmsg
-      81                                
-      82                                	; 2. echo chars until ^C hit
-      83                                1$:
-      84  1010h  09DFh   10ECh          	call	@#getc		; wait for char, return in r0
-      85  1014h  45C0h   FF80h          	bic	#177600,r0	; make 7bit: clear bits <15:7>
-      86  1018h  A017h   0003h          	cmpb	r0,#3		; break by ^C ?
-      87  101Ch  0320h                  	beq	9$		; yes: leave loop
-      88  101Eh  A017h   0030h          	cmpb	r0,#60
-      89  1022h  871Ah                  	blo	2$		; char is < '0'
-      90  1024h  A017h   0037h          	cmpb	r0,#67
-      91  1028h  8217h                  	bhi	2$		; char is > '7'
-      92  102Ah  9002h                  	movb	r0,r2		; save
-      93                                
-      94                                	; key is 0..7: change priority
-      95  102Ch  15C1h   11BCh          	mov	#sprio0,r1	; print info
-      96  1030h  09DFh   1096h          	call	@#puts
-      97  1034h  9080h                  	movb	r2,r0		; restore digit
-      98  1036h  09DFh   10DCh          	call	@#putc		; print level digit
-      99  103Ah  15C1h   11D0h          	mov	#sprio1,r1
-     100  103Eh  09DFh   1096h          	call	@#puts
-     101                                	; change PSW
-     102  1042h  9080h                  	movb	r2,r0
-     103  1044h  C5C0h   00F8h          	bicb	#370,r0 	; ASCII -> integer
-     104  1048h  0CC0h                  	asl	r0		; move level to "priority" field in PSW
-     105  104Ah  0CC0h                  	asl	r0		; in bits 7,6,5
-     106  104Ch  0CC0h                  	asl	r0
-     107  104Eh  0CC0h                  	asl	r0
-     108  1050h  0CC0h                  	asl	r0
-     109  1052h  101Fh   FFFEh          	mov	r0,@#psw
+      70                                
+      71                                
+      72                                	; ---- foreground thread ---------
+      73  0000h                         	.=0
+      74  0000h  005Fh   1000h          	jmp	@#start 	; easier manual start from 0
+      75                                
+      76  0FFEh                         	.=7776
+      77  0FFEh  0000h                  inchr:	.word			; input alternative to DL11
+      78                                
+      79  1000h                         	.=10000
+      80                                
+      81  0FFEh                         stack	=	. - 2		; stack growns down from start
+      82                                
+      83                                start:
+      84  1000h  15C6h   0FFEh          	mov	#stack,sp	; init stack
+      85  1004h  0A1Fh   FFFEh          	clr	   @#psw	; clear priority, allow all interupts
+      86                                
+      87  1008h  0005h                  	reset			; disable INTR on all devices
+      88                                
+      89  100Ah  0A1Fh   1346h          	clr	@#logptr	; default: slow mode
+      90                                
+      91                                	; 1. print "Hello" msg
+      92  100Eh  15C1h   11A0h          	mov	#shello,r1
+      93  1012h  09DFh   110Ah          	call	@#puts
+      94                                
+      95                                	; test vecnum printout
+      96                                	; mov	  #123456,r0
+      97                                	; call	  @#isrmsg
+      98                                
+      99                                	; 2. echo chars until ^C hit
+     100                                1$:
+     101  1016h  09DFh   1170h          	call	@#getc		; wait for char, return in r0
+     102  101Ah  45C0h   FF80h          	bic	#177600,r0	; make 7bit: clear bits <15:7>
+     103  101Eh  A017h   0003h          	cmpb	r0,#3		; break by ^C ?
+     104  1022h  0337h                  	beq	9$		; yes: leave loop
+     105  1024h  A017h   0030h          	cmpb	r0,#60
+     106  1028h  871Ah                  	blo	2$		; char is < '0'
+     107  102Ah  A017h   0037h          	cmpb	r0,#67
+     108  102Eh  8217h                  	bhi	2$		; char is > '7'
+     109  1030h  9002h                  	movb	r0,r2		; save
      110                                
-     111  1056h  01DCh                  	br	1$
-     112                                
-     113                                2$:
-     114  1058h  09DFh   10DCh          	call	@#putc		; no: echo char in r0 and loop
-     115  105Ch  01D9h                  	br	1$
-     116                                
-     117                                9$:
-     118                                
-     119                                	; 3. print "Bye bye" msg and HALT
-     120  105Eh  15C1h   11D3h          	mov	#sbye,r1
-     121  1062h  09DFh   1096h          	call	@#puts
-     122  1066h  0000h                  	halt
-     123                                
-     124                                	; 4. loop on CONT
-     125  1068h  01CBh                  	br	start
-     126                                
+     111                                	; key is 0..7: change priority
+     112  1032h  15C1h   131Bh          	mov	#sprio0,r1	; print info
+     113  1036h  09DFh   110Ah          	call	@#puts
+     114  103Ah  9080h                  	movb	r2,r0		; restore digit
+     115  103Ch  09DFh   1160h          	call	@#putc		; print level digit
+     116  1040h  15C1h   1335h          	mov	#sprio1,r1
+     117  1044h  09DFh   110Ah          	call	@#puts
+     118                                	; change PSW
+     119  1048h  9080h                  	movb	r2,r0
+     120  104Ah  C5C0h   00F8h          	bicb	#370,r0 	; ASCII -> integer
+     121  104Eh  0CC0h                  	asl	r0		; move level to "priority" field in PSW
+     122  1050h  0CC0h                  	asl	r0		; in bits 7,6,5
+     123  1052h  0CC0h                  	asl	r0
+     124  1054h  0CC0h                  	asl	r0
+     125  1056h  0CC0h                  	asl	r0
+     126  1058h  101Fh   FFFEh          	mov	r0,@#psw
      127                                
-     128                                	; ----------------------
-     129                                	; Common code for all ISRs
-     130                                	; print vector number in r0
-     131                                	; called on interrupt level
-     132                                
-     133                                doisr:
-     134  106Ah  1126h                  	mov	r4,-(sp)
-     135  106Ch  10E6h                  	mov	r3,-(sp)
-     136  106Eh  10A6h                  	mov	r2,-(sp)
-     137  1070h  1066h                  	mov	r1,-(sp)
-     138  1072h  1026h                  	mov	r0,-(sp)
-     139                                
-     140                                	; print msg
-     141  1074h  15C1h   10FAh          	mov	#sisr1,r1 ; "ISR "
-     142  1078h  09DFh   1096h          	call	@#puts
-     143  107Ch  1380h                  	mov	(sp),r0 	; restore vecnum
-     144  107Eh  09DFh   10B2h          	call	 @#putnum
-     145  1082h  15C1h   1100h          	mov	#sisr2,r1 ; "cr lf
-     146  1086h  09DFh   1096h          	call	@#puts
-     147                                
-     148  108Ah  1580h                  	mov	(sp)+,r0
-     149  108Ch  1581h                  	mov	(sp)+,r1
-     150  108Eh  1582h                  	mov	(sp)+,r2
-     151  1090h  1583h                  	mov	(sp)+,r3
-     152  1092h  1584h                  	mov	(sp)+,r4
-     153  1094h  0087h                  	return
-     154                                
+     128  105Ch  01DCh                  	br	1$		; OK, next char
+     129                                
+     130                                2$:	; -- eval "S", F"
+     131  105Eh  A017h   0053h          	cmpb	r0,#'S
+     132  1062h  0207h                  	bne	3$
+     133  1064h  15C1h   12C0h          	mov	#sslwmd,r1	; "slow mode"
+     134  1068h  09DFh   110Ah          	call	@#puts
+     135  106Ch  0A1Fh   1346h          	clr	@#logptr
+     136  1070h  01D2h                  	br	1$		; OK, next char
+     137  1072h  A017h   0046h          3$:	cmpb	r0,#'F
+     138  1076h  020Ah                  	bne	8$		;
+     139  1078h  15C1h   12EFh          	mov	#sfstmd,r1	; "fast mode"
+     140  107Ch  09DFh   110Ah          	call	@#puts
+     141  1080h  09DFh   10E0h          	call	@#prtlog	; print logged vectors, if any
+     142  1084h  15DFh   1348h   1346h  	mov	#logbuf,@#logptr; pointer to biuffer start
+     143  108Ah  01C5h                  	br	1$		; OK, next char
+     144                                
+     145                                8$:
+     146  108Ch  09DFh   1160h          	call	@#putc		; no: echo char in r0 and loop
+     147  1090h  01C2h                  	br	1$
+     148                                
+     149                                9$:
+     150                                
+     151                                	; 3. print "Bye bye" msg and HALT
+     152  1092h  15C1h   1338h          	mov	#sbye,r1
+     153  1096h  09DFh   110Ah          	call	@#puts
+     154  109Ah  0000h                  	halt
      155                                
-     156                                	; ----------------------
-     157                                	; puts - print a string
-     158                                	; r1 = pointer, r0,r1 changed
-     159                                puts:
-     160  1096h  9440h                  	movb	(r1)+,r0	; load xmt char
-     161  1098h  0303h                  	beq	1$		; string ends with 0
-     162  109Ah  09DFh   10DCh          	call	@#putc
-     163  109Eh  01FBh                  	br	puts		; transmit nxt char of string
-     164  10A0h  0087h                  1$:	return
-     165                                
-     166                                
-     167                                	; ----------------------
-     168                                	; putnum - print the octal number in r0
-     169  10A2h                         numbf0:  .blkw	 10		 ; space to mount number string
-     170  10B2h                         numbf1	=.
-     171                                putnum:
-     172  10B2h  1002h                  	mov	r0,r2		; r2 = shifter
-     173  10B4h  15C1h   10B2h          	mov	#numbf1,r1	; r1 = buffer pointer, backwards
-     174  10B8h  95E1h   0000h          	movb	#0,-(r1)	; set terminating 0
-     175                                	; repeat 6 times
-     176  10BCh  15C3h   0006h          	mov	#6,r3
-     177                                1$:
-     178  10C0h  1080h                  	mov	r2,r0
-     179                                	; extract lower 3 bits = octal digit
-     180  10C2h  45C0h   FFF8h          	bic	#177770,r0 ; r0 &= 0x07
-     181  10C6h  65C0h   0030h          	add	#60,r0	; r0 += '0'
-     182  10CAh  9021h                  	movb	r0,-(r1) ; write in buffer
-     183  10CCh  00A1h                  	clc
-     184  10CEh  0C02h                  	ror	r2	; shift to next digit
-     185  10D0h  0C02h                  	ror	r2
-     186  10D2h  0C02h                  	ror	r2
-     187  10D4h  7ECBh                  	sob	r3,1$	; loop for all 6 digits
-     188                                
-     189  10D6h  09DFh   1096h          	call	@#puts
-     190  10DAh  0087h                  	return
-     191                                
-     192                                
-     193                                	; DEC DL11 console I/O
-     194                                	; ----------------------
-     195                                	; putc - output a single char
-     196                                	; r0 = char, r4 changed
-     197                                putc:
-     198  10DCh  15C4h   FF70h          	mov	#dladr,r4	; set base addr
-     199  10E0h  9034h   0006h          	movb	r0,6(r4)	; char into transmit buffer
-     200  10E4h  8BF4h   0004h          1$:	tstb	4(r4)		; XMT RDY?
-     201  10E8h  80FDh                  	bpl	1$		; no, loop
-     202  10EAh  0087h                  	return
-     203                                
-     204                                	; ----------------------
-     205                                	; getc - input a single char
-     206                                	; result in r0, r4 changed
-     207                                getc:
-     208  10ECh  15C4h   FF70h          	mov	#dladr,r4	; set base addr
-     209  10F0h  8BCCh                  1$:	tstb	(r4)		; RCVR DONE?
-     210  10F2h  80FEh                  	bpl	1$		; no, loop
-     211  10F4h  1D00h   0002h          	mov	2(r4),r0	; return data
-     212  10F8h  0087h                  	return
-     213                                
-     214                                
-     215                                	; ---- Test strings, each 256 chars max  ---------
-     216                                
-     217                                sisr1:				; start of ISR <vecnum> message
-     218  10FAh    3Ch     49h     53h  	.ascii /<ISR /
-          10FDh    52h     20h          
-     219  10FFh    00h                  	.byte	0		; NUL=end marker
-     220                                sisr2:				; end of ISR <vecnum> message
-     221  1100h    3Eh                  	.ascii />/
-     222  1101h    0Dh     0Ah          	.byte	15,12	; CR, LF,
-     223  1103h    00h                  	.byte	0		; NUL=end marker
-     224                                
-     225                                
-     226                                shello:
-     227  1104h    0Dh     0Ah          	.byte	15,12		; CR, LF,
-     228  1106h    2Ah     2Ah     2Ah  	.ascii	/*** Interrupt and DMA test ***/
-          1109h    20h     49h     6Eh  
-          110Ch    74h     65h     72h  
-          110Fh    72h     75h     70h  
-          1112h    74h     20h     61h  
-          1115h    6Eh     64h     20h  
-          1118h    44h     4Dh     41h  
-          111Bh    20h     74h     65h  
-          111Eh    73h     74h     20h  
-          1121h    2Ah     2Ah     2Ah  
-     229  1124h    0Dh     0Ah          	.byte	15,12		; CR, LF,
-     230  1126h    54h     68h     65h  	.ascii	/The INTR vectors 0..77 print the vector num./
-          1129h    20h     49h     4Eh  
-          112Ch    54h     52h     20h  
-          112Fh    76h     65h     63h  
-          1132h    74h     6Fh     72h  
-          1135h    73h     20h     30h  
-          1138h    2Eh     2Eh     37h  
-          113Bh    37h     20h     70h  
-          113Eh    72h     69h     6Eh  
-          1141h    74h     20h     74h  
-          1144h    68h     65h     20h  
-          1147h    76h     65h     63h  
-          114Ah    74h     6Fh     72h  
-          114Dh    20h     6Eh     75h  
-          1150h    6Dh     2Eh          
-     231  1152h    0Dh     0Ah          	.byte	15,12	; CR, LF,
-     232  1154h    54h     68h     65h  	.ascii	/The foreground thread echoes typed chars, ^C HALTs./
-          1157h    20h     66h     6Fh  
-          115Ah    72h     65h     67h  
-          115Dh    72h     6Fh     75h  
-          1160h    6Eh     64h     20h  
-          1163h    74h     68h     72h  
-          1166h    65h     61h     64h  
-          1169h    20h     65h     63h  
-          116Ch    68h     6Fh     65h  
-          116Fh    73h     20h     74h  
-          1172h    79h     70h     65h  
-          1175h    64h     20h     63h  
-          1178h    68h     61h     72h  
-          117Bh    73h     2Ch     20h  
-          117Eh    5Eh     43h     20h  
-          1181h    48h     41h     4Ch  
-          1184h    54h     73h     2Eh  
-     233  1187h    0Dh     0Ah          	.byte	15,12	; CR, LF,
-     234  1189h    43h     68h     61h  	.ascii	/Chars 0..7 set the new processor priority level./
-          118Ch    72h     73h     20h  
-          118Fh    30h     2Eh     2Eh  
-          1192h    37h     20h     73h  
-          1195h    65h     74h     20h  
-          1198h    74h     68h     65h  
-          119Bh    20h     6Eh     65h  
-          119Eh    77h     20h     70h  
-          11A1h    72h     6Fh     63h  
-          11A4h    65h     73h     73h  
-          11A7h    6Fh     72h     20h  
-          11AAh    70h     72h     69h  
-          11ADh    6Fh     72h     69h  
-          11B0h    74h     79h     20h  
-          11B3h    6Ch     65h     76h  
-          11B6h    65h     6Ch     2Eh  
-     235  11B9h    0Dh     0Ah          	.byte	15,12	; CR, LF,
-     236  11BBh    00h                  	.byte	0		; NUL=end marker
-     237                                
-     238                                sprio0:
-     239  11BCh    0Dh     0Ah          	.byte	15,12	; CR, LF,
-     240  11BEh    43h     50h     55h  	.ascii	/CPU priority now /
-          11C1h    20h     70h     72h  
-          11C4h    69h     6Fh     72h  
-          11C7h    69h     74h     79h  
-          11CAh    20h     6Eh     6Fh  
-          11CDh    77h     20h          
-     241  11CFh    00h                  	.byte	0
-     242                                
-     243                                sprio1:
-     244  11D0h    0Dh     0Ah          	  .byte   15,12   ; CR, LF,
-     245  11D2h    00h                  	.byte	0		; NUL=end marker
-     246                                
-     247                                sbye:
-     248  11D3h    0Dh     0Ah          	.byte	15,12
-     249  11D5h    47h     6Fh     6Fh  	.ascii	/Good Bye!/
-          11D8h    64h     20h     42h  
-          11DBh    79h     65h     21h  
-     250  11DEh    0Dh     0Ah     00h  	.byte	15,12,0 	; CR, LF, NUL=end marker
-     251                                
-     252                                
-     253                                	.end
-     253                                
+     156                                	; 4. loop on CONT
+     157  109Ch  01B1h                  	br	start
+     158                                
+     159                                
+     160                                	; ----------------------
+     161                                	; Common code for all ISRs
+     162                                	; print vector number in r0
+     163                                	; called on interrupt level
+     164                                
+     165                                doisr:
+     166  109Eh  1126h                  	mov	r4,-(sp)
+     167  10A0h  10E6h                  	mov	r3,-(sp)
+     168  10A2h  10A6h                  	mov	r2,-(sp)
+     169  10A4h  1066h                  	mov	r1,-(sp)
+     170  10A6h  1026h                  	mov	r0,-(sp)
+     171                                
+     172  10A8h  17C1h   1346h          	mov	@#logptr,r1
+     173  10ACh  0304h                  	beq	1$
+     174                                	; Fast mode: log vector
+     175  10AEh  1011h                  	mov	r0,(r1)+	; store vector in array
+     176  10B0h  105Fh   1346h          	mov	r1,@#logptr	; save updated list pointer
+     177                                
+     178  10B4h  010Fh                  	br	9$
+     179                                1$:	; "Slow mode: print msg
+     180  10B6h  15C1h   1196h          	mov	#sisr1,r1 ; "ISR "
+     181  10BAh  09DFh   110Ah          	call	@#puts
+     182  10BEh  1380h                  	mov	(sp),r0 	; restore vecnum
+     183  10C0h  09DFh   1126h          	call	 @#putnum
+     184  10C4h  15C1h   119Ch          	mov	#sisr2,r1 ; "cr lf
+     185  10C8h  09DFh   110Ah          	call	@#puts
+     186                                	; make ISR 100ms
+     187  10CCh  15C0h   0064h          	mov	#144,r0   ; 100
+     188  10D0h  09DFh   1188h          	call	 @#waitms
+     189                                
+     190                                9$:
+     191  10D4h  1580h                  	mov	(sp)+,r0
+     192  10D6h  1581h                  	mov	(sp)+,r1
+     193  10D8h  1582h                  	mov	(sp)+,r2
+     194  10DAh  1583h                  	mov	(sp)+,r3
+     195  10DCh  1584h                  	mov	(sp)+,r4
+     196  10DEh  0087h                  	return
+     197                                
+     198                                
+     199                                	; ----------------------
+     200                                	; prtlog - print log of isr vectors
+     201                                	; word list from logbuf to logptr
+     202                                prtlog:
+     203  10E0h  0BDFh   1346h          	tst	@#logptr
+     204  10E4h  0311h                  	beq	9$		; ptr 0, slow mode, nothing logged
+     205  10E6h  15C2h   1348h          	mov	#logbuf,r2
+     206                                1$:
+     207  10EAh  209Fh   1346h          	cmp	r2,@#logptr
+     208  10EEh  8608h                  	bhis	8$		; end of list reached
+     209  10F0h  1480h                  	mov	(r2)+,r0	; print vector from list
+     210  10F2h  09DFh   1126h          	call	 @#putnum
+     211  10F6h  15C0h   0020h          	mov	#40,r0		; print space separator
+     212  10FAh  09DFh   1160h          	call	 @#putc
+     213  10FEh  01F5h                  	br	1$
+     214                                8$:
+     215  1100h  15C1h   1343h          	mov	#scrlf,r1	; CR/LF
+     216  1104h  09DFh   110Ah          	call	 @#puts
+     217                                
+     218                                9$:
+     219  1108h  0087h                  	return
+     220                                
+     221                                	; ----------------------
+     222                                	; puts - print a string
+     223                                	; r1 = pointer, r0,r1 changed
+     224                                puts:
+     225  110Ah  9440h                  	movb	(r1)+,r0	; load xmt char
+     226  110Ch  0303h                  	beq	1$		; string ends with 0
+     227  110Eh  09DFh   1160h          	call	@#putc
+     228  1112h  01FBh                  	br	puts		; transmit nxt char of string
+     229  1114h  0087h                  1$:	return
+     230                                
+     231                                
+     232                                	; ----------------------
+     233                                	; putnum - print the octal number in r0
+     234  1116h                         numbf0:  .blkw	 10		 ; space to mount number string
+     235  1126h                         numbf1	=.
+     236                                putnum:
+     237  1126h  1026h                  	mov	r0,-(sp)
+     238  1128h  1066h                  	mov	r1,-(sp)
+     239  112Ah  10A6h                  	mov	r2,-(sp)
+     240  112Ch  10E6h                  	mov	r3,-(sp)
+     241  112Eh  1002h                  	mov	r0,r2		; r2 = shifter
+     242  1130h  15C1h   1126h          	mov	#numbf1,r1	; r1 = buffer pointer, backwards
+     243  1134h  95E1h   0000h          	movb	#0,-(r1)	; set terminating 0
+     244                                	; repeat 6 times
+     245  1138h  15C3h   0006h          	mov	#6,r3
+     246                                1$:
+     247  113Ch  1080h                  	mov	r2,r0
+     248                                	; extract lower 3 bits = octal digit
+     249  113Eh  45C0h   FFF8h          	bic	#177770,r0 ; r0 &= 0x07
+     250  1142h  65C0h   0030h          	add	#60,r0	; r0 += '0'
+     251  1146h  9021h                  	movb	r0,-(r1) ; write in buffer
+     252  1148h  00A1h                  	clc
+     253  114Ah  0C82h                  	asr	r2	; shift to next digit
+     254  114Ch  0C82h                  	asr	r2
+     255  114Eh  0C82h                  	asr	r2
+     256  1150h  7ECBh                  	sob	r3,1$	; loop for all 6 digits
+     257                                
+     258  1152h  09DFh   110Ah          	call	@#puts
+     259  1156h  1583h                  	mov	(sp)+,r3
+     260  1158h  1582h                  	mov	(sp)+,r2
+     261  115Ah  1581h                  	mov	(sp)+,r1
+     262  115Ch  1580h                  	mov	(sp)+,r0
+     263  115Eh  0087h                  	return
+     264                                
+     265                                
+     266                                	; DEC DL11 console I/O
+     267                                	; ----------------------
+     268                                	; putc - output a single char
+     269                                	; r0 = char, r4 changed
+     270                                putc:
+     271  1160h  15C4h   FF70h          	mov	#dladr,r4	; set base addr
+     272  1164h  9034h   0006h          	movb	r0,6(r4)	; char into transmit buffer
+     273  1168h  8BF4h   0004h          1$:	tstb	4(r4)		; XMT RDY?
+     274  116Ch  80FDh                  	bpl	1$		; no, loop
+     275  116Eh  0087h                  	return
+     276                                
+     277                                	; ----------------------
+     278                                	; getc - input a single char
+     279                                	; result in r0, r4 changed
+     280                                getc:
+     281  1170h  15C4h   FF70h          	mov	#dladr,r4	; set base addr
+     282  1174h  17C0h   0FFEh          1$:	mov	@#inchr,r0	; external DEPOSIT into inchr?
+     283  1178h  0204h                  	bne	9$		; yes: process as input
+     284  117Ah  8BCCh                  	tstb	(r4)		; else: RCVR DONE?
+     285  117Ch  80FBh                  	bpl	1$		; no, loop
+     286  117Eh  1D00h   0002h          	mov	2(r4),r0	; return data
+     287                                9$:
+     288  1182h  0A1Fh   0FFEh          	clr	@#inchr
+     289  1186h  0087h                  	return
+     290                                
+     291                                	; ----------------------
+     292                                	; waitms - wait r0 milli seconds
+     293                                waitms:
+     294  1188h  1066h                  	mov	r1,-(sp)
+     295                                
+     296                                1$:	; -- outer loop
+     297  118Ah  15C1h   01F4h          	mov   #764,r1	       ; 500
+     298                                2$:	; -- inner loop: 1ms @ 1MHz
+     299  118Eh  7E41h                  	sob	r1,2$		; 1 cycle,2 us per loop (11/34)
+     300                                
+     301  1190h  7E04h                  	sob	r0,1$
+     302  1192h  1581h                  	mov	(sp)+,r1
+     303  1194h  0087h                  	return
+     304                                
+     305                                	; ---- Test strings, each 256 chars max  ---------
+     306                                
+     307                                sisr1:				; start of ISR <vecnum> message
+     308  1196h    3Ch     49h     53h  	.ascii /<ISR /
+          1199h    52h     20h          
+     309  119Bh    00h                  	.byte	0		; NUL=end marker
+     310                                sisr2:				; end of ISR <vecnum> message
+     311  119Ch    3Eh                  	.ascii />/
+     312  119Dh    0Dh     0Ah          	.byte	15,12	; CR, LF,
+     313  119Fh    00h                  	.byte	0		; NUL=end marker
+     314                                
+     315                                
+     316                                shello:
+     317  11A0h    0Dh     0Ah          	.byte	15,12		; CR, LF,
+     318  11A2h    2Ah     2Ah     2Ah  	.ascii	/*** Interrupt and DMA test ***/
+          11A5h    20h     49h     6Eh  
+          11A8h    74h     65h     72h  
+          11ABh    72h     75h     70h  
+          11AEh    74h     20h     61h  
+          11B1h    6Eh     64h     20h  
+          11B4h    44h     4Dh     41h  
+          11B7h    20h     74h     65h  
+          11BAh    73h     74h     20h  
+          11BDh    2Ah     2Ah     2Ah  
+     319  11C0h    0Dh     0Ah          	.byte	15,12		; CR, LF,
+     320  11C2h    54h     68h     65h  	.ascii	/The INTR vectors 0..77 print the vector num./
+          11C5h    20h     49h     4Eh  
+          11C8h    54h     52h     20h  
+          11CBh    76h     65h     63h  
+          11CEh    74h     6Fh     72h  
+          11D1h    73h     20h     30h  
+          11D4h    2Eh     2Eh     37h  
+          11D7h    37h     20h     70h  
+          11DAh    72h     69h     6Eh  
+          11DDh    74h     20h     74h  
+          11E0h    68h     65h     20h  
+          11E3h    76h     65h     63h  
+          11E6h    74h     6Fh     72h  
+          11E9h    20h     6Eh     75h  
+          11ECh    6Dh     2Eh          
+     321  11EEh    0Dh     0Ah          	.byte	15,12	; CR, LF,
+     322  11F0h    54h     68h     65h  	.ascii	/The foreground thread echoes typed chars, ^C HALTs./
+          11F3h    20h     66h     6Fh  
+          11F6h    72h     65h     67h  
+          11F9h    72h     6Fh     75h  
+          11FCh    6Eh     64h     20h  
+          11FFh    74h     68h     72h  
+          1202h    65h     61h     64h  
+          1205h    20h     65h     63h  
+          1208h    68h     6Fh     65h  
+          120Bh    73h     20h     74h  
+          120Eh    79h     70h     65h  
+          1211h    64h     20h     63h  
+          1214h    68h     61h     72h  
+          1217h    73h     2Ch     20h  
+          121Ah    5Eh     43h     20h  
+          121Dh    48h     41h     4Ch  
+          1220h    54h     73h     2Eh  
+     323  1223h    0Dh     0Ah          	.byte	15,12	; CR, LF,
+     324  1225h    43h     68h     61h  	.ascii	/Chars 0..7 set the new processor priority level./
+          1228h    72h     73h     20h  
+          122Bh    30h     2Eh     2Eh  
+          122Eh    37h     20h     73h  
+          1231h    65h     74h     20h  
+          1234h    74h     68h     65h  
+          1237h    20h     6Eh     65h  
+          123Ah    77h     20h     70h  
+          123Dh    72h     6Fh     63h  
+          1240h    65h     73h     73h  
+          1243h    6Fh     72h     20h  
+          1246h    70h     72h     69h  
+          1249h    6Fh     72h     69h  
+          124Ch    74h     79h     20h  
+          124Fh    6Ch     65h     76h  
+          1252h    65h     6Ch     2Eh  
+     325  1255h    0Dh     0Ah          	.byte	15,12	; CR, LF,
+     326  1257h    53h     20h     3Dh  	.ascii	/S = slow mode: ISR prints message (default)/
+          125Ah    20h     73h     6Ch  
+          125Dh    6Fh     77h     20h  
+          1260h    6Dh     6Fh     64h  
+          1263h    65h     3Ah     20h  
+          1266h    49h     53h     52h  
+          1269h    20h     70h     72h  
+          126Ch    69h     6Eh     74h  
+          126Fh    73h     20h     6Dh  
+          1272h    65h     73h     73h  
+          1275h    61h     67h     65h  
+          1278h    20h     28h     64h  
+          127Bh    65h     66h     61h  
+          127Eh    75h     6Ch     74h  
+          1281h    29h                  
+     327  1282h    0Dh     0Ah          	.byte	15,12	; CR, LF,
+     328  1284h    46h     20h     3Dh  	.ascii	/F = fast mode: ISR logs vector, print and clr current log/
+          1287h    20h     66h     61h  
+          128Ah    73h     74h     20h  
+          128Dh    6Dh     6Fh     64h  
+          1290h    65h     3Ah     20h  
+          1293h    49h     53h     52h  
+          1296h    20h     6Ch     6Fh  
+          1299h    67h     73h     20h  
+          129Ch    76h     65h     63h  
+          129Fh    74h     6Fh     72h  
+          12A2h    2Ch     20h     70h  
+          12A5h    72h     69h     6Eh  
+          12A8h    74h     20h     61h  
+          12ABh    6Eh     64h     20h  
+          12AEh    63h     6Ch     72h  
+          12B1h    20h     63h     75h  
+          12B4h    72h     72h     65h  
+          12B7h    6Eh     74h     20h  
+          12BAh    6Ch     6Fh     67h  
+     329  12BDh    0Dh     0Ah          	.byte	15,12	; CR, LF,
+     330  12BFh    00h                  	.byte	0		; NUL=end marker
+     331                                
+     332                                sslwmd:
+     333  12C0h    53h     6Ch     6Fh  	.ascii	/Slow mode: called ISR prints vector directly/
+          12C3h    77h     20h     6Dh  
+          12C6h    6Fh     64h     65h  
+          12C9h    3Ah     20h     63h  
+          12CCh    61h     6Ch     6Ch  
+          12CFh    65h     64h     20h  
+          12D2h    49h     53h     52h  
+          12D5h    20h     70h     72h  
+          12D8h    69h     6Eh     74h  
+          12DBh    73h     20h     76h  
+          12DEh    65h     63h     74h  
+          12E1h    6Fh     72h     20h  
+          12E4h    64h     69h     72h  
+          12E7h    65h     63h     74h  
+          12EAh    6Ch     79h          
+     334  12ECh    0Dh     0Ah          	.byte	15,12	; CR, LF,
+     335  12EEh    00h                  	.byte	0		; NUL=end marker
+     336                                
+     337                                sfstmd:
+     338  12EFh    46h     61h     73h  	.ascii	/Fast mode: called ISR vectors are logged:/
+          12F2h    74h     20h     6Dh  
+          12F5h    6Fh     64h     65h  
+          12F8h    3Ah     20h     63h  
+          12FBh    61h     6Ch     6Ch  
+          12FEh    65h     64h     20h  
+          1301h    49h     53h     52h  
+          1304h    20h     76h     65h  
+          1307h    63h     74h     6Fh  
+          130Ah    72h     73h     20h  
+          130Dh    61h     72h     65h  
+          1310h    20h     6Ch     6Fh  
+          1313h    67h     67h     65h  
+          1316h    64h     3Ah          
+     339  1318h    0Dh     0Ah          	.byte	15,12	; CR, LF,
+     340  131Ah    00h                  	.byte	0		; NUL=end marker
+     341                                
+     342                                sprio0:
+     343  131Bh    0Dh     0Ah          	.byte	15,12	; CR, LF,
+     344  131Dh    43h     50h     55h  	.ascii	/CPU priority level now /
+          1320h    20h     70h     72h  
+          1323h    69h     6Fh     72h  
+          1326h    69h     74h     79h  
+          1329h    20h     6Ch     65h  
+          132Ch    76h     65h     6Ch  
+          132Fh    20h     6Eh     6Fh  
+          1332h    77h     20h          
+     345  1334h    00h                  	.byte	0
+     346                                
+     347                                sprio1:
+     348  1335h    0Dh     0Ah          	  .byte   15,12   ; CR, LF,
+     349  1337h    00h                  	.byte	0		; NUL=end marker
+     350                                
+     351                                sbye:
+     352  1338h    0Dh     0Ah          	.byte	15,12
+     353  133Ah    47h     6Fh     6Fh  	.ascii	/Good Bye!/
+          133Dh    64h     20h     42h  
+          1340h    79h     65h     21h  
+     354                                scrlf:
+     355  1343h    0Dh     0Ah     00h  	.byte	15,12,0 	; CR, LF, NUL=end marker
+     356                                
+     357                                	; .byte   0		  ; make addr even
+     358                                
+     359                                	; in "fast" mode, ISR calls fill this array with called vectors
+     360                                logptr:
+     361  1346h  0000h                  	.word		; addr of next logentry to fill. 0 in "slow" mode
+     362                                
+     363                                logbuf:
+     364                                
+     365                                
+     366                                	.end
+     366                                

@@ -26,12 +26,13 @@
 #ifndef _RL11_HPP_
 #define _RL11_HPP_
 
+#include "unibusadapter.hpp"
 #include "storagecontroller.hpp"
 
 class RL0102_c;
 class RL11_c: public storagecontroller_c {
 private:
-	/** everything sharead between different threads must be "volatile" */
+	/** everything shared between different threads must be "volatile" */
 	volatile unsigned state; // one of RL11_STATE_*
 
 	timeout_c timeout;
@@ -57,6 +58,10 @@ private:
 	// data buffer to/from drive
 	uint16_t silo[128]; // buffer from/to drive
 	uint16_t silo_compare[128]; // memory data to be compared with silo
+
+	// RL11 has one INTR and DMA
+	dma_request_c dma_request = dma_request_c(this); // operated by unibusadapter
+	intr_request_c intr_request = intr_request_c(this);
 
 	// only 16*16 = 256 byte buffer from drive (SILO)
 	// one DMA transaction per sector, must be complete within one sector time

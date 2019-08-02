@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <memory>	// unique_ptr
 #include "parameter.hpp"
 #include "storagedrive.hpp"
 
@@ -91,7 +92,8 @@ private:
 	void UpdateMetadata(void);
 	DriveInfo _driveInfo;bool _online;
 	uint32_t _unitDeviceNumber;
-	uint16_t _unitClassModel;bool _useImageSize;
+	uint16_t _unitClassModel;
+	bool _useImageSize;
 
 	//
 	// RCT ("Replacement and Caching Table") data:

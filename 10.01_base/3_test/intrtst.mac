@@ -7,11 +7,18 @@
 	; 1.1. print a start message,
 	; 1.2. echoes chars typed to the output until ^C is hit
 	;      Chars 0..7 set the new processor priority level.
-	; 1.3. prints an end message and HALTs.
+	; 1.3  prints an end message and HALTs.
 	; 1.4. on CONT it repeats.
 	;
 	; 2. For INTR test, the 256 vectors 0,4,10,14,..374 each print
 	; a string on interrupt.
+	; In "Slow" mode, the ISR prints the vector directly
+	;	(ISR rountine > 100ms)
+	; In "Fast" mode, the ISR logs the vector in a list
+	;	(It can be printed later with "F"
+	;
+	; As alternative to input over DL11,
+	; "keyboard input chars" can be deposited into 7776
 	;
 	; Contact: Joerg Hoppe / j_hoppe@t-online.de / www.retromcp.com
 
@@ -63,6 +70,12 @@ isr'vecidx:
 
 
 	; ---- foreground thread ---------
+	.=0
+	jmp	@#start 	; easier manual start from 0
+
+	.=7776
+inchr:	.word			; input alternative to DL11
+
 	.=10000
 
 stack	=	. - 2		; stack growns down from start
@@ -70,6 +83,10 @@ stack	=	. - 2		; stack growns down from start
 start:
 	mov	#stack,sp	; init stack
 	clr	   @#psw	; clear priority, allow all interupts
+
+	reset			; disable INTR on all devices
+
+	clr	@#logptr	; default: slow mode
 
 	; 1. print "Hello" msg
 	mov	#shello,r1
@@ -108,9 +125,24 @@ start:
 	asl	r0
 	mov	r0,@#psw
 
-	br	1$
+	br	1$		; OK, next char
 
-2$:
+2$:	; -- eval "S", F"
+	cmpb	r0,#'S
+	bne	3$
+	mov	#sslwmd,r1	; "slow mode"
+	call	@#puts
+	clr	@#logptr
+	br	1$		; OK, next char
+3$:	cmpb	r0,#'F
+	bne	8$		;
+	mov	#sfstmd,r1	; "fast mode"
+	call	@#puts
+	call	@#prtlog	; print logged vectors, if any
+	mov	#logbuf,@#logptr; pointer to biuffer start
+	br	1$		; OK, next char
+
+8$:
 	call	@#putc		; no: echo char in r0 and loop
 	br	1$
 
@@ -137,14 +169,25 @@ doisr:
 	mov	r1,-(sp)
 	mov	r0,-(sp)
 
-	; print msg
+	mov	@#logptr,r1
+	beq	1$
+	; Fast mode: log vector
+	mov	r0,(r1)+	; store vector in array
+	mov	r1,@#logptr	; save updated list pointer
+
+	br	9$
+1$:	; "Slow mode: print msg
 	mov	#sisr1,r1 ; "ISR "
 	call	@#puts
 	mov	(sp),r0 	; restore vecnum
 	call	 @#putnum
 	mov	#sisr2,r1 ; "cr lf
 	call	@#puts
+	; make ISR 100ms
+	mov	#144,r0   ; 100
+	call	 @#waitms
 
+9$:
 	mov	(sp)+,r0
 	mov	(sp)+,r1
 	mov	(sp)+,r2
@@ -152,6 +195,28 @@ doisr:
 	mov	(sp)+,r4
 	return
 
+
+	; ----------------------
+	; prtlog - print log of isr vectors
+	; word list from logbuf to logptr
+prtlog:
+	tst	@#logptr
+	beq	9$		; ptr 0, slow mode, nothing logged
+	mov	#logbuf,r2
+1$:
+	cmp	r2,@#logptr
+	bhis	8$		; end of list reached
+	mov	(r2)+,r0	; print vector from list
+	call	 @#putnum
+	mov	#40,r0		; print space separator
+	call	 @#putc
+	br	1$
+8$:
+	mov	#scrlf,r1	; CR/LF
+	call	 @#puts
+
+9$:
+	return
 
 	; ----------------------
 	; puts - print a string
@@ -169,6 +234,10 @@ puts:
 numbf0:  .blkw	 10		 ; space to mount number string
 numbf1	=.
 putnum:
+	mov	r0,-(sp)
+	mov	r1,-(sp)
+	mov	r2,-(sp)
+	mov	r3,-(sp)
 	mov	r0,r2		; r2 = shifter
 	mov	#numbf1,r1	; r1 = buffer pointer, backwards
 	movb	#0,-(r1)	; set terminating 0
@@ -181,12 +250,16 @@ putnum:
 	add	#60,r0	; r0 += '0'
 	movb	r0,-(r1) ; write in buffer
 	clc
-	ror	r2	; shift to next digit
-	ror	r2
-	ror	r2
+	asr	r2	; shift to next digit
+	asr	r2
+	asr	r2
 	sob	r3,1$	; loop for all 6 digits
 
 	call	@#puts
+	mov	(sp)+,r3
+	mov	(sp)+,r2
+	mov	(sp)+,r1
+	mov	(sp)+,r0
 	return
 
 
@@ -206,11 +279,28 @@ putc:
 	; result in r0, r4 changed
 getc:
 	mov	#dladr,r4	; set base addr
-1$:	tstb	(r4)		; RCVR DONE?
+1$:	mov	@#inchr,r0	; external DEPOSIT into inchr?
+	bne	9$		; yes: process as input
+	tstb	(r4)		; else: RCVR DONE?
 	bpl	1$		; no, loop
 	mov	2(r4),r0	; return data
+9$:
+	clr	@#inchr
 	return
 
+	; ----------------------
+	; waitms - wait r0 milli seconds
+waitms:
+	mov	r1,-(sp)
+
+1$:	; -- outer loop
+	mov   #764,r1	       ; 500
+2$:	; -- inner loop: 1ms @ 1MHz
+	sob	r1,2$		; 1 cycle,2 us per loop (11/34)
+
+	sob	r0,1$
+	mov	(sp)+,r1
+	return
 
 	; ---- Test strings, each 256 chars max  ---------
 
@@ -233,11 +323,25 @@ shello:
 	.byte	15,12	; CR, LF,
 	.ascii	/Chars 0..7 set the new processor priority level./
 	.byte	15,12	; CR, LF,
+	.ascii	/S = slow mode: ISR prints message (default)/
+	.byte	15,12	; CR, LF,
+	.ascii	/F = fast mode: ISR logs vector, print and clr current log/
+	.byte	15,12	; CR, LF,
+	.byte	0		; NUL=end marker
+
+sslwmd:
+	.ascii	/Slow mode: called ISR prints vector directly/
+	.byte	15,12	; CR, LF,
+	.byte	0		; NUL=end marker
+
+sfstmd:
+	.ascii	/Fast mode: called ISR vectors are logged:/
+	.byte	15,12	; CR, LF,
 	.byte	0		; NUL=end marker
 
 sprio0:
 	.byte	15,12	; CR, LF,
-	.ascii	/CPU priority now /
+	.ascii	/CPU priority level now /
 	.byte	0
 
 sprio1:
@@ -247,7 +351,16 @@ sprio1:
 sbye:
 	.byte	15,12
 	.ascii	/Good Bye!/
+scrlf:
 	.byte	15,12,0 	; CR, LF, NUL=end marker
+
+	; .byte   0		  ; make addr even
+
+	; in "fast" mode, ISR calls fill this array with called vectors
+logptr:
+	.word		; addr of next logentry to fill. 0 in "slow" mode
+
+logbuf:
 
 
 	.end

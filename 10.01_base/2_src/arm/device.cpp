@@ -132,7 +132,7 @@ device_c::~device_c() {
 // only to be called in constructors
 void device_c::set_workers_count(unsigned workers_count) {
 	workers.resize(workers_count);
-	for (unsigned instance=0; instance < workers_count; instance++) {
+	for (unsigned instance = 0; instance < workers_count; instance++) {
 		device_worker_c *worker_instance = &workers[instance];
 		worker_instance->device = this;
 		worker_instance->instance = instance;

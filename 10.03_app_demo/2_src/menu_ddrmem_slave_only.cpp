@@ -47,7 +47,7 @@ void application_c::menu_ddrmem_slave_only() {
 	bool ready;
 	int n_fields;
 
-	hardware_startup(pru_c::PRUCODE_UNIBUS) ;
+	hardware_startup(pru_c::PRUCODE_UNIBUS, unibus_c::ARBITRATION_MODE_NONE);
 
 	ready = false;
 	while (!ready) {
@@ -93,8 +93,9 @@ void application_c::menu_ddrmem_slave_only() {
 			else
 				printf("Use \"f a\" or \"f p\"\n");
 		} else if (!strcasecmp(s_opcode, "u") && (n_fields == 3)) {
-			uint32_t start_addr = strtol(s_param[0], NULL, 8);
-			uint32_t end_addr = strtol(s_param[1], NULL, 8);
+			uint32_t start_addr, end_addr;
+			parse_addr18(s_param[0], &start_addr);
+			parse_addr18(s_param[1], &end_addr);
 			if (ddrmem->set_range(start_addr, end_addr)) {
 				emulated_memory_start_addr = start_addr;
 				emulated_memory_end_addr = end_addr;
@@ -117,7 +118,7 @@ void application_c::menu_ddrmem_slave_only() {
 			show_help = true;
 		}
 	}
-	hardware_shutdown() ;
-	
+	hardware_shutdown();
+
 }
 
