@@ -1,0 +1,1322 @@
+       1                                
+       2                                	.title	INTR and DMA test
+       3                                
+       4                                	; This program tests the DEC DL11 console interface
+       5                                	; and the INTR and DMA systems.
+       6                                	; The foreground thread runs in 4 phases:
+       7                                	; 1.1. print a start message,
+       8                                	; 1.2. echoes chars typed to the output until ^C is hit
+       9                                	;      Chars 0..7 set the new processor priority level.
+      10                                	; 1.3  prints an end message and HALTs.
+      11                                	; 1.4. on CONT it repeats.
+      12                                	;
+      13                                	; 2. For INTR test, the 256 vectors 0,4,10,14,..374 each print
+      14                                	; a string on interrupt.
+      15                                	; In "Slow" mode, the ISR prints the vector directly
+      16                                	;	(ISR rountine > 100ms)
+      17                                	; In "Fast" mode, the ISR logs the vector in a list
+      18                                	;	(It can be printed later with "F"
+      19                                	;
+      20                                	; As alternative to input over DL11,
+      21                                	; "keyboard input chars" can be deposited into 7776
+      22                                	;
+      23                                	; Contact: Joerg Hoppe / j_hoppe@t-online.de / www.retromcp.com
+      24                                
+      25 177560                         dladr	=	177560	; DL11 console base address
+      26 177776                         psw	=	177776	; processor status
+      27                                
+      28                                
+      29                                	; count of automatically generated interrupt vectors
+      30 000100                         veccnt	= 100
+      31                                
+      32                                	; ------- macro to define interrupt vector #<vecidx> ------
+      33                                	.macro vector	vecidx
+      34                                	.=4*vecidx	 ; vector #vecidx
+      35                                	.word	isr'vecidx	; new PC of ISR
+      36                                	.word	340		; new PSW: priority is max = 7
+      37                                	.endm
+      38                                
+      39                                	; ----- macro to define ISR for vector #n -------
+      40                                	.macro isr	vecidx
+      41                                isr'vecidx:
+      42                                	mov	r0,-(sp)
+      43                                	mov	#vecidx*4,r0 ; vector in r0
+      44                                	call	@#doisr    ; print message for vector in r0
+      45                                	mov	(sp)+,r0
+      46                                	rti
+      47                                	.endm
+      48                                
+      49                                
+      50                                
+      51                                
+      52                                	.asect
+      53                                
+      54 000000                         	. = 0
+      55                                	; ---- "veccnt" Interrupt Vectors ---------
+      56 000000                         	n=0
+      57                                	.rept	veccnt
+      58                                	vector	\n
+      59                                	n=n+1
+      60                                       .endr
+       1                                	vector	\n
+       1 000000                         	.=4*0	 ; vector #0
+       2 000000 000400                  	.word	isr0	; new PC of ISR
+       3 000002 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000001                         	n=n+1
+       1                                	vector	\n
+       1 000004                         	.=4*1	 ; vector #1
+       2 000004 000416                  	.word	isr1	; new PC of ISR
+       3 000006 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000002                         	n=n+1
+       1                                	vector	\n
+       1 000010                         	.=4*2	 ; vector #2
+       2 000010 000434                  	.word	isr2	; new PC of ISR
+       3 000012 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000003                         	n=n+1
+       1                                	vector	\n
+       1 000014                         	.=4*3	 ; vector #3
+       2 000014 000452                  	.word	isr3	; new PC of ISR
+       3 000016 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000004                         	n=n+1
+       1                                	vector	\n
+       1 000020                         	.=4*4	 ; vector #4
+       2 000020 000470                  	.word	isr4	; new PC of ISR
+       3 000022 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000005                         	n=n+1
+       1                                	vector	\n
+       1 000024                         	.=4*5	 ; vector #5
+       2 000024 000506                  	.word	isr5	; new PC of ISR
+       3 000026 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000006                         	n=n+1
+       1                                	vector	\n
+       1 000030                         	.=4*6	 ; vector #6
+       2 000030 000524                  	.word	isr6	; new PC of ISR
+       3 000032 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000007                         	n=n+1
+       1                                	vector	\n
+       1 000034                         	.=4*7	 ; vector #7
+       2 000034 000542                  	.word	isr7	; new PC of ISR
+       3 000036 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000010                         	n=n+1
+       1                                	vector	\n
+       1 000040                         	.=4*10	 ; vector #10
+       2 000040 000560                  	.word	isr10	; new PC of ISR
+       3 000042 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000011                         	n=n+1
+       1                                	vector	\n
+       1 000044                         	.=4*11	 ; vector #11
+       2 000044 000576                  	.word	isr11	; new PC of ISR
+       3 000046 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000012                         	n=n+1
+       1                                	vector	\n
+       1 000050                         	.=4*12	 ; vector #12
+       2 000050 000614                  	.word	isr12	; new PC of ISR
+       3 000052 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000013                         	n=n+1
+       1                                	vector	\n
+       1 000054                         	.=4*13	 ; vector #13
+       2 000054 000632                  	.word	isr13	; new PC of ISR
+       3 000056 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000014                         	n=n+1
+       1                                	vector	\n
+       1 000060                         	.=4*14	 ; vector #14
+       2 000060 000650                  	.word	isr14	; new PC of ISR
+       3 000062 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000015                         	n=n+1
+       1                                	vector	\n
+       1 000064                         	.=4*15	 ; vector #15
+       2 000064 000666                  	.word	isr15	; new PC of ISR
+       3 000066 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000016                         	n=n+1
+       1                                	vector	\n
+       1 000070                         	.=4*16	 ; vector #16
+       2 000070 000704                  	.word	isr16	; new PC of ISR
+       3 000072 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000017                         	n=n+1
+       1                                	vector	\n
+       1 000074                         	.=4*17	 ; vector #17
+       2 000074 000722                  	.word	isr17	; new PC of ISR
+       3 000076 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000020                         	n=n+1
+       1                                	vector	\n
+       1 000100                         	.=4*20	 ; vector #20
+       2 000100 000740                  	.word	isr20	; new PC of ISR
+       3 000102 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000021                         	n=n+1
+       1                                	vector	\n
+       1 000104                         	.=4*21	 ; vector #21
+       2 000104 000756                  	.word	isr21	; new PC of ISR
+       3 000106 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000022                         	n=n+1
+       1                                	vector	\n
+       1 000110                         	.=4*22	 ; vector #22
+       2 000110 000774                  	.word	isr22	; new PC of ISR
+       3 000112 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000023                         	n=n+1
+       1                                	vector	\n
+       1 000114                         	.=4*23	 ; vector #23
+       2 000114 001012                  	.word	isr23	; new PC of ISR
+       3 000116 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000024                         	n=n+1
+       1                                	vector	\n
+       1 000120                         	.=4*24	 ; vector #24
+       2 000120 001030                  	.word	isr24	; new PC of ISR
+       3 000122 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000025                         	n=n+1
+       1                                	vector	\n
+       1 000124                         	.=4*25	 ; vector #25
+       2 000124 001046                  	.word	isr25	; new PC of ISR
+       3 000126 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000026                         	n=n+1
+       1                                	vector	\n
+       1 000130                         	.=4*26	 ; vector #26
+       2 000130 001064                  	.word	isr26	; new PC of ISR
+       3 000132 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000027                         	n=n+1
+       1                                	vector	\n
+       1 000134                         	.=4*27	 ; vector #27
+       2 000134 001102                  	.word	isr27	; new PC of ISR
+       3 000136 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000030                         	n=n+1
+       1                                	vector	\n
+       1 000140                         	.=4*30	 ; vector #30
+       2 000140 001120                  	.word	isr30	; new PC of ISR
+       3 000142 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000031                         	n=n+1
+       1                                	vector	\n
+       1 000144                         	.=4*31	 ; vector #31
+       2 000144 001136                  	.word	isr31	; new PC of ISR
+       3 000146 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000032                         	n=n+1
+       1                                	vector	\n
+       1 000150                         	.=4*32	 ; vector #32
+       2 000150 001154                  	.word	isr32	; new PC of ISR
+       3 000152 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000033                         	n=n+1
+       1                                	vector	\n
+       1 000154                         	.=4*33	 ; vector #33
+       2 000154 001172                  	.word	isr33	; new PC of ISR
+       3 000156 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000034                         	n=n+1
+       1                                	vector	\n
+       1 000160                         	.=4*34	 ; vector #34
+       2 000160 001210                  	.word	isr34	; new PC of ISR
+       3 000162 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000035                         	n=n+1
+       1                                	vector	\n
+       1 000164                         	.=4*35	 ; vector #35
+       2 000164 001226                  	.word	isr35	; new PC of ISR
+       3 000166 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000036                         	n=n+1
+       1                                	vector	\n
+       1 000170                         	.=4*36	 ; vector #36
+       2 000170 001244                  	.word	isr36	; new PC of ISR
+       3 000172 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000037                         	n=n+1
+       1                                	vector	\n
+       1 000174                         	.=4*37	 ; vector #37
+       2 000174 001262                  	.word	isr37	; new PC of ISR
+       3 000176 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000040                         	n=n+1
+       1                                	vector	\n
+       1 000200                         	.=4*40	 ; vector #40
+       2 000200 001300                  	.word	isr40	; new PC of ISR
+       3 000202 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000041                         	n=n+1
+       1                                	vector	\n
+       1 000204                         	.=4*41	 ; vector #41
+       2 000204 001316                  	.word	isr41	; new PC of ISR
+       3 000206 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000042                         	n=n+1
+       1                                	vector	\n
+       1 000210                         	.=4*42	 ; vector #42
+       2 000210 001334                  	.word	isr42	; new PC of ISR
+       3 000212 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000043                         	n=n+1
+       1                                	vector	\n
+       1 000214                         	.=4*43	 ; vector #43
+       2 000214 001352                  	.word	isr43	; new PC of ISR
+       3 000216 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000044                         	n=n+1
+       1                                	vector	\n
+       1 000220                         	.=4*44	 ; vector #44
+       2 000220 001370                  	.word	isr44	; new PC of ISR
+       3 000222 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000045                         	n=n+1
+       1                                	vector	\n
+       1 000224                         	.=4*45	 ; vector #45
+       2 000224 001406                  	.word	isr45	; new PC of ISR
+       3 000226 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000046                         	n=n+1
+       1                                	vector	\n
+       1 000230                         	.=4*46	 ; vector #46
+       2 000230 001424                  	.word	isr46	; new PC of ISR
+       3 000232 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000047                         	n=n+1
+       1                                	vector	\n
+       1 000234                         	.=4*47	 ; vector #47
+       2 000234 001442                  	.word	isr47	; new PC of ISR
+       3 000236 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000050                         	n=n+1
+       1                                	vector	\n
+       1 000240                         	.=4*50	 ; vector #50
+       2 000240 001460                  	.word	isr50	; new PC of ISR
+       3 000242 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000051                         	n=n+1
+       1                                	vector	\n
+       1 000244                         	.=4*51	 ; vector #51
+       2 000244 001476                  	.word	isr51	; new PC of ISR
+       3 000246 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000052                         	n=n+1
+       1                                	vector	\n
+       1 000250                         	.=4*52	 ; vector #52
+       2 000250 001514                  	.word	isr52	; new PC of ISR
+       3 000252 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000053                         	n=n+1
+       1                                	vector	\n
+       1 000254                         	.=4*53	 ; vector #53
+       2 000254 001532                  	.word	isr53	; new PC of ISR
+       3 000256 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000054                         	n=n+1
+       1                                	vector	\n
+       1 000260                         	.=4*54	 ; vector #54
+       2 000260 001550                  	.word	isr54	; new PC of ISR
+       3 000262 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000055                         	n=n+1
+       1                                	vector	\n
+       1 000264                         	.=4*55	 ; vector #55
+       2 000264 001566                  	.word	isr55	; new PC of ISR
+       3 000266 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000056                         	n=n+1
+       1                                	vector	\n
+       1 000270                         	.=4*56	 ; vector #56
+       2 000270 001604                  	.word	isr56	; new PC of ISR
+       3 000272 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000057                         	n=n+1
+       1                                	vector	\n
+       1 000274                         	.=4*57	 ; vector #57
+       2 000274 001622                  	.word	isr57	; new PC of ISR
+       3 000276 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000060                         	n=n+1
+       1                                	vector	\n
+       1 000300                         	.=4*60	 ; vector #60
+       2 000300 001640                  	.word	isr60	; new PC of ISR
+       3 000302 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000061                         	n=n+1
+       1                                	vector	\n
+       1 000304                         	.=4*61	 ; vector #61
+       2 000304 001656                  	.word	isr61	; new PC of ISR
+       3 000306 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000062                         	n=n+1
+       1                                	vector	\n
+       1 000310                         	.=4*62	 ; vector #62
+       2 000310 001674                  	.word	isr62	; new PC of ISR
+       3 000312 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000063                         	n=n+1
+       1                                	vector	\n
+       1 000314                         	.=4*63	 ; vector #63
+       2 000314 001712                  	.word	isr63	; new PC of ISR
+       3 000316 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000064                         	n=n+1
+       1                                	vector	\n
+       1 000320                         	.=4*64	 ; vector #64
+       2 000320 001730                  	.word	isr64	; new PC of ISR
+       3 000322 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000065                         	n=n+1
+       1                                	vector	\n
+       1 000324                         	.=4*65	 ; vector #65
+       2 000324 001746                  	.word	isr65	; new PC of ISR
+       3 000326 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000066                         	n=n+1
+       1                                	vector	\n
+       1 000330                         	.=4*66	 ; vector #66
+       2 000330 001764                  	.word	isr66	; new PC of ISR
+       3 000332 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000067                         	n=n+1
+       1                                	vector	\n
+       1 000334                         	.=4*67	 ; vector #67
+       2 000334 002002                  	.word	isr67	; new PC of ISR
+       3 000336 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000070                         	n=n+1
+       1                                	vector	\n
+       1 000340                         	.=4*70	 ; vector #70
+       2 000340 002020                  	.word	isr70	; new PC of ISR
+       3 000342 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000071                         	n=n+1
+       1                                	vector	\n
+       1 000344                         	.=4*71	 ; vector #71
+       2 000344 002036                  	.word	isr71	; new PC of ISR
+       3 000346 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000072                         	n=n+1
+       1                                	vector	\n
+       1 000350                         	.=4*72	 ; vector #72
+       2 000350 002054                  	.word	isr72	; new PC of ISR
+       3 000352 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000073                         	n=n+1
+       1                                	vector	\n
+       1 000354                         	.=4*73	 ; vector #73
+       2 000354 002072                  	.word	isr73	; new PC of ISR
+       3 000356 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000074                         	n=n+1
+       1                                	vector	\n
+       1 000360                         	.=4*74	 ; vector #74
+       2 000360 002110                  	.word	isr74	; new PC of ISR
+       3 000362 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000075                         	n=n+1
+       1                                	vector	\n
+       1 000364                         	.=4*75	 ; vector #75
+       2 000364 002126                  	.word	isr75	; new PC of ISR
+       3 000366 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000076                         	n=n+1
+       1                                	vector	\n
+       1 000370                         	.=4*76	 ; vector #76
+       2 000370 002144                  	.word	isr76	; new PC of ISR
+       3 000372 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000077                         	n=n+1
+       1                                	vector	\n
+       1 000374                         	.=4*77	 ; vector #77
+       2 000374 002162                  	.word	isr77	; new PC of ISR
+       3 000376 000340                  	.word	340		; new PSW: priority is max = 7
+       2 000100                         	n=n+1
+      61                                
+      62                                	; ---- veccnt ISRs ---------
+      63 000000                         	n=0
+      64                                	.rept	veccnt
+      65                                	isr  \n
+      66                                	n=n+1
+      67                                	.endr
+       1                                	isr  \n
+       1                                isr0:
+       2 000400 010046                  	mov	r0,-(sp)
+       3 000402 012700  000000          	mov	#0*4,r0 ; vector in r0
+       4 000406 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000412 012600                  	mov	(sp)+,r0
+       6 000414 000002                  	rti
+       2 000001                         	n=n+1
+       1                                	isr  \n
+       1                                isr1:
+       2 000416 010046                  	mov	r0,-(sp)
+       3 000420 012700  000004          	mov	#1*4,r0 ; vector in r0
+       4 000424 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000430 012600                  	mov	(sp)+,r0
+       6 000432 000002                  	rti
+       2 000002                         	n=n+1
+       1                                	isr  \n
+       1                                isr2:
+       2 000434 010046                  	mov	r0,-(sp)
+       3 000436 012700  000010          	mov	#2*4,r0 ; vector in r0
+       4 000442 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000446 012600                  	mov	(sp)+,r0
+       6 000450 000002                  	rti
+       2 000003                         	n=n+1
+       1                                	isr  \n
+       1                                isr3:
+       2 000452 010046                  	mov	r0,-(sp)
+       3 000454 012700  000014          	mov	#3*4,r0 ; vector in r0
+       4 000460 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000464 012600                  	mov	(sp)+,r0
+       6 000466 000002                  	rti
+       2 000004                         	n=n+1
+       1                                	isr  \n
+       1                                isr4:
+       2 000470 010046                  	mov	r0,-(sp)
+       3 000472 012700  000020          	mov	#4*4,r0 ; vector in r0
+       4 000476 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000502 012600                  	mov	(sp)+,r0
+       6 000504 000002                  	rti
+       2 000005                         	n=n+1
+       1                                	isr  \n
+       1                                isr5:
+       2 000506 010046                  	mov	r0,-(sp)
+       3 000510 012700  000024          	mov	#5*4,r0 ; vector in r0
+       4 000514 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000520 012600                  	mov	(sp)+,r0
+       6 000522 000002                  	rti
+       2 000006                         	n=n+1
+       1                                	isr  \n
+       1                                isr6:
+       2 000524 010046                  	mov	r0,-(sp)
+       3 000526 012700  000030          	mov	#6*4,r0 ; vector in r0
+       4 000532 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000536 012600                  	mov	(sp)+,r0
+       6 000540 000002                  	rti
+       2 000007                         	n=n+1
+       1                                	isr  \n
+       1                                isr7:
+       2 000542 010046                  	mov	r0,-(sp)
+       3 000544 012700  000034          	mov	#7*4,r0 ; vector in r0
+       4 000550 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000554 012600                  	mov	(sp)+,r0
+       6 000556 000002                  	rti
+       2 000010                         	n=n+1
+       1                                	isr  \n
+       1                                isr10:
+       2 000560 010046                  	mov	r0,-(sp)
+       3 000562 012700  000040          	mov	#10*4,r0 ; vector in r0
+       4 000566 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000572 012600                  	mov	(sp)+,r0
+       6 000574 000002                  	rti
+       2 000011                         	n=n+1
+       1                                	isr  \n
+       1                                isr11:
+       2 000576 010046                  	mov	r0,-(sp)
+       3 000600 012700  000044          	mov	#11*4,r0 ; vector in r0
+       4 000604 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000610 012600                  	mov	(sp)+,r0
+       6 000612 000002                  	rti
+       2 000012                         	n=n+1
+       1                                	isr  \n
+       1                                isr12:
+       2 000614 010046                  	mov	r0,-(sp)
+       3 000616 012700  000050          	mov	#12*4,r0 ; vector in r0
+       4 000622 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000626 012600                  	mov	(sp)+,r0
+       6 000630 000002                  	rti
+       2 000013                         	n=n+1
+       1                                	isr  \n
+       1                                isr13:
+       2 000632 010046                  	mov	r0,-(sp)
+       3 000634 012700  000054          	mov	#13*4,r0 ; vector in r0
+       4 000640 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000644 012600                  	mov	(sp)+,r0
+       6 000646 000002                  	rti
+       2 000014                         	n=n+1
+       1                                	isr  \n
+       1                                isr14:
+       2 000650 010046                  	mov	r0,-(sp)
+       3 000652 012700  000060          	mov	#14*4,r0 ; vector in r0
+       4 000656 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000662 012600                  	mov	(sp)+,r0
+       6 000664 000002                  	rti
+       2 000015                         	n=n+1
+       1                                	isr  \n
+       1                                isr15:
+       2 000666 010046                  	mov	r0,-(sp)
+       3 000670 012700  000064          	mov	#15*4,r0 ; vector in r0
+       4 000674 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000700 012600                  	mov	(sp)+,r0
+       6 000702 000002                  	rti
+       2 000016                         	n=n+1
+       1                                	isr  \n
+       1                                isr16:
+       2 000704 010046                  	mov	r0,-(sp)
+       3 000706 012700  000070          	mov	#16*4,r0 ; vector in r0
+       4 000712 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000716 012600                  	mov	(sp)+,r0
+       6 000720 000002                  	rti
+       2 000017                         	n=n+1
+       1                                	isr  \n
+       1                                isr17:
+       2 000722 010046                  	mov	r0,-(sp)
+       3 000724 012700  000074          	mov	#17*4,r0 ; vector in r0
+       4 000730 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000734 012600                  	mov	(sp)+,r0
+       6 000736 000002                  	rti
+       2 000020                         	n=n+1
+       1                                	isr  \n
+       1                                isr20:
+       2 000740 010046                  	mov	r0,-(sp)
+       3 000742 012700  000100          	mov	#20*4,r0 ; vector in r0
+       4 000746 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000752 012600                  	mov	(sp)+,r0
+       6 000754 000002                  	rti
+       2 000021                         	n=n+1
+       1                                	isr  \n
+       1                                isr21:
+       2 000756 010046                  	mov	r0,-(sp)
+       3 000760 012700  000104          	mov	#21*4,r0 ; vector in r0
+       4 000764 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 000770 012600                  	mov	(sp)+,r0
+       6 000772 000002                  	rti
+       2 000022                         	n=n+1
+       1                                	isr  \n
+       1                                isr22:
+       2 000774 010046                  	mov	r0,-(sp)
+       3 000776 012700  000110          	mov	#22*4,r0 ; vector in r0
+       4 001002 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001006 012600                  	mov	(sp)+,r0
+       6 001010 000002                  	rti
+       2 000023                         	n=n+1
+       1                                	isr  \n
+       1                                isr23:
+       2 001012 010046                  	mov	r0,-(sp)
+       3 001014 012700  000114          	mov	#23*4,r0 ; vector in r0
+       4 001020 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001024 012600                  	mov	(sp)+,r0
+       6 001026 000002                  	rti
+       2 000024                         	n=n+1
+       1                                	isr  \n
+       1                                isr24:
+       2 001030 010046                  	mov	r0,-(sp)
+       3 001032 012700  000120          	mov	#24*4,r0 ; vector in r0
+       4 001036 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001042 012600                  	mov	(sp)+,r0
+       6 001044 000002                  	rti
+       2 000025                         	n=n+1
+       1                                	isr  \n
+       1                                isr25:
+       2 001046 010046                  	mov	r0,-(sp)
+       3 001050 012700  000124          	mov	#25*4,r0 ; vector in r0
+       4 001054 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001060 012600                  	mov	(sp)+,r0
+       6 001062 000002                  	rti
+       2 000026                         	n=n+1
+       1                                	isr  \n
+       1                                isr26:
+       2 001064 010046                  	mov	r0,-(sp)
+       3 001066 012700  000130          	mov	#26*4,r0 ; vector in r0
+       4 001072 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001076 012600                  	mov	(sp)+,r0
+       6 001100 000002                  	rti
+       2 000027                         	n=n+1
+       1                                	isr  \n
+       1                                isr27:
+       2 001102 010046                  	mov	r0,-(sp)
+       3 001104 012700  000134          	mov	#27*4,r0 ; vector in r0
+       4 001110 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001114 012600                  	mov	(sp)+,r0
+       6 001116 000002                  	rti
+       2 000030                         	n=n+1
+       1                                	isr  \n
+       1                                isr30:
+       2 001120 010046                  	mov	r0,-(sp)
+       3 001122 012700  000140          	mov	#30*4,r0 ; vector in r0
+       4 001126 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001132 012600                  	mov	(sp)+,r0
+       6 001134 000002                  	rti
+       2 000031                         	n=n+1
+       1                                	isr  \n
+       1                                isr31:
+       2 001136 010046                  	mov	r0,-(sp)
+       3 001140 012700  000144          	mov	#31*4,r0 ; vector in r0
+       4 001144 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001150 012600                  	mov	(sp)+,r0
+       6 001152 000002                  	rti
+       2 000032                         	n=n+1
+       1                                	isr  \n
+       1                                isr32:
+       2 001154 010046                  	mov	r0,-(sp)
+       3 001156 012700  000150          	mov	#32*4,r0 ; vector in r0
+       4 001162 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001166 012600                  	mov	(sp)+,r0
+       6 001170 000002                  	rti
+       2 000033                         	n=n+1
+       1                                	isr  \n
+       1                                isr33:
+       2 001172 010046                  	mov	r0,-(sp)
+       3 001174 012700  000154          	mov	#33*4,r0 ; vector in r0
+       4 001200 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001204 012600                  	mov	(sp)+,r0
+       6 001206 000002                  	rti
+       2 000034                         	n=n+1
+       1                                	isr  \n
+       1                                isr34:
+       2 001210 010046                  	mov	r0,-(sp)
+       3 001212 012700  000160          	mov	#34*4,r0 ; vector in r0
+       4 001216 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001222 012600                  	mov	(sp)+,r0
+       6 001224 000002                  	rti
+       2 000035                         	n=n+1
+       1                                	isr  \n
+       1                                isr35:
+       2 001226 010046                  	mov	r0,-(sp)
+       3 001230 012700  000164          	mov	#35*4,r0 ; vector in r0
+       4 001234 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001240 012600                  	mov	(sp)+,r0
+       6 001242 000002                  	rti
+       2 000036                         	n=n+1
+       1                                	isr  \n
+       1                                isr36:
+       2 001244 010046                  	mov	r0,-(sp)
+       3 001246 012700  000170          	mov	#36*4,r0 ; vector in r0
+       4 001252 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001256 012600                  	mov	(sp)+,r0
+       6 001260 000002                  	rti
+       2 000037                         	n=n+1
+       1                                	isr  \n
+       1                                isr37:
+       2 001262 010046                  	mov	r0,-(sp)
+       3 001264 012700  000174          	mov	#37*4,r0 ; vector in r0
+       4 001270 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001274 012600                  	mov	(sp)+,r0
+       6 001276 000002                  	rti
+       2 000040                         	n=n+1
+       1                                	isr  \n
+       1                                isr40:
+       2 001300 010046                  	mov	r0,-(sp)
+       3 001302 012700  000200          	mov	#40*4,r0 ; vector in r0
+       4 001306 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001312 012600                  	mov	(sp)+,r0
+       6 001314 000002                  	rti
+       2 000041                         	n=n+1
+       1                                	isr  \n
+       1                                isr41:
+       2 001316 010046                  	mov	r0,-(sp)
+       3 001320 012700  000204          	mov	#41*4,r0 ; vector in r0
+       4 001324 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001330 012600                  	mov	(sp)+,r0
+       6 001332 000002                  	rti
+       2 000042                         	n=n+1
+       1                                	isr  \n
+       1                                isr42:
+       2 001334 010046                  	mov	r0,-(sp)
+       3 001336 012700  000210          	mov	#42*4,r0 ; vector in r0
+       4 001342 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001346 012600                  	mov	(sp)+,r0
+       6 001350 000002                  	rti
+       2 000043                         	n=n+1
+       1                                	isr  \n
+       1                                isr43:
+       2 001352 010046                  	mov	r0,-(sp)
+       3 001354 012700  000214          	mov	#43*4,r0 ; vector in r0
+       4 001360 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001364 012600                  	mov	(sp)+,r0
+       6 001366 000002                  	rti
+       2 000044                         	n=n+1
+       1                                	isr  \n
+       1                                isr44:
+       2 001370 010046                  	mov	r0,-(sp)
+       3 001372 012700  000220          	mov	#44*4,r0 ; vector in r0
+       4 001376 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001402 012600                  	mov	(sp)+,r0
+       6 001404 000002                  	rti
+       2 000045                         	n=n+1
+       1                                	isr  \n
+       1                                isr45:
+       2 001406 010046                  	mov	r0,-(sp)
+       3 001410 012700  000224          	mov	#45*4,r0 ; vector in r0
+       4 001414 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001420 012600                  	mov	(sp)+,r0
+       6 001422 000002                  	rti
+       2 000046                         	n=n+1
+       1                                	isr  \n
+       1                                isr46:
+       2 001424 010046                  	mov	r0,-(sp)
+       3 001426 012700  000230          	mov	#46*4,r0 ; vector in r0
+       4 001432 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001436 012600                  	mov	(sp)+,r0
+       6 001440 000002                  	rti
+       2 000047                         	n=n+1
+       1                                	isr  \n
+       1                                isr47:
+       2 001442 010046                  	mov	r0,-(sp)
+       3 001444 012700  000234          	mov	#47*4,r0 ; vector in r0
+       4 001450 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001454 012600                  	mov	(sp)+,r0
+       6 001456 000002                  	rti
+       2 000050                         	n=n+1
+       1                                	isr  \n
+       1                                isr50:
+       2 001460 010046                  	mov	r0,-(sp)
+       3 001462 012700  000240          	mov	#50*4,r0 ; vector in r0
+       4 001466 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001472 012600                  	mov	(sp)+,r0
+       6 001474 000002                  	rti
+       2 000051                         	n=n+1
+       1                                	isr  \n
+       1                                isr51:
+       2 001476 010046                  	mov	r0,-(sp)
+       3 001500 012700  000244          	mov	#51*4,r0 ; vector in r0
+       4 001504 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001510 012600                  	mov	(sp)+,r0
+       6 001512 000002                  	rti
+       2 000052                         	n=n+1
+       1                                	isr  \n
+       1                                isr52:
+       2 001514 010046                  	mov	r0,-(sp)
+       3 001516 012700  000250          	mov	#52*4,r0 ; vector in r0
+       4 001522 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001526 012600                  	mov	(sp)+,r0
+       6 001530 000002                  	rti
+       2 000053                         	n=n+1
+       1                                	isr  \n
+       1                                isr53:
+       2 001532 010046                  	mov	r0,-(sp)
+       3 001534 012700  000254          	mov	#53*4,r0 ; vector in r0
+       4 001540 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001544 012600                  	mov	(sp)+,r0
+       6 001546 000002                  	rti
+       2 000054                         	n=n+1
+       1                                	isr  \n
+       1                                isr54:
+       2 001550 010046                  	mov	r0,-(sp)
+       3 001552 012700  000260          	mov	#54*4,r0 ; vector in r0
+       4 001556 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001562 012600                  	mov	(sp)+,r0
+       6 001564 000002                  	rti
+       2 000055                         	n=n+1
+       1                                	isr  \n
+       1                                isr55:
+       2 001566 010046                  	mov	r0,-(sp)
+       3 001570 012700  000264          	mov	#55*4,r0 ; vector in r0
+       4 001574 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001600 012600                  	mov	(sp)+,r0
+       6 001602 000002                  	rti
+       2 000056                         	n=n+1
+       1                                	isr  \n
+       1                                isr56:
+       2 001604 010046                  	mov	r0,-(sp)
+       3 001606 012700  000270          	mov	#56*4,r0 ; vector in r0
+       4 001612 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001616 012600                  	mov	(sp)+,r0
+       6 001620 000002                  	rti
+       2 000057                         	n=n+1
+       1                                	isr  \n
+       1                                isr57:
+       2 001622 010046                  	mov	r0,-(sp)
+       3 001624 012700  000274          	mov	#57*4,r0 ; vector in r0
+       4 001630 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001634 012600                  	mov	(sp)+,r0
+       6 001636 000002                  	rti
+       2 000060                         	n=n+1
+       1                                	isr  \n
+       1                                isr60:
+       2 001640 010046                  	mov	r0,-(sp)
+       3 001642 012700  000300          	mov	#60*4,r0 ; vector in r0
+       4 001646 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001652 012600                  	mov	(sp)+,r0
+       6 001654 000002                  	rti
+       2 000061                         	n=n+1
+       1                                	isr  \n
+       1                                isr61:
+       2 001656 010046                  	mov	r0,-(sp)
+       3 001660 012700  000304          	mov	#61*4,r0 ; vector in r0
+       4 001664 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001670 012600                  	mov	(sp)+,r0
+       6 001672 000002                  	rti
+       2 000062                         	n=n+1
+       1                                	isr  \n
+       1                                isr62:
+       2 001674 010046                  	mov	r0,-(sp)
+       3 001676 012700  000310          	mov	#62*4,r0 ; vector in r0
+       4 001702 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001706 012600                  	mov	(sp)+,r0
+       6 001710 000002                  	rti
+       2 000063                         	n=n+1
+       1                                	isr  \n
+       1                                isr63:
+       2 001712 010046                  	mov	r0,-(sp)
+       3 001714 012700  000314          	mov	#63*4,r0 ; vector in r0
+       4 001720 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001724 012600                  	mov	(sp)+,r0
+       6 001726 000002                  	rti
+       2 000064                         	n=n+1
+       1                                	isr  \n
+       1                                isr64:
+       2 001730 010046                  	mov	r0,-(sp)
+       3 001732 012700  000320          	mov	#64*4,r0 ; vector in r0
+       4 001736 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001742 012600                  	mov	(sp)+,r0
+       6 001744 000002                  	rti
+       2 000065                         	n=n+1
+       1                                	isr  \n
+       1                                isr65:
+       2 001746 010046                  	mov	r0,-(sp)
+       3 001750 012700  000324          	mov	#65*4,r0 ; vector in r0
+       4 001754 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001760 012600                  	mov	(sp)+,r0
+       6 001762 000002                  	rti
+       2 000066                         	n=n+1
+       1                                	isr  \n
+       1                                isr66:
+       2 001764 010046                  	mov	r0,-(sp)
+       3 001766 012700  000330          	mov	#66*4,r0 ; vector in r0
+       4 001772 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 001776 012600                  	mov	(sp)+,r0
+       6 002000 000002                  	rti
+       2 000067                         	n=n+1
+       1                                	isr  \n
+       1                                isr67:
+       2 002002 010046                  	mov	r0,-(sp)
+       3 002004 012700  000334          	mov	#67*4,r0 ; vector in r0
+       4 002010 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 002014 012600                  	mov	(sp)+,r0
+       6 002016 000002                  	rti
+       2 000070                         	n=n+1
+       1                                	isr  \n
+       1                                isr70:
+       2 002020 010046                  	mov	r0,-(sp)
+       3 002022 012700  000340          	mov	#70*4,r0 ; vector in r0
+       4 002026 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 002032 012600                  	mov	(sp)+,r0
+       6 002034 000002                  	rti
+       2 000071                         	n=n+1
+       1                                	isr  \n
+       1                                isr71:
+       2 002036 010046                  	mov	r0,-(sp)
+       3 002040 012700  000344          	mov	#71*4,r0 ; vector in r0
+       4 002044 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 002050 012600                  	mov	(sp)+,r0
+       6 002052 000002                  	rti
+       2 000072                         	n=n+1
+       1                                	isr  \n
+       1                                isr72:
+       2 002054 010046                  	mov	r0,-(sp)
+       3 002056 012700  000350          	mov	#72*4,r0 ; vector in r0
+       4 002062 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 002066 012600                  	mov	(sp)+,r0
+       6 002070 000002                  	rti
+       2 000073                         	n=n+1
+       1                                	isr  \n
+       1                                isr73:
+       2 002072 010046                  	mov	r0,-(sp)
+       3 002074 012700  000354          	mov	#73*4,r0 ; vector in r0
+       4 002100 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 002104 012600                  	mov	(sp)+,r0
+       6 002106 000002                  	rti
+       2 000074                         	n=n+1
+       1                                	isr  \n
+       1                                isr74:
+       2 002110 010046                  	mov	r0,-(sp)
+       3 002112 012700  000360          	mov	#74*4,r0 ; vector in r0
+       4 002116 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 002122 012600                  	mov	(sp)+,r0
+       6 002124 000002                  	rti
+       2 000075                         	n=n+1
+       1                                	isr  \n
+       1                                isr75:
+       2 002126 010046                  	mov	r0,-(sp)
+       3 002130 012700  000364          	mov	#75*4,r0 ; vector in r0
+       4 002134 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 002140 012600                  	mov	(sp)+,r0
+       6 002142 000002                  	rti
+       2 000076                         	n=n+1
+       1                                	isr  \n
+       1                                isr76:
+       2 002144 010046                  	mov	r0,-(sp)
+       3 002146 012700  000370          	mov	#76*4,r0 ; vector in r0
+       4 002152 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 002156 012600                  	mov	(sp)+,r0
+       6 002160 000002                  	rti
+       2 000077                         	n=n+1
+       1                                	isr  \n
+       1                                isr77:
+       2 002162 010046                  	mov	r0,-(sp)
+       3 002164 012700  000374          	mov	#77*4,r0 ; vector in r0
+       4 002170 004737  010236          	call	@#doisr    ; print message for vector in r0
+       5 002174 012600                  	mov	(sp)+,r0
+       6 002176 000002                  	rti
+       2 000100                         	n=n+1
+      68                                
+      69                                
+      70                                
+      71                                
+      72                                	; ---- foreground thread ---------
+      73 000000                         	.=0
+      74 000000 000137  010000          	jmp	@#start 	; easier manual start from 0
+      75                                
+      76 007776                         	.=7776
+      77 007776 000000                  inchr:	.word			; input alternative to DL11
+      78                                
+      79 010000                         	.=10000
+      80                                
+      81 007776                         stack	=	. - 2		; stack growns down from start
+      82                                
+      83                                start:
+      84 010000 012706  007776          	mov	#stack,sp	; init stack
+      85 010004 005037  177776          	clr	   @#psw	; clear priority, allow all interupts
+      86                                
+      87 010010 000005                  	reset			; disable INTR on all devices
+      88                                
+      89 010012 005037  011506          	clr	@#logptr	; default: slow mode
+      90                                
+      91                                	; 1. print "Hello" msg
+      92 010016 012701  010640          	mov	#shello,r1
+      93 010022 004737  010412          	call	@#puts
+      94                                
+      95                                	; test vecnum printout
+      96                                	; mov	  #123456,r0
+      97                                	; call	  @#isrmsg
+      98                                
+      99                                	; 2. echo chars until ^C hit
+     100                                1$:
+     101 010026 004737  010560          	call	@#getc		; wait for char, return in r0
+     102 010032 042700  177600          	bic	#177600,r0	; make 7bit: clear bits <15:7>
+     103 010036 120027  000003          	cmpb	r0,#3		; break by ^C ?
+     104 010042 001467                  	beq	9$		; yes: leave loop
+     105 010044 120027  000060          	cmpb	r0,#60
+     106 010050 103432                  	blo	2$		; char is < '0'
+     107 010052 120027  000067          	cmpb	r0,#67
+     108 010056 101027                  	bhi	2$		; char is > '7'
+     109 010060 110002                  	movb	r0,r2		; save
+     110                                
+     111                                	; key is 0..7: change priority
+     112 010062 012701  011433          	mov	#sprio0,r1	; print info
+     113 010066 004737  010412          	call	@#puts
+     114 010072 110200                  	movb	r2,r0		; restore digit
+     115 010074 004737  010540          	call	@#putc		; print level digit
+     116 010100 012701  011465          	mov	#sprio1,r1
+     117 010104 004737  010412          	call	@#puts
+     118                                	; change PSW
+     119 010110 110200                  	movb	r2,r0
+     120 010112 142700  000370          	bicb	#370,r0 	; ASCII -> integer
+     121 010116 006300                  	asl	r0		; move level to "priority" field in PSW
+     122 010120 006300                  	asl	r0		; in bits 7,6,5
+     123 010122 006300                  	asl	r0
+     124 010124 006300                  	asl	r0
+     125 010126 006300                  	asl	r0
+     126 010130 010037  177776          	mov	r0,@#psw
+     127                                
+     128 010134 000734                  	br	1$		; OK, next char
+     129                                
+     130                                2$:	; -- eval "S", F"
+     131 010136 120027  000123          	cmpb	r0,#'S
+     132 010142 001007                  	bne	3$
+     133 010144 012701  011300          	mov	#sslwmd,r1	; "slow mode"
+     134 010150 004737  010412          	call	@#puts
+     135 010154 005037  011506          	clr	@#logptr
+     136 010160 000722                  	br	1$		; OK, next char
+     137 010162 120027  000106          3$:	cmpb	r0,#'F
+     138 010166 001012                  	bne	8$		;
+     139 010170 012701  011357          	mov	#sfstmd,r1	; "fast mode"
+     140 010174 004737  010412          	call	@#puts
+     141 010200 004737  010340          	call	@#prtlog	; print logged vectors, if any
+     142 010204 012737  011510  011506  	mov	#logbuf,@#logptr; pointer to biuffer start
+     143 010212 000705                  	br	1$		; OK, next char
+     144                                
+     145                                8$:
+     146 010214 004737  010540          	call	@#putc		; no: echo char in r0 and loop
+     147 010220 000702                  	br	1$
+     148                                
+     149                                9$:
+     150                                
+     151                                	; 3. print "Bye bye" msg and HALT
+     152 010222 012701  011470          	mov	#sbye,r1
+     153 010226 004737  010412          	call	@#puts
+     154 010232 000000                  	halt
+     155                                
+     156                                	; 4. loop on CONT
+     157 010234 000661                  	br	start
+     158                                
+     159                                
+     160                                	; ----------------------
+     161                                	; Common code for all ISRs
+     162                                	; print vector number in r0
+     163                                	; called on interrupt level
+     164                                
+     165                                doisr:
+     166 010236 010446                  	mov	r4,-(sp)
+     167 010240 010346                  	mov	r3,-(sp)
+     168 010242 010246                  	mov	r2,-(sp)
+     169 010244 010146                  	mov	r1,-(sp)
+     170 010246 010046                  	mov	r0,-(sp)
+     171                                
+     172 010250 013701  011506          	mov	@#logptr,r1
+     173 010254 001404                  	beq	1$
+     174                                	; Fast mode: log vector
+     175 010256 010021                  	mov	r0,(r1)+	; store vector in array
+     176 010260 010137  011506          	mov	r1,@#logptr	; save updated list pointer
+     177                                
+     178 010264 000417                  	br	9$
+     179                                1$:	; "Slow mode: print msg
+     180 010266 012701  010626          	mov	#sisr1,r1 ; "ISR "
+     181 010272 004737  010412          	call	@#puts
+     182 010276 011600                  	mov	(sp),r0 	; restore vecnum
+     183 010300 004737  010446          	call	 @#putnum
+     184 010304 012701  010634          	mov	#sisr2,r1 ; "cr lf
+     185 010310 004737  010412          	call	@#puts
+     186                                	; make ISR 100ms
+     187 010314 012700  000144          	mov	#144,r0   ; 100
+     188 010320 004737  010610          	call	 @#waitms
+     189                                
+     190                                9$:
+     191 010324 012600                  	mov	(sp)+,r0
+     192 010326 012601                  	mov	(sp)+,r1
+     193 010330 012602                  	mov	(sp)+,r2
+     194 010332 012603                  	mov	(sp)+,r3
+     195 010334 012604                  	mov	(sp)+,r4
+     196 010336 000207                  	return
+     197                                
+     198                                
+     199                                	; ----------------------
+     200                                	; prtlog - print log of isr vectors
+     201                                	; word list from logbuf to logptr
+     202                                prtlog:
+     203 010340 005737  011506          	tst	@#logptr
+     204 010344 001421                  	beq	9$		; ptr 0, slow mode, nothing logged
+     205 010346 012702  011510          	mov	#logbuf,r2
+     206                                1$:
+     207 010352 020237  011506          	cmp	r2,@#logptr
+     208 010356 103010                  	bhis	8$		; end of list reached
+     209 010360 012200                  	mov	(r2)+,r0	; print vector from list
+     210 010362 004737  010446          	call	 @#putnum
+     211 010366 012700  000040          	mov	#40,r0		; print space separator
+     212 010372 004737  010540          	call	 @#putc
+     213 010376 000765                  	br	1$
+     214                                8$:
+     215 010400 012701  011503          	mov	#scrlf,r1	; CR/LF
+     216 010404 004737  010412          	call	 @#puts
+     217                                
+     218                                9$:
+     219 010410 000207                  	return
+     220                                
+     221                                	; ----------------------
+     222                                	; puts - print a string
+     223                                	; r1 = pointer, r0,r1 changed
+     224                                puts:
+     225 010412 112100                  	movb	(r1)+,r0	; load xmt char
+     226 010414 001403                  	beq	1$		; string ends with 0
+     227 010416 004737  010540          	call	@#putc
+     228 010422 000773                  	br	puts		; transmit nxt char of string
+     229 010424 000207                  1$:	return
+     230                                
+     231                                
+     232                                	; ----------------------
+     233                                	; putnum - print the octal number in r0
+     234 010426                         numbf0:  .blkw	 10		 ; space to mount number string
+     235 010446                         numbf1	=.
+     236                                putnum:
+     237 010446 010046                  	mov	r0,-(sp)
+     238 010450 010146                  	mov	r1,-(sp)
+     239 010452 010246                  	mov	r2,-(sp)
+     240 010454 010346                  	mov	r3,-(sp)
+     241 010456 010002                  	mov	r0,r2		; r2 = shifter
+     242 010460 012701  010446          	mov	#numbf1,r1	; r1 = buffer pointer, backwards
+     243 010464 112741  000000          	movb	#0,-(r1)	; set terminating 0
+     244                                	; repeat 6 times
+     245 010470 012703  000006          	mov	#6,r3
+     246                                1$:
+     247 010474 010200                  	mov	r2,r0
+     248                                	; extract lower 3 bits = octal digit
+     249 010476 042700  177770          	bic	#177770,r0 ; r0 &= 0x07
+     250 010502 062700  000060          	add	#60,r0	; r0 += '0'
+     251 010506 110041                  	movb	r0,-(r1) ; write in buffer
+     252 010510 000241                  	clc
+     253 010512 006202                  	asr	r2	; shift to next digit
+     254 010514 006202                  	asr	r2
+     255 010516 006202                  	asr	r2
+     256 010520 077313                  	sob	r3,1$	; loop for all 6 digits
+     257                                
+     258 010522 004737  010412          	call	@#puts
+     259 010526 012603                  	mov	(sp)+,r3
+     260 010530 012602                  	mov	(sp)+,r2
+     261 010532 012601                  	mov	(sp)+,r1
+     262 010534 012600                  	mov	(sp)+,r0
+     263 010536 000207                  	return
+     264                                
+     265                                
+     266                                	; DEC DL11 console I/O
+     267                                	; ----------------------
+     268                                	; putc - output a single char
+     269                                	; r0 = char, r4 changed
+     270                                putc:
+     271 010540 012704  177560          	mov	#dladr,r4	; set base addr
+     272 010544 110064  000006          	movb	r0,6(r4)	; char into transmit buffer
+     273 010550 105764  000004          1$:	tstb	4(r4)		; XMT RDY?
+     274 010554 100375                  	bpl	1$		; no, loop
+     275 010556 000207                  	return
+     276                                
+     277                                	; ----------------------
+     278                                	; getc - input a single char
+     279                                	; result in r0, r4 changed
+     280                                getc:
+     281 010560 012704  177560          	mov	#dladr,r4	; set base addr
+     282 010564 013700  007776          1$:	mov	@#inchr,r0	; external DEPOSIT into inchr?
+     283 010570 001004                  	bne	9$		; yes: process as input
+     284 010572 105714                  	tstb	(r4)		; else: RCVR DONE?
+     285 010574 100373                  	bpl	1$		; no, loop
+     286 010576 016400  000002          	mov	2(r4),r0	; return data
+     287                                9$:
+     288 010602 005037  007776          	clr	@#inchr
+     289 010606 000207                  	return
+     290                                
+     291                                	; ----------------------
+     292                                	; waitms - wait r0 milli seconds
+     293                                waitms:
+     294 010610 010146                  	mov	r1,-(sp)
+     295                                
+     296                                1$:	; -- outer loop
+     297 010612 012701  000764          	mov   #764,r1	       ; 500
+     298                                2$:	; -- inner loop: 1ms @ 1MHz
+     299 010616 077101                  	sob	r1,2$		; 1 cycle,2 us per loop (11/34)
+     300                                
+     301 010620 077004                  	sob	r0,1$
+     302 010622 012601                  	mov	(sp)+,r1
+     303 010624 000207                  	return
+     304                                
+     305                                	; ---- Test strings, each 256 chars max  ---------
+     306                                
+     307                                sisr1:				; start of ISR <vecnum> message
+     308 010626    074     111     123  	.ascii /<ISR /
+         010631    122     040          
+     309 010633    000                  	.byte	0		; NUL=end marker
+     310                                sisr2:				; end of ISR <vecnum> message
+     311 010634    076                  	.ascii />/
+     312 010635    015     012          	.byte	15,12	; CR, LF,
+     313 010637    000                  	.byte	0		; NUL=end marker
+     314                                
+     315                                
+     316                                shello:
+     317 010640    015     012          	.byte	15,12		; CR, LF,
+     318 010642    052     052     052  	.ascii	/*** Interrupt and DMA test ***/
+         010645    040     111     156  
+         010650    164     145     162  
+         010653    162     165     160  
+         010656    164     040     141  
+         010661    156     144     040  
+         010664    104     115     101  
+         010667    040     164     145  
+         010672    163     164     040  
+         010675    052     052     052  
+     319 010700    015     012          	.byte	15,12		; CR, LF,
+     320 010702    124     150     145  	.ascii	/The INTR vectors 0..77 print the vector num./
+         010705    040     111     116  
+         010710    124     122     040  
+         010713    166     145     143  
+         010716    164     157     162  
+         010721    163     040     060  
+         010724    056     056     067  
+         010727    067     040     160  
+         010732    162     151     156  
+         010735    164     040     164  
+         010740    150     145     040  
+         010743    166     145     143  
+         010746    164     157     162  
+         010751    040     156     165  
+         010754    155     056          
+     321 010756    015     012          	.byte	15,12	; CR, LF,
+     322 010760    124     150     145  	.ascii	/The foreground thread echoes typed chars, ^C HALTs./
+         010763    040     146     157  
+         010766    162     145     147  
+         010771    162     157     165  
+         010774    156     144     040  
+         010777    164     150     162  
+         011002    145     141     144  
+         011005    040     145     143  
+         011010    150     157     145  
+         011013    163     040     164  
+         011016    171     160     145  
+         011021    144     040     143  
+         011024    150     141     162  
+         011027    163     054     040  
+         011032    136     103     040  
+         011035    110     101     114  
+         011040    124     163     056  
+     323 011043    015     012          	.byte	15,12	; CR, LF,
+     324 011045    103     150     141  	.ascii	/Chars 0..7 set the new processor priority level./
+         011050    162     163     040  
+         011053    060     056     056  
+         011056    067     040     163  
+         011061    145     164     040  
+         011064    164     150     145  
+         011067    040     156     145  
+         011072    167     040     160  
+         011075    162     157     143  
+         011100    145     163     163  
+         011103    157     162     040  
+         011106    160     162     151  
+         011111    157     162     151  
+         011114    164     171     040  
+         011117    154     145     166  
+         011122    145     154     056  
+     325 011125    015     012          	.byte	15,12	; CR, LF,
+     326 011127    123     040     075  	.ascii	/S = slow mode: ISR prints message (default)/
+         011132    040     163     154  
+         011135    157     167     040  
+         011140    155     157     144  
+         011143    145     072     040  
+         011146    111     123     122  
+         011151    040     160     162  
+         011154    151     156     164  
+         011157    163     040     155  
+         011162    145     163     163  
+         011165    141     147     145  
+         011170    040     050     144  
+         011173    145     146     141  
+         011176    165     154     164  
+         011201    051                  
+     327 011202    015     012          	.byte	15,12	; CR, LF,
+     328 011204    106     040     075  	.ascii	/F = fast mode: ISR logs vector, print and clr current log/
+         011207    040     146     141  
+         011212    163     164     040  
+         011215    155     157     144  
+         011220    145     072     040  
+         011223    111     123     122  
+         011226    040     154     157  
+         011231    147     163     040  
+         011234    166     145     143  
+         011237    164     157     162  
+         011242    054     040     160  
+         011245    162     151     156  
+         011250    164     040     141  
+         011253    156     144     040  
+         011256    143     154     162  
+         011261    040     143     165  
+         011264    162     162     145  
+         011267    156     164     040  
+         011272    154     157     147  
+     329 011275    015     012          	.byte	15,12	; CR, LF,
+     330 011277    000                  	.byte	0		; NUL=end marker
+     331                                
+     332                                sslwmd:
+     333 011300    123     154     157  	.ascii	/Slow mode: called ISR prints vector directly/
+         011303    167     040     155  
+         011306    157     144     145  
+         011311    072     040     143  
+         011314    141     154     154  
+         011317    145     144     040  
+         011322    111     123     122  
+         011325    040     160     162  
+         011330    151     156     164  
+         011333    163     040     166  
+         011336    145     143     164  
+         011341    157     162     040  
+         011344    144     151     162  
+         011347    145     143     164  
+         011352    154     171          
+     334 011354    015     012          	.byte	15,12	; CR, LF,
+     335 011356    000                  	.byte	0		; NUL=end marker
+     336                                
+     337                                sfstmd:
+     338 011357    106     141     163  	.ascii	/Fast mode: called ISR vectors are logged:/
+         011362    164     040     155  
+         011365    157     144     145  
+         011370    072     040     143  
+         011373    141     154     154  
+         011376    145     144     040  
+         011401    111     123     122  
+         011404    040     166     145  
+         011407    143     164     157  
+         011412    162     163     040  
+         011415    141     162     145  
+         011420    040     154     157  
+         011423    147     147     145  
+         011426    144     072          
+     339 011430    015     012          	.byte	15,12	; CR, LF,
+     340 011432    000                  	.byte	0		; NUL=end marker
+     341                                
+     342                                sprio0:
+     343 011433    015     012          	.byte	15,12	; CR, LF,
+     344 011435    103     120     125  	.ascii	/CPU priority level now /
+         011440    040     160     162  
+         011443    151     157     162  
+         011446    151     164     171  
+         011451    040     154     145  
+         011454    166     145     154  
+         011457    040     156     157  
+         011462    167     040          
+     345 011464    000                  	.byte	0
+     346                                
+     347                                sprio1:
+     348 011465    015     012          	  .byte   15,12   ; CR, LF,
+     349 011467    000                  	.byte	0		; NUL=end marker
+     350                                
+     351                                sbye:
+     352 011470    015     012          	.byte	15,12
+     353 011472    107     157     157  	.ascii	/Good Bye!/
+         011475    144     040     102  
+         011500    171     145     041  
+     354                                scrlf:
+     355 011503    015     012     000  	.byte	15,12,0 	; CR, LF, NUL=end marker
+     356                                
+     357                                	; .byte   0		  ; make addr even
+     358                                
+     359                                	; in "fast" mode, ISR calls fill this array with called vectors
+     360                                logptr:
+     361 011506 000000                  	.word		; addr of next logentry to fill. 0 in "slow" mode
+     362                                
+     363                                logbuf:
+     364                                
+     365                                
+     366                                	.end
+     366                                
