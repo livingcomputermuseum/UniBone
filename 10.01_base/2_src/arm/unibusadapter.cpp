@@ -71,7 +71,7 @@ using namespace std;
 unibusadapter_c *unibusadapter; // another Singleton
 // is registered in device_c.list<devices> ... order of static constructor calls ???
 
-bool unibusadapter_debug_flag = 0 ;
+bool unibusadapter_debug_flag = 0;
 
 unibusadapter_c::unibusadapter_c() :
 		device_c() {
@@ -290,8 +290,8 @@ void unibusadapter_c::requests_cancel_scheduled(void) {
 	for (unsigned level_index = 0; level_index < PRIORITY_LEVEL_COUNT; level_index++) {
 		priority_request_level_c *prl = &request_levels[level_index];
 		prl->slot_request_mask = 0; // clear alls slot from request
-		prl->active = NULL ;
-		
+		prl->active = NULL;
+
 		for (unsigned slot = 0; slot < PRIORITY_SLOT_COUNT; slot++)
 			if ((req = prl->slot_request[slot])) {
 				dma_request_c *dmareq;
@@ -343,9 +343,8 @@ priority_request_c *unibusadapter_c::request_activate_lowest_slot(unsigned level
 	// 	DEBUG("request_activate_lowest_slot(): ->active = dma_request %p, level %u, slot %u",prl->active, prl->active->level_index, prl->active->slot);
 	// else
 	// 	DEBUG("request_activate_lowest_slot(): ->active = NULL");
-	assert((prl->slot_request_mask == 0) == (prl->active == NULL)) ;
-	
-	
+	assert((prl->slot_request_mask == 0) == (prl->active == NULL));
+
 	return rq;
 }
 
@@ -357,7 +356,7 @@ bool unibusadapter_c::request_is_blocking_active(uint8_t level_index) {
 			return true;
 		if (prl->slot_request_mask)
 			return true;
-		level_index++ ;
+		level_index++;
 	}
 	return false;
 }
@@ -488,7 +487,7 @@ void unibusadapter_c::request_active_complete(unsigned level_index) {
 
 	priority_request_c *tmprq = prl->active;
 	prl->active = NULL;
-	
+
 	// signal to DMA() or INTR()
 	tmprq->complete = true; // close to signal
 	pthread_mutex_unlock(&tmprq->complete_mutex);
@@ -582,7 +581,6 @@ void unibusadapter_c::INTR(intr_request_c& intr_request,
 	assert((intr_request.vector & 3) == 0); // multiple of 2 words
 
 	priority_request_level_c *prl = &request_levels[intr_request.level_index];
-
 	pthread_mutex_lock(&requests_mutex); // lock schedule table operations
 
 	// Is an INTR with same slot and level already executed on PRU
@@ -606,28 +604,34 @@ void unibusadapter_c::INTR(intr_request_c& intr_request,
 
 		// scheduled and request_active_complete() not called
 		pthread_mutex_unlock(&requests_mutex);
+		if (interrupt_register) {
+			// if device re-raises a blocked INTR, CSR must complete immediately
+			intr_request.device->set_register_dati_value(interrupt_register,
+					interrupt_register_value, __func__);
+		}
+
 		return; // do not schedule a 2nd time
 	}
 
 	intr_request.complete = false;
 	intr_request.executing_on_PRU = false;
-	// 	intr_request.level_index, priority_slot, vector in constructor
-	intr_request.interrupt_register = interrupt_register;
-	intr_request.interrupt_register_value = interrupt_register_value;
+
 	if (interrupt_register)
 		assert(intr_request.device == interrupt_register->device);
 
-		// The associated device interrupt register (if any) should be updated 
-		// atomically with raising the INTR signal line by PRU.
-//if (unibusadapter_debug_flag)
-//	printf("break here") ;
-		if (request_is_blocking_active(intr_request.level_index) && intr_request.interrupt_register) {
-			//	one or more another requests are handled by PRU: INTR signal delayed by Arbitrator,
-			// write intr register asynchronically here.
-			intr_request.device->set_register_dati_value(intr_request.interrupt_register,
-					interrupt_register_value, __func__);
-			intr_request.interrupt_register = NULL; // don't do a 2nd  time
-		}
+	// The associated device interrupt register (if any) should be updated
+	// atomically with raising the INTR signal line by PRU.
+	if (interrupt_register && request_is_blocking_active(intr_request.level_index)) {
+		//	one or more another requests are handled by PRU: INTR signal delayed by Arbitrator,
+		// write intr register asynchronically here.
+		intr_request.device->set_register_dati_value(interrupt_register,
+				interrupt_register_value, __func__);
+		intr_request.interrupt_register = NULL; // don't do a 2nd  time
+	} else { // forward to PRU
+		// 	intr_request.level_index, priority_slot, vector in constructor
+		intr_request.interrupt_register = interrupt_register;
+		intr_request.interrupt_register_value = interrupt_register_value;
+	}
 
 	// put into schedule tables
 	request_schedule(intr_request); // assertion, if twice for same slot
@@ -662,14 +666,14 @@ void unibusadapter_c::cancel_INTR(intr_request_c& intr_request) {
 	uint8_t level_index = intr_request.level_index; // alias
 	priority_request_level_c *prl = &request_levels[level_index];
 	if (prl->slot_request[intr_request.slot] == NULL)
-		return ; // not scheduled or active
+		return; // not scheduled or active
 
 	pthread_mutex_lock(&requests_mutex); // lock schedule table operations
 	if (&intr_request == prl->active) {
 		// already on PRU
 		mailbox_execute(ARM2PRU_INTR_CANCEL);
 		request_active_complete(level_index);
-	
+
 		// restart next request
 		request_activate_lowest_slot(level_index);
 		if (prl->active)
@@ -680,7 +684,7 @@ void unibusadapter_c::cancel_INTR(intr_request_c& intr_request) {
 		prl->slot_request_mask &= ~(1 << intr_request.slot); // mask out slot bit
 	}
 	// both empty, or both filled
-	assert((prl->slot_request_mask == 0) == (prl->active == NULL)) ;
+	assert((prl->slot_request_mask == 0) == (prl->active == NULL));
 	pthread_mutex_unlock(&intr_request.complete_mutex);
 
 	pthread_mutex_unlock(&requests_mutex); // lock schedule table operations
@@ -925,11 +929,6 @@ void unibusadapter_c::worker(unsigned instance) {
 		any_event = true;
 		// at startup sequence, mailbox may be not yet valid
 		while (mailbox && res > 0 && any_event) { // res is const
-			ARM_DEBUG_PIN0(0);
-			ARM_DEBUG_PIN1(0);
-			ARM_DEBUG_PIN2(0);
-			
-		
 			any_event = false;
 			// Process multiple events sent by PRU.
 			//
