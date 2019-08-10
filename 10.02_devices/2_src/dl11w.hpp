@@ -35,6 +35,8 @@ using namespace std;
 #include "unibusdevice.hpp"
 #include "parameter.hpp"
 #include "rs232.hpp"
+#include "rs232adapter.hpp"
+
 
 // socket console settings
 //#define IP_PORT 5001
@@ -98,7 +100,10 @@ enum slu_reg_index {
 class slu_c: public unibusdevice_c {
 private:
 	rs232_c rs232; /// COM port interface
+public:
+	rs232adapter_c rs232adapter; /// stream router
 
+	private:
 	unibusdevice_register_t *reg_rcsr;
 	unibusdevice_register_t *reg_rbuf;
 	unibusdevice_register_t *reg_xcsr;

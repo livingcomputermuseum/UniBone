@@ -34,6 +34,7 @@
 #include <stdarg.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include <assert.h>
 #include <time.h>
 #include <limits.h>
@@ -85,30 +86,37 @@ timeout_c::timeout_c() {
 uint64_t timeout_c::get_resolution_ns() {
 	struct timespec res;
 	clock_getres(CLOCK_MONOTONIC, &res);
-	return BILLION * res.tv_sec + res.tv_nsec ;
+	return BILLION * res.tv_sec + res.tv_nsec;
 }
 
-
-void timeout_c::start(uint64_t duration_ns) {
+void timeout_c::start_ns(uint64_t duration_ns) {
 	this->duration_ns = duration_ns;
 	clock_gettime(CLOCK_MONOTONIC, &starttime);
+}
+
+void timeout_c::start_us(uint64_t duration_us) {
+	start_ns(duration_us * 1000);
+}
+
+void timeout_c::start_ms(uint64_t duration_ms) {
+	start_ns(duration_ms * MILLION);
 }
 
 uint64_t timeout_c::elapsed_ns(void) {
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
-	uint64_t result = (uint64_t)BILLION * (now.tv_sec - starttime.tv_sec) + (uint64_t)now.tv_nsec - starttime.tv_nsec;
-	return result ;
+	uint64_t result = (uint64_t) BILLION * (now.tv_sec - starttime.tv_sec)
+			+ (uint64_t) now.tv_nsec - starttime.tv_nsec;
+	return result;
 }
 
 uint64_t timeout_c::elapsed_us(void) {
-	return elapsed_ns() / 1000 ;
+	return elapsed_ns() / 1000;
 }
 
 uint64_t timeout_c::elapsed_ms(void) {
-	return elapsed_ns() / MILLION ;
+	return elapsed_ns() / MILLION;
 }
-
 
 bool timeout_c::reached() {
 	return (elapsed_ns() > duration_ns);
@@ -264,3 +272,102 @@ struct timespec timespec_future_us(unsigned offset_us) {
  }
  */
 
+// decodes C escape sequences \char, \nnn octal, \xnn hex
+// result string is smaller or same as "encoded", must have at least "ncoded" size
+// return: true of OK, else false
+static int digitval(char c) {
+	c = toupper(c);
+	if (c < '0')
+		return 0; // illegal
+	else if (c <= '9')
+		return c - '0';
+	else if (c < 'A')
+		return 0; // illegal
+	else if (c <= 'F')
+		return c - 'A' + 10;
+	else
+		return 0; // illegal
+}
+
+bool str_decode_escapes(char *result, unsigned result_size, char *encoded) {
+	int c ;
+	char *wp = result; // write pointer
+	char *rp = encoded; // read pointer
+	assert(result_size >= strlen(encoded));
+	while (*rp) {
+		if (*rp != '\\') {
+			*wp++ = *rp++; // not escaped
+			continue;
+		}
+		// decode escapes
+		rp++; // eat backslash
+		int n = strspn(rp, "01234567"); //
+		if (n >= 1) { // \nnn given
+			// use max 3 digits for octal literal
+			c = digitval(*rp++) ;
+			if (n >= 2)
+				c = c * 8 + digitval(*rp++) ;
+			if (n >= 3)
+				c = c * 8 + digitval(*rp++) ;
+			*wp++ = (char) c;
+			continue;
+		} 
+		switch (*rp) {
+		// literals allowed behind backslash
+		case '\'': 
+		case '"':
+		case '?':
+		case '\\':
+			*wp++ = *rp++;
+			continue;
+		case 'a':
+			*wp++ = 0x07; // audible bell
+			rp++;
+			continue;
+		case 'b':
+			*wp++ = 0x08; // backspace
+			rp++;
+			continue;
+		case 'f':
+			*wp++ = 0x0c; // form feed - new page
+			rp++;
+			continue;
+		case 'n':
+			*wp++ = 0x0a; // line feed - new line
+			rp++;
+			continue;
+		case 'r':
+			*wp++ = 0x0d; // carriage return
+			rp++;
+			continue;
+		case 't':
+			*wp++ = 0x09; // horizontal tab
+			rp++;
+			continue;
+		case 'v':
+			*wp++ = 0x0b; // vertical tab
+			rp++;
+			continue;
+		case 'x': // hex: \xnn
+			rp++; // eat "x"
+			// in contrast to the standard, max 2 hex digits are evaualted, not arbitrary amount.
+			// this makes it easy to write "L 200" as "L\x20200".
+			// Else \xnnnn may eat following chars not meant as part of the hex sequence
+			// convert and skip arbitrary count of hex characters
+			n = strspn(rp, "0123456789aAbBcCdDeEfF"); 
+			if (n < 1) 
+				return false ; // no hexdigit after "x"
+			// use max 2 digits for hex literal
+			c = digitval(toupper(*rp++)) ;
+			if (n >= 2)
+				c = c * 16 + digitval(toupper(*rp++)) ;
+			// c = strtol(rp, &rp, 16) ; if unlimited hex chars
+			*wp++ = (char) c;
+			continue;
+		default:
+			return false; // unknown char behind backslash
+		}
+	}
+	*wp = 0;
+	return true;
+}

@@ -147,7 +147,7 @@ bool unibus_c::dma(enum unibus_c::arbitration_mode_enum arbitration_mode, bool b
 
 	set_arbitration_mode(arbitration_mode); // changes PRU behaviour
 
-	timeout.start(0); // no timeout, just running timer
+	timeout.start_ns(0); // no timeout, just running timer
 	unibusadapter->DMA(*dma_request, blocking, control, startaddr, buffer, wordcount);
 
 	dmatime_ns = timeout.elapsed_ns();

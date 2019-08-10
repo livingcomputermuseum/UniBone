@@ -107,7 +107,7 @@ void application_c::menu_device_exercisers(void) {
 			printf("e                    Examine all device registers\n");
 			printf("d <addr> <val>       Deposit octal val into UNIBUS address.\n");
 			printf("e <addr>             Deposit octal val into UNIBUS address.\n");
-			printf("dl c|s|f             Debug log: Clear, Show on console, dump to File.\n");
+			printf("dbg c|s|f            Debug log: Clear, Show on console, dump to File.\n");
 			printf("                       (file = %s)\n", logger->default_filepath.c_str());
 			printf("init                 Pulse UNIBUS INIT\n");
 			printf("pwr                  Simulate UNIBUS power cycle (ACLO/DCLO)\n");
@@ -124,7 +124,7 @@ void application_c::menu_device_exercisers(void) {
 				unibus->init();
 			} else if (!strcasecmp(s_opcode, "pwr")) {
 				unibus->powercycle();
-			} else if (!strcasecmp(s_opcode, "dl") && n_fields == 2) {
+			} else if (!strcasecmp(s_opcode, "dbg") && n_fields == 2) {
 				if (!strcasecmp(s_param[0], "c")) {
 					logger->clear();
 					printf("Debug log cleared.\n");

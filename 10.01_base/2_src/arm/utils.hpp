@@ -66,7 +66,9 @@ private:
 public:
 	timeout_c();
 	uint64_t get_resolution_ns(void) ;
-	void start(uint64_t duration_ns);
+	void start_ns(uint64_t duration_ns);
+	void start_us(uint64_t duration_us) ;
+	void start_ms(uint64_t duration_ms) ;
 	uint64_t elapsed_ns(void);
 	uint64_t elapsed_us(void);
 	uint64_t elapsed_ms(void);
@@ -108,5 +110,9 @@ char * fileErrorText(const char *msgfmt, const char *fname);
 struct timespec timespec_add_us(struct timespec ts, unsigned us);
 // add microseconds to current time
 struct timespec timespec_future_us(unsigned offset_us);
+
+// decodes C escape sequences \char, \nnn octal, \xnn hex
+bool str_decode_escapes(char *result, unsigned result_size, char *encoded) ;
+
 
 #endif /* _UTILS_H_ */

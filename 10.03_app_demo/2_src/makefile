@@ -105,6 +105,7 @@ OBJECTS = $(OBJDIR)/application.o	\
 	$(OBJDIR)/mscp_server.o \
 	$(OBJDIR)/mscp_drive.o \
 	$(OBJDIR)/rs232.o \
+	$(OBJDIR)/rs232adapter.o \
 	$(OBJDIR)/dl11w.o \
 	$(OBJDIR)/storagedrive.o	\
     $(OBJDIR)/storagecontroller.o	\
@@ -238,6 +239,9 @@ $(OBJDIR)/mscp_drive.o :   $(DEVICE_SRC_DIR)/mscp_drive.cpp $(DEVICE_SRC_DIR)/ms
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/rs232.o :  $(DEVICE_SRC_DIR)/rs232.cpp $(DEVICE_SRC_DIR)/rs232.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/rs232adapter.o :  $(DEVICE_SRC_DIR)/rs232adapter.cpp $(DEVICE_SRC_DIR)/rs232adapter.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/dl11w.o :  $(DEVICE_SRC_DIR)/dl11w.cpp $(DEVICE_SRC_DIR)/dl11w.hpp

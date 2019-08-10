@@ -110,7 +110,7 @@ void application_c::menu_interrupts(void) {
 				printf("                      <channel> 0..%u possible.\n",
 						(unsigned) test_controller->dma_channel_count);
 			}
-			printf("dl c|s|f              Debug log: Clear, Show on console, dump to File.\n");
+			printf("dbg c|s|f             Debug log: Clear, Show on console, dump to File.\n");
 			printf("pwr                   Simulate UNIBUS power cycle (ACLO/DCLO)\n");
 			printf("q                     Quit\n");
 		}
@@ -227,7 +227,7 @@ void application_c::menu_interrupts(void) {
 					&(dma_buffer->data.words[addr_from / 2]), wordcount);
 			printf("DEPOSIT in slot %d started for %06o..%06o\n",
 					dma_request->get_priority_slot(), addr_from, addr_to);
-		} else if (!strcasecmp(s_opcode, "dl") && n_fields == 2) {
+		} else if (!strcasecmp(s_opcode, "dbg") && n_fields == 2) {
 			if (!strcasecmp(s_param[0], "c")) {
 				logger->clear();
 				printf("Debug log cleared.\n");

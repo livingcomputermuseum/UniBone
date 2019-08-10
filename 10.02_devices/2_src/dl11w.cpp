@@ -48,6 +48,7 @@
 #include "dl11w.hpp"
 
 #include "rs232.hpp"
+#include "rs232adapter.hpp"
 
 //-------------------------------------------------
 
@@ -114,6 +115,8 @@ slu_c::slu_c() :
 	serialport.value = "ttyS2"; // labeled "UART2" on PCB
 	baudrate.value = 9600;
 	mode.value = "8N1";
+
+	rs232adapter.rs232 = &rs232;
 }
 
 slu_c::~slu_c() {
@@ -124,6 +127,7 @@ bool slu_c::on_param_changed(parameter_c *param) {
 		if (enabled.new_value) {
 			// enable SLU: setup COM serial port
 			// setup for BREAK and parity evaluation
+			rs232adapter.rcv_termios_error_encoding = true;
 			if (rs232.OpenComport(serialport.value.c_str(), baudrate.value, mode.value.c_str(),
 			true)) {
 				ERROR("Can not open serial port %s", serialport.value.c_str());
@@ -136,7 +140,7 @@ bool slu_c::on_param_changed(parameter_c *param) {
 			mode.readonly = true;
 
 			INFO("Serial port %s opened", serialport.value.c_str());
-			char buff[256] ;
+			char buff[256];
 			sprintf(buff, "Serial port %s opened\n\r", serialport.value.c_str());
 			rs232.cputs(buff);
 		} else {
@@ -225,7 +229,7 @@ void slu_c::set_xcsr_dati_value_and_INTR(void) {
 	default:
 		set_register_dati_value(reg_xcsr, val, __func__);
 	}
-	
+
 }
 
 void slu_c::eval_xcsr_dato_value(void) {
@@ -342,7 +346,7 @@ void slu_c::on_init_changed(void) {
 void slu_c::worker_rcv(void) {
 	timeout_c timeout;
 	int n;
-	char buffer[BUFLEN + 1];
+	unsigned char buffer[BUFLEN + 1];
 
 	// poll with frequency > baudrate, to see single bits
 	//unsigned poll_periods_us = 1000000 / baudrate.value;
@@ -366,7 +370,7 @@ void slu_c::worker_rcv(void) {
 		// rcv_active: can only be set by polling the UART input GPIO pin?
 		// at the moments, it is only sent on maintenance loopback xmt
 		/* read serial data, if any */
-		if (rs232.PollComport((unsigned char*) buffer, 1)) {
+		if (rs232adapter.byte_rcv_poll(buffer)) {
 			pthread_mutex_lock(&on_after_rcv_register_access_mutex); // signal changes atomic against UNIBUS accesses
 			rcv_or_err = rcv_fr_err = rcv_p_err = 0;
 			if (rcv_done) // not yet cleared? overrun!
@@ -376,12 +380,12 @@ void slu_c::worker_rcv(void) {
 				 If IGNPAR=0, PARMRK=1: error on <char> received as \377 \0 <char> 
 				 \377 received as \377 \377
 				 */
-				n = rs232.PollComport((unsigned char*) buffer, 1);
+				n = rs232adapter.byte_rcv_poll(buffer);
 				assert(n);	// next char after 0xff escape immediately available
 
 				if (buffer[0] == 0) { // error flags
 					rcv_fr_err = rcv_p_err = 1;
-					n = rs232.PollComport((unsigned char*) buffer, 1);
+					n = rs232adapter.byte_rcv_poll(buffer);
 					assert(n); // next char after 0xff 0 seq is data"
 					rcv_buffer = buffer[0];
 				} else if (buffer[0] == 0xff) { // enocoded 0xff
@@ -421,7 +425,7 @@ void slu_c::worker_xmt(void) {
 		}
 
 		// 2. transmit
-		rs232.SendByte(xmt_buffer);
+		rs232adapter.byte_xmt_sent(xmt_buffer);
 		xmt_ready = 0;
 		set_xcsr_dati_value_and_INTR();
 		if (xmt_maint) { // loop back: simulate data byte coming in
@@ -437,7 +441,7 @@ void slu_c::worker_xmt(void) {
 		pthread_mutex_lock(&on_after_xmt_register_access_mutex);
 		if (xmt_maint)
 			// put sent byte into rcv buffer, receiver will poll it
-			rs232.LoopbackByte(xmt_buffer);
+			rs232adapter.byte_loopback(xmt_buffer);
 		xmt_ready = 1;
 		set_xcsr_dati_value_and_INTR();
 
@@ -583,7 +587,7 @@ void ltc_c::worker(unsigned instance) {
 
 	INFO("KW11 time resolution is < %u us",
 			(unsigned )(global_time.get_resolution_ns() / 1000));
-	global_time.start(0);
+	global_time.start_ns(0);
 	global_next_edge_ns = global_time.elapsed_ns();
 	uint64_t global_edge_count = 0;
 	while (!workers_terminate) {

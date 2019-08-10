@@ -130,7 +130,7 @@ void application_c::menu_masterslave(enum unibus_c::arbitration_mode_enum arbitr
 			printf("init                        Pulse UNIBUS INIT\n");
 			printf("pwr                         Simulate UNIBUS power cycle (ACLO/DCLO)\n");
 			printf(
-					"dl c|s|f                    Debug log: Clear, Show on console, dump to File.\n");
+					"dbg c|s|f                   Debug log: Clear, Show on console, dump to File.\n");
 			printf("                               (file = %s)\n",
 					logger->default_filepath.c_str());
 			printf("i                           Info about address tables\n");
@@ -351,7 +351,7 @@ void application_c::menu_masterslave(enum unibus_c::arbitration_mode_enum arbitr
 			unibus->mem_read(arbitration_mode, membuffer->data.words, 0, end_addr, &timeout);
 			printf("Saving to file %s\n", s_param[0]);
 			membuffer->save_binary(s_param[0], end_addr + 2);
-		} else if (!strcasecmp(s_opcode, "dl") && n_fields == 2) {
+		} else if (!strcasecmp(s_opcode, "dbg") && n_fields == 2) {
 			if (!strcasecmp(s_param[0], "c")) {
 				logger->clear();
 				printf("Debug log cleared.\n");

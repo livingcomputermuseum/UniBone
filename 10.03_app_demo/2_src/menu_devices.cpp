@@ -82,7 +82,7 @@ static void load_memory(enum unibus_c::arbitration_mode_enum arbitration_mode,
 				"Loaded MACRO-11 listing from file \"%s\" into memory: %d words from %06o to %06o.\n",
 				fname, membuffer->get_word_count(), firstaddr, lastaddr);
 		if (entry_label == NULL)
-			printf("  No entry address label.\n") ;
+			printf("  No entry address label.\n");
 		else if (membuffer->entry_address != MEMORY_ADDRESS_INVALID)
 			printf("  Entry address at \"%s\" label is %06o.\n", entry_label,
 					membuffer->entry_address);
@@ -99,11 +99,11 @@ static void load_memory(enum unibus_c::arbitration_mode_enum arbitration_mode,
 static void print_device(device_c *device) {
 	unibusdevice_c *ubdevice = dynamic_cast<unibusdevice_c *>(device);
 	if (ubdevice)
-		printf("- %-12s  Type %s, %s.\n",ubdevice->name.value.c_str(),
-			ubdevice->type_name.value.c_str(), ubdevice->get_unibus_resource_info()) ;
+		printf("- %-12s  Type %s, %s.\n", ubdevice->name.value.c_str(),
+				ubdevice->type_name.value.c_str(), ubdevice->get_unibus_resource_info());
 	else
-		printf("- %-12s  Type %s.\n",device->name.value.c_str(),
-			device->type_name.value.c_str()) ;
+		printf("- %-12s  Type %s.\n", device->name.value.c_str(),
+				device->type_name.value.c_str());
 }
 
 // CPU is enabled, act as ARBITRATION_MASTER
@@ -120,11 +120,12 @@ void application_c::menu_devices(bool with_CPU) {
 	unibusdevice_c *unibuscontroller = NULL;
 	unsigned n_fields;
 	char *s_choice;
-	char s_opcode[256], s_param[2][256];
+	char s_opcode[256], s_param[3][256];
 
 	// with_CPU: the emulated CPU is answering BR and NPR requests.
 	if (with_CPU)
-		arbitration_mode = unibus_c::ARBITRATION_MODE_MASTER;
+		arbitration_mode = unibus_c::ARBITRATION_MODE_NONE;
+//		arbitration_mode = unibus_c::ARBITRATION_MODE_MASTER;
 	else
 		arbitration_mode = unibus_c::ARBITRATION_MODE_CLIENT;
 
@@ -156,6 +157,12 @@ void application_c::menu_devices(bool with_CPU) {
 	uda_c *UDA50 = new uda_c();
 	// Create SLU+ LTC
 	slu_c *DL11 = new slu_c();
+	// to inject characters into DL11 receiver
+	std::stringstream dl11_rcv_stream(std::ios::app | std::ios::in | std::ios::out);
+	DL11->rs232adapter.stream_rcv = &dl11_rcv_stream;
+	DL11->rs232adapter.stream_xmt = NULL; // do not echo output to stdout
+	DL11->rs232adapter.baudrate = DL11->baudrate.value; // limit speed of injected chars
+
 	ltc_c *LTC = new ltc_c();
 
 //	//demo_regs.install();
@@ -225,7 +232,18 @@ void application_c::menu_devices(bool with_CPU) {
 				printf("e <addr>             Examine octal UNIBUS address.\n");
 				printf("d <addr> <val>       Deposit octal val into UNIBUS address.\n");
 			}
-			printf("dl c|s|f             Debug log: Clear, Show on console, dump to File.\n");
+			if (DL11->enabled.value) {
+				printf(
+						"dl11 rcv [<wait_ms>] <string>   inject characters as if DL11 received them.\n");
+				printf(
+						"                     Before output there's an optional pause of <wait_ms> milliseconds.\n");
+				printf(
+						"                     <string> uses C-escapes: \"\\r\"= CR, \040 = space, etc.\n");
+				printf(
+						"dl11 wait <timeout_ms> <string>	wait time until DL11 was ordered to transmit <string>.\n");
+				printf("                     On timeout, script execution is terminated.\n");
+			}
+			printf("dbg c|s|f            Debug log: Clear, Show on console, dump to File.\n");
 			printf("                       (file = %s)\n", logger->default_filepath.c_str());
 			printf("init                 Pulse UNIBUS INIT\n");
 			printf("pwr                  Simulate UNIBUS power cycle (ACLO/DCLO)\n");
@@ -235,14 +253,15 @@ void application_c::menu_devices(bool with_CPU) {
 
 		printf("\n");
 		try {
-			n_fields = sscanf(s_choice, "%s %s %s", s_opcode, s_param[0], s_param[1]);
+			n_fields = sscanf(s_choice, "%s %s %s %s", s_opcode, s_param[0], s_param[1],
+					s_param[2]);
 			if (!strcasecmp(s_opcode, "q")) {
 				ready = true;
 			} else if (!strcasecmp(s_opcode, "init")) {
 				unibus->init();
 			} else if (!strcasecmp(s_opcode, "pwr")) {
 				unibus->powercycle();
-			} else if (!strcasecmp(s_opcode, "dl") && n_fields == 2) {
+			} else if (!strcasecmp(s_opcode, "dbg") && n_fields == 2) {
 				if (!strcasecmp(s_param[0], "c")) {
 					logger->clear();
 					printf("Debug log cleared.\n");
@@ -456,7 +475,61 @@ void application_c::menu_devices(bool with_CPU) {
 				if (timeout)
 					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);
 				// cur_addr now on last address in block
+			} else if (DL11->enabled.value && !strcasecmp(s_opcode, "dl11")) {
+				if ((n_fields == 3 || n_fields == 4) && !strcasecmp(s_param[0], "rcv")) {
+					// dl11 rcv [<wait_ms>] <string>
+					char buff[256];
+					unsigned wait_ms;
+					timeout_c timeout;
+					char *s;
+					if (n_fields == 3) {
+						wait_ms = 0;
+						s = s_param[1];
+					} else {
+						wait_ms = strtol(s_param[1], NULL, 10);
+						s = s_param[2];
+					}
+					if (!str_decode_escapes(buff, sizeof(buff), s)) {
+						printf("Error in escape sequences.\n");
+						inputline_init();
+						continue;
+					}
+					timeout.wait_ms(wait_ms);
+					// let DL11 produce chars in 'buff'
+					pthread_mutex_lock(&DL11->rs232adapter.mutex);
+					dl11_rcv_stream.clear();
+					dl11_rcv_stream.write(buff, strlen(buff)); // add endlessly to string
+					// dl11_rcv_stream.str(buff);
+					pthread_mutex_unlock(&DL11->rs232adapter.mutex);
+//							printf("AAA %d\n", (int)dl11_rcv_stream.get()) ;
+				} else if (n_fields == 4 && !strcasecmp(s_param[0], "wait")) {
+					// dl11 wait <timeout_ms> <string>
+					timeout_c timeout, timeout2;
+					unsigned ms = strtol(s_param[1], NULL, 10);
+					char buff[256];
+					if (!str_decode_escapes(buff, sizeof(buff), s_param[2])) {
+						printf("Error in escape sequences.\n");
+						inputline_init();
+						continue;
+					}
+					// while waiting echo to stdout, for diag
+					DL11->rs232adapter.stream_xmt = &cout;
+					DL11->rs232adapter.set_pattern(buff);
+					timeout.start_ms(ms);
+					while (!timeout.reached() && !DL11->rs232adapter.pattern_found)
+						timeout2.wait_ms(1);
+					DL11->rs232adapter.stream_xmt = NULL; // stop echo
 
+					if (!DL11->rs232adapter.pattern_found) {
+						printf(
+								"\nPDP-11 did not xmt \"%s\" over DL11 within %u ms, aborting script\n",
+								s_param[2], ms);
+						inputline_init();
+					}
+				} else {
+					printf("Unknown DL11 command \"%s\"!\n", s_choice);
+					show_help = true;
+				}
 			} else {
 				printf("Unknown command \"%s\"!\n", s_choice);
 				show_help = true;
