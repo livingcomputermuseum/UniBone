@@ -425,7 +425,7 @@ void slu_c::worker_xmt(void) {
 		}
 
 		// 2. transmit
-		rs232adapter.byte_xmt_sent(xmt_buffer);
+		rs232adapter.byte_xmt_send(xmt_buffer);
 		xmt_ready = 0;
 		set_xcsr_dati_value_and_INTR();
 		if (xmt_maint) { // loop back: simulate data byte coming in

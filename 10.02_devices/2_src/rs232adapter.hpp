@@ -65,7 +65,7 @@ public:
 
 	/*** BYTE interface ***/
 	bool byte_rcv_poll(unsigned char *rcvchar);
-	void byte_xmt_sent(unsigned char xmtchar);
+	void byte_xmt_send(unsigned char xmtchar);
 	void byte_loopback(unsigned char xmtchar);
 
 	/*** STREAM interface ***/

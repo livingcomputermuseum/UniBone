@@ -31,83 +31,25 @@
  To be used to router DL11 RCV/XMT ports to RS232 and/or program functions
 
 
-
-
-
- stream_rcv       stream_xmt                upper end "STREAM"
- \ /            / \
-         |              |
- |              +---> ringbuffer      "PATTERN"
- |              |
- +--------------|----rs232.Poll()---< RxD "RS232"
- |              |
- |              +----rs232.Send()---> TxD
- |              |
- |              |
- \ /            / \
-   byte_rcv_poll()   byte_xmt_sent()         lower end "BYTE"
-
- DL11 RCVR         DL11 XMT                DL11
- DATI            DATO                  UNIBUS
-
-
-
-
- // check RS232 or buffer for data bytes,
- // which shall be "published" by DL11 RCVer
- bool poll_receiver_input(unsigned char *rcvchar) {
- if (input_queue.size()) {
- // in character to send: has priority over RS232 input
- *rcvchar = input_queue.pop() ;
- return true ;
- // should wait for one byte time before delivering next buffer char
- } else
- return rs232.PollComport(rcvchar, 1) ;
- }
-
-
- string pattern_buffer ;
- string xmt_search // search expression in transmitter output
- void send_transmitter_output(unsigned char xmtchar) {
-
- // show output on stdio ?
- if (output_stream)
- output_stream.out(xmtchar) ;
- // save output in ring buffer
- pattern_buffer += xmtchar ;
- if (pattern_buffer.size() >= PATTERN_BUFFER_LEN)
- pattern_buffer.erase(0,1) ; // delete first
- // if search expression appears in pattern buffer:
- if (pattern_buffer.find(xmt_search) !=std::string::npos ) {
- // added char makes search found
-
- pattern_buffer.clear() ;
- }
-
- }
-
-
- demo:
-
- dl11 waitfor <timeout_ms> <patternstring>
- dl11 waitfor 1000 @
-
- dl11.xmt_monitor_clear()
- dl11.xmt_monitor_pattern := <patternstring>
- timeout.start_ms(<timeout_ms>)
- while(!timeout.reached && !dl11_xmt_monitor_pattern_match())
- sleep(1ms) ;
- if (timeout.
-
- reached() {
- // abort script
- inputline_clearscript();
- }
-
-
- -> will clear ringbuffer, montior dl11 output
-
-
+ .     stream_rcv     stream_xmt                 upper end "STREAM"        .
+ .        \ /            / \                                               .
+ .         |              |                                                .
+ .         |              +---> ringbuffer       "PATTERN"                 .
+ .         |              |                                                .
+ .         |    loopback  |                                                .
+ .        rcv  <----------|---< byte_loopback()                            .
+ .      decoder           |                                                .
+ .       buffer           |                                                .
+ .         |              |                                                .
+ .         +-----<--------|---< rs232.Poll()---< RxD "RS232"               .
+ .         |              |                                                .
+ .         |              +---> rs232.Send()---> TxD "RS232"               .
+ .         |              |                                                .
+ .        \ /            / \                                               .
+ .   byte_rcv_poll()   byte_xmt_send()           lower end "BYTE"          .
+ .                                                                         .
+ .      DL11 RCVR         DL11 XMT               DL11                      .
+ .         DATI            DATO                  UNIBUS                    .
 
 
 
@@ -135,7 +77,7 @@ rs232adapter_c::rs232adapter_c() {
 // BYTE interface: check for received char (from stream or RS232)
 // Attention: must produce 0xff 0 sequences for termios encoded byte errors
 //	and 0xff 0xff for \ff
-// If IGNPAR=0, PARMRK=1: error on <char> received as \377 \0 <char> 
+// If IGNPAR=0, PARMRK=1: error on <char> received as \377 \0 <char>
 // \377 received as \377 \377
 bool rs232adapter_c::byte_rcv_poll(unsigned char *rcvchar) {
 
@@ -175,7 +117,7 @@ bool rs232adapter_c::byte_rcv_poll(unsigned char *rcvchar) {
 	return result;
 }
 
-void rs232adapter_c::byte_xmt_sent(unsigned char xmtchar) {
+void rs232adapter_c::byte_xmt_send(unsigned char xmtchar) {
 	if (rs232)
 		rs232->SendByte(xmtchar);
 	if (stream_xmt)
@@ -188,7 +130,7 @@ void rs232adapter_c::byte_xmt_sent(unsigned char xmtchar) {
 		assert(m < pattern_max_len);
 		pattern_stream_data[m] = xmtchar;
 		pattern_stream_data[m + 1] = 0;
-		// only keep the last chars in buffer. 
+		// only keep the last chars in buffer.
 		while ((m = strlen(pattern_stream_data)) > n)
 			// strip first char, should loop only once
 			memmove(pattern_stream_data, pattern_stream_data + 1, m);
