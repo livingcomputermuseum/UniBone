@@ -79,11 +79,12 @@ private:
 	// controller can accept commands again
 	void do_command_done(void);
 	// set readable value for busreg_CS
-	void do_controller_status(const char *debug_info);
+	void do_controller_status(bool do_intr, const char *debug_info);
 	void do_operation_incomplete(const char *info);
 
 	// state machines
 	void change_state(unsigned new_state);
+	void change_state_INTR(unsigned new_state);
 	void state_seek(void);
 	void state_readwrite(void);
 

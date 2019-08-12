@@ -279,9 +279,10 @@ void RL11_c::reset(void) {
 	interrupt_enable = 0;
 	unibus_address_msb = 0;
 	clear_errors();
+	intr_request.edge_detect_reset();
 	change_state(RL11_STATE_CONTROLLER_READY);
 	// or do_command_done() ?
-	do_controller_status(__func__);
+	do_controller_status(false, __func__);
 }
 
 void RL11_c::clear_errors() {
@@ -344,6 +345,7 @@ void RL11_c::on_after_register_access(unibusdevice_register_t *device_reg,
 	// on drive select:
 	// move  status of new drive to controller status register
 	// on command: signal worker thread
+
 	switch (device_reg->index) {
 	case 0: { // CS
 		if (unibus_control == UNIBUS_CONTROL_DATO) {
@@ -375,7 +377,7 @@ void RL11_c::on_after_register_access(unibusdevice_register_t *device_reg,
 			// accept only command if controller ready
 			if (new_controller_ready) {
 				// GO not set
-				do_controller_status(__func__); // UNIBUS sees still "controller ready"
+				do_controller_status(false, __func__); // UNIBUS sees still "controller ready"
 			} else {
 				RL0102_c *drive; // some funct need the selected drive
 				bool execute_function_delayed;
@@ -431,7 +433,7 @@ void RL11_c::on_after_register_access(unibusdevice_register_t *device_reg,
 					// signal worker() with pthread condition variable
 					// transition from high priority "unibusadapter thread" to
 					// standard "device thread".
-					do_controller_status(__func__); // UNIBUS sees now "controller not ready"
+					do_controller_status(false, __func__); // UNIBUS sees now "controller not ready"
 					// wake up worker()
 					pthread_cond_signal(&on_after_register_access_cond);
 				}
@@ -494,15 +496,19 @@ void RL11_c::on_drive_status_changed(storagedrive_c *drive) {
 	if (drive->unitno.value != selected_drive_unitno)
 		return;
 	// show status lines in CS for selected drive
-	do_controller_status(__func__);
+	do_controller_status(false, __func__);
 }
 
 // issue interrupt.
 // do not set CONTROLLER READY bit
 void RL11_c::do_command_done(void) {
-	bool do_int = false;
+	// bool do_int = false;
 	if (interrupt_enable && state != RL11_STATE_CONTROLLER_READY)
-		do_int = true;
+		change_state_INTR(RL11_STATE_CONTROLLER_READY);
+	else
+		// no intr
+		change_state(RL11_STATE_CONTROLLER_READY);
+#ifdef OLD	
 	if (do_int) {
 
 		// first set visible "controller ready"
@@ -514,13 +520,13 @@ void RL11_c::do_command_done(void) {
 		change_state(RL11_STATE_CONTROLLER_READY);
 		// scheduler may inject time here, if called from low prio worker() !
 		// pending interrupt triggered
-		//TODO: connect to itnerrupt register busreg_CS
+		//TODO: connect to interrupt register busreg_CS
 		unibusadapter->INTR(intr_request, NULL, 0);
 		DEBUG("Interrupt!");
 //		worker_restore_realtime_priority();
 	} else
-		// no intr
-		change_state(RL11_STATE_CONTROLLER_READY);
+	// no intr
+	change_state(RL11_STATE_CONTROLLER_READY);
 	/*
 	 {
 	 // interrupt on leading edge of "controller-ready" signal
@@ -530,28 +536,30 @@ void RL11_c::do_command_done(void) {
 	 do_controller_status(__func__);
 	 change_state(RL11_STATE_CONTROLLER_READY);
 	 */
+#endif	 
 }
 
 // CS read/Write access different registers.
 // write current status into CS, for next read operation
 // must be done after each DATO
-void RL11_c::do_controller_status(const char *debug_info) {
+void RL11_c::do_controller_status(bool do_intr, const char *debug_info) {
 	RL0102_c *drive = selected_drive();
 	uint16_t tmp = 0;
 	bool drive_error_any = drive->drive_error_line; // save, may change
+	bool controller_ready = (state == RL11_STATE_CONTROLLER_READY);
 	//bit 0: drive ready
 	if (drive->drive_ready_line)
-		tmp |= 0x0001;
+		tmp |= BIT(0);
 	// bits <1:3>: function code
 	tmp |= (function_code << 1);
 	// bits <4:5>: bus_address <17:16>
 	tmp |= (unibus_address_msb & 3) << 4;
 	// bit 6: IE
 	if (interrupt_enable)
-		tmp |= (1 << 6);
+		tmp |= BIT(6);
 	// bit 7: CRDY
-	if (state == RL11_STATE_CONTROLLER_READY)
-		tmp |= (1 << 7);
+	if (controller_ready)
+		tmp |= BIT(7);
 	// bits <8:9>: drive select
 	tmp |= (selected_drive_unitno << 8);
 	// bit <10:13>: error code. Only some possible errors
@@ -565,15 +573,21 @@ void RL11_c::do_controller_status(const char *debug_info) {
 		tmp |= (0x08) << 10; // error code "NXM" = 1000
 	// bit 14 is drive error
 	if (drive_error_any)
-		tmp |= (1 << 14);
+		tmp |= BIT(14);
 	// bit 15 is composite error
 	if (error_dma_timeout || error_operation_incomplete || error_writecheck
 			|| error_header_not_found || drive_error_any) {
-		tmp |= (1 << 15);
+		tmp |= BIT(15);
 	}
 
-	set_register_dati_value(busreg_CS, tmp, debug_info);
-	// now visible om UNIBUS
+	if (do_intr) {
+		// set CSR atomically with INTR signal lines
+		assert(interrupt_enable);
+		assert(controller_ready);
+		unibusadapter->INTR(intr_request, busreg_CS, tmp);
+	} else
+		set_register_dati_value(busreg_CS, tmp, debug_info);
+	// now visible on UNIBUS
 
 }
 
@@ -585,7 +599,6 @@ void RL11_c::do_operation_incomplete(const char *info) {
 	timeout.wait_ms(200 / emulation_speed.value);
 	error_operation_incomplete = true;
 	do_command_done();
-
 }
 
 // separate proc, to have a testpoint
@@ -593,7 +606,14 @@ void RL11_c::change_state(unsigned new_state) {
 	if (state != new_state)
 		DEBUG("Change RL11 state from 0x%x to 0x%x.", state, new_state);
 	state = new_state;
-	do_controller_status(__func__);
+	do_controller_status(false, __func__);
+}
+
+void RL11_c::change_state_INTR(unsigned new_state) {
+	if (state != new_state)
+		DEBUG("Change RL11 state from 0x%x to 0x%x.", state, new_state);
+	state = new_state;
+	do_controller_status(true, __func__);
 }
 
 // start seek operation, then interrupt
@@ -823,11 +843,15 @@ void RL11_c::worker(unsigned instance) {
 		// wait for "cmd" signal of on_after_register_access()
 		int res;
 
+		// CRDY in busreg_CS->active_dati_flipflops & 0x80)) 
+		// may still be inactive, when PRU updatesit with iNTR delayed.
 		// enable operation of pending on_after_register_access()
+		/*
 		if (!(busreg_CS->active_dati_flipflops & 0x80)) { // CRDY must be set
 			ERROR("CRDY not set, CS=%06o", busreg_CS->active_dati_flipflops);
 			logger->dump(logger->default_filepath);
 		}
+		*/
 		res = pthread_cond_wait(&on_after_register_access_cond,
 				&on_after_register_access_mutex);
 		if (res != 0) {
