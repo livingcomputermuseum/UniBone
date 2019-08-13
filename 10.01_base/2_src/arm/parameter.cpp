@@ -32,9 +32,8 @@
 #include "device.hpp"
 #define _PARAMETER_CPP_
 
-
 parameter_c::parameter_c(parameterized_c *parameterized, string name, string shortname,
-		bool readonly, string unit, string format, string info) {
+bool readonly, string unit, string format, string info) {
 	this->parameterized = parameterized;
 	this->name = name;
 	this->shortname = shortname;
@@ -53,8 +52,7 @@ parameter_c::~parameter_c() {
 
 // to be implemented in subclass
 void parameter_c::parse(string text) {
-	throw bad_parameter_parse(
-			"parameter_c::parse(" + text + ") to be implemented in subclass");
+	throw bad_parameter_parse("parameter_c::parse(" + text + ") to be implemented in subclass");
 }
 
 // convert to text
@@ -73,16 +71,21 @@ parameter_string_c::parameter_string_c(parameterized_c *parameterized, string na
 parameter_string_c::~parameter_string_c() {
 }
 
+void parameter_string_c::set(string new_value) {
+
+	if (value == new_value)
+		return; // call "on_change" only on change
+	this->new_value = new_value;
+	// reject parsed value, if device parameter check complains
+	if (parameterized == NULL || parameterized->on_param_changed(this))
+		value = new_value;
+}
+
 // string parsing is just copying
 void parameter_string_c::parse(string text) {
 	if (readonly)
 		throw bad_parameter_readonly("Parameter \"" + name + "\" is read-only");
-
-	new_value = text;
-
-	// reject parsed value, if device parameter check complains
-	if (parameterized == NULL || parameterized->on_param_changed(this))
-		value = new_value;
+	set(text);
 }
 
 string *parameter_string_c::render() {
@@ -90,13 +93,24 @@ string *parameter_string_c::render() {
 	return &printbuffer;
 }
 
-parameter_bool_c::parameter_bool_c(parameterized_c *parameterized, string name, string shortname,
+parameter_bool_c::parameter_bool_c(parameterized_c *parameterized, string name,
+		string shortname,
 		bool readonly, string info) :
 		parameter_c(parameterized, name, shortname, readonly, "", "", info) {
 	value = false;
 }
 
-// bool accepty 0/1, y*/n*, t*/f*
+void parameter_bool_c::set(bool new_value) {
+	if (value == new_value)
+		return; // call "on_change" only on change
+
+	// reject parsed value, if device parameter check complains
+	this->new_value = new_value;
+	if (parameterized == NULL || parameterized->on_param_changed(this))
+		value = new_value;
+}
+
+// bool accepts 0/1, y*/n*, t*/f*
 void parameter_bool_c::parse(string text) {
 	char c;
 	if (readonly)
@@ -112,10 +126,7 @@ void parameter_bool_c::parse(string text) {
 		new_value = false;
 	else
 		throw bad_parameter_parse("Illegal boolean expression \"" + text + "\"");
-
-	// reject parsed value, if device parameter check complains
-	if (parameterized == NULL || parameterized->on_param_changed(this))
-		value = new_value;
+	set(new_value);
 }
 
 string *parameter_bool_c::render() {
@@ -134,6 +145,17 @@ parameter_unsigned_c::parameter_unsigned_c(parameterized_c *parameterized, strin
 	this->base = base;
 	value = 0;
 }
+
+void parameter_unsigned_c::set(unsigned new_value) {
+	if (value == new_value)
+		return; // call "on_change" only on change
+
+	this->new_value = new_value;
+	// reject parsed value, if device parameter check complains
+	if (parameterized == NULL || parameterized->on_param_changed(this))
+		value = new_value;
+}
+
 void parameter_unsigned_c::parse(string text) {
 	char *endptr;
 	if (readonly)
@@ -141,15 +163,11 @@ void parameter_unsigned_c::parse(string text) {
 	TRIM_STRING(text);
 	new_value = strtol(text.c_str(), &endptr, base);
 	if (*endptr)
-		throw bad_parameter_parse(
-				"Format error in \"" + text + "\" at \"" + *endptr + "\"");
+		throw bad_parameter_parse("Format error in \"" + text + "\" at \"" + *endptr + "\"");
 	if (new_value & ~BitmaskFromLen32[bitwidth]) //
 		throw bad_parameter_parse(
 				"Number " + to_string(new_value) + " exceeds bitwidth " + to_string(bitwidth));
-
-	// reject parsed value, if device parameter check complains
-	if (parameterized == NULL || parameterized->on_param_changed(this))
-		value = new_value;
+	set(new_value);
 }
 
 string *parameter_unsigned_c::render() {
@@ -168,6 +186,16 @@ parameter_unsigned64_c::parameter_unsigned64_c(parameterized_c *parameterized, s
 	value = 0;
 }
 
+void parameter_unsigned64_c::set(uint64_t new_value) {
+	if (value == new_value)
+		return; // call "on_change" only on change
+
+	this->new_value = new_value;
+	// reject parsed value, if device parameter check complains
+	if (parameterized == NULL || parameterized->on_param_changed(this))
+		value = new_value;
+}
+
 void parameter_unsigned64_c::parse(string text) {
 	char *endptr;
 	if (readonly)
@@ -175,15 +203,11 @@ void parameter_unsigned64_c::parse(string text) {
 	TRIM_STRING(text);
 	new_value = strtoll(text.c_str(), &endptr, base);
 	if (*endptr)
-		throw bad_parameter_parse(
-				"Format error in \"" + text + "\" at \"" + *endptr + "\"");
+		throw bad_parameter_parse("Format error in \"" + text + "\" at \"" + *endptr + "\"");
 	if (new_value & ~BitmaskFromLen64[bitwidth]) //
 		throw bad_parameter_parse(
 				"Number " + to_string(new_value) + " exceeds bitwidth " + to_string(bitwidth));
-
-	// reject parsed value, if device parameter check complains
-	if (parameterized == NULL || parameterized->on_param_changed(this))
-		value = new_value;
+	set(new_value);
 }
 
 string *parameter_unsigned64_c::render() {
@@ -192,7 +216,6 @@ string *parameter_unsigned64_c::render() {
 	printbuffer = buffer;
 	return &printbuffer;
 }
-
 
 // add reference to parameter. It will be automatically deleted
 parameter_c *parameterized_c::param_add(parameter_c *param) {
@@ -215,5 +238,4 @@ parameter_c *parameterized_c::param_by_name(string name) {
 
 	return NULL;
 }
-
 

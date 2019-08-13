@@ -44,6 +44,65 @@ using namespace std;
  * User Interface
  *********************************************/
 
+// octal, or '<char>'
+bool application_c::parse_word(char *txt, uint16_t *word) {
+	*word = 0 ;
+	if (!txt || *txt == 0)
+		return false ;
+	
+	if (*txt == '\'') {
+		txt++ ;
+		if (*txt)
+			*word = *txt ; // ASCII code of first char after ''
+	} else
+		*word = strtol(txt, NULL, 8); // octal literal
+	return true ;
+}
+
+// octal, trunc to 18 bit
+bool application_c::parse_addr18(char *txt, uint32_t *addr) {
+	*addr = strtol(txt, NULL, 8) ;
+	if (*addr > 0777777) {
+		*addr = 0777777 ;
+		return false ;
+	}
+	return true ;
+}
+
+
+
+bool application_c::parse_level(char *txt, uint8_t *level) {
+	*level = strtol(txt, NULL, 8);
+	if (*level < 4 || *level > 7) {
+		printf("Illegal interrupt level %u, must be 4..7.\n", *level);
+		return false;
+	}
+		return true;
+}
+
+bool application_c::parse_vector(char *txt, uint16_t max_vector, uint16_t *vector) {
+	*vector = strtol(txt, NULL, 8);
+	if (*vector > max_vector) {
+		printf("Illegal interrupt vector %06o, must be <= %06o.\n", (unsigned) *vector,
+				(unsigned) max_vector);
+		return false;
+	} else if ((*vector & 3) != 0) {
+		printf("Illegal interrupt vector %06o, must be multiple of 4.\n", *vector);
+		return false;
+	}
+		return true;
+}
+
+bool application_c::parse_slot(char *txt, uint8_t *priority_slot) {
+	*priority_slot = strtol(txt, NULL, 10);
+	if (*priority_slot <= 0 ||  *priority_slot > 31) {
+		printf("Illegal priority slot %u, must be 1..31.\n", *priority_slot);
+		return false;
+	}
+		return true;
+}
+
+
 void application_c::print_arbitration_info(
 		enum unibus_c::arbitration_mode_enum arbitration_mode, const char *indent) {
 	switch (arbitration_mode) {

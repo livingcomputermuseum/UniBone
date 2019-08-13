@@ -1,28 +1,28 @@
 /* panels.hpp: a device to access lamps & buttons connected over I2C bus
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   12-nov-2018  JH      entered beta phase
-*/
+ 12-nov-2018  JH      entered beta phase
+ */
 
 #include "utils.hpp"
 #include "device.hpp"
@@ -72,7 +72,7 @@ public:
 	unsigned value; // input or output
 
 	// output lamps can be linekd to their including buttons
-	panelcontrol_c *associate ;
+	panelcontrol_c *associate;
 
 	panelcontrol_c(string device_name, string control_name,
 	bool is_input, uint8_t chip_addr, uint8_t reg_addr, uint8_t reg_bitmask);
@@ -94,6 +94,8 @@ public:
 	paneldriver_c();
 	~paneldriver_c();
 
+	bool on_param_changed(parameter_c *param) override;  // must implement
+
 	vector<panelcontrol_c *> controls;
 
 	void unregister_controls(void); // clear static list of all connected controls
@@ -110,18 +112,15 @@ public:
 	void i2c_sync_all_params();
 
 	// background worker function
-	void worker(void) override;
+	void worker(unsigned instance) override;
 
-	bool on_param_changed(parameter_c *param) override;  // must implement
 	void on_power_changed(void) override; // must implement
 	void on_init_changed(void) override; // must implement
 
-
-	void clear_all_outputs(void) ;
+	void clear_all_outputs(void);
 
 	// link_control_to_parameter(new panelcontrol_c()) ;
-	void link_control_to_parameter(parameter_c *deviceparameter,
-			panelcontrol_c *panelcontrol);
+	void link_control_to_parameter(parameter_c *deviceparameter, panelcontrol_c *panelcontrol);
 	void unlink_controls_from_device(device_c *device);
 
 	void refresh_params(device_c *device);

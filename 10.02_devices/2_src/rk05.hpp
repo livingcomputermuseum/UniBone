@@ -91,12 +91,13 @@ public:
 
 	rk05_c(storagecontroller_c *controller);
 
-        bool on_param_changed(parameter_c* param) override;
+    bool on_param_changed(parameter_c* param) override;
+
 	void on_power_changed(void) override;
 	void on_init_changed(void) override;
 
 	// background worker function
-	void worker(void) override;
+	void worker(unsigned instance) override;
 };
 
 #endif

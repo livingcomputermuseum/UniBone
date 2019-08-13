@@ -111,7 +111,7 @@ public:
 	// working position
 	blockaddr_c cur_blockaddr;
 
-	// initalize drive
+	// initialize drive
 	virtual void init(unsigned unitnr) = 0;
 	// read access
 	virtual void readtrack(unsigned unitnr, uint8_t *data) = 0;

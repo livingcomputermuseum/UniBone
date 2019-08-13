@@ -9,6 +9,7 @@
 
 #include <memory>
 #include "utils.hpp"
+#include "unibusadapter.hpp"
 #include "unibusdevice.hpp"
 #include "storagecontroller.hpp"
 #include "mscp_server.hpp"
@@ -61,7 +62,9 @@ public:
     uda_c();
     virtual ~uda_c();
 
-    void worker(void) override;
+	bool on_param_changed(parameter_c *param) override;
+
+    void worker(unsigned instance) override;
 
     void on_after_register_access(
         unibusdevice_register_t *device_reg,
@@ -71,6 +74,12 @@ public:
     void on_init_changed(void) override;
 
     void on_drive_status_changed(storagedrive_c *drive) override;
+
+	
+	// As every storage controller UDA has one INTR and DMA
+	dma_request_c dma_request = dma_request_c(this) ; // operated by unibusadapter
+	intr_request_c intr_request = intr_request_c(this) ;
+	
 public:
 
     //

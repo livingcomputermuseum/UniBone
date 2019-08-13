@@ -39,7 +39,7 @@ public:
 
 	// implement abstracts
 
-	// initalize drive
+	// initialize drive
 	virtual void init(unsigned unitnr);
 	// read access
 	virtual void readtrack(unsigned unitnr, uint8_t *data);

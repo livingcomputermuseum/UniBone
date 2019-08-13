@@ -59,6 +59,7 @@ using namespace std;
 
 #include "getopt2.hpp"
 #include "inputline.h"
+#include "kbhit.h"
 #include "pru.hpp"
 #include "mailbox.h"
 #include "gpios.hpp"
@@ -222,9 +223,8 @@ void application_c::parse_commandline(int argc, char **argv) {
 }
 
 // configure all hardware related subsystems:
-// PUR, shard memory, GPIOs,
+// PRU, shard memory, GPIOs
 void application_c::hardware_startup(enum pru_c::prucode_enum prucode_id) {
-
 	INFO("Connecting to PRU.");
 	/* initialize the library, PRU and interrupt; launch our PRU program */
 
@@ -245,6 +245,13 @@ void application_c::hardware_startup(enum pru_c::prucode_enum prucode_id) {
 
 	INFO("Initializing device register maps.");
 	iopageregisters_init();
+}
+
+// if prucode_id is UNIBUS, define also wether Abritration ignored, doen by remote CPU or emulated 	
+void application_c::hardware_startup(enum pru_c::prucode_enum prucode_id,
+		enum unibus_c::arbitration_mode_enum arbitration_mode) {
+	hardware_startup(prucode_id);
+	unibus_c::set_arbitration_mode(arbitration_mode);
 }
 
 // disable all hardware related subsystems:
@@ -320,7 +327,7 @@ static void factory() {
 
 	pru = new pru_c();
 	gpios = new gpios_c();
-	unibus_signals = new unibus_signals_c() ;
+	unibus_signals = new unibus_signals_c();
 	ddrmem = new ddrmem_c();
 
 	// paneldriver before all devices who use lamps or buttons
@@ -329,12 +336,18 @@ static void factory() {
 	membuffer = new memoryimage_c();
 
 	unibus = new unibus_c();
+	// unibusadapter.worker() needs initialized mailbox
 	unibusadapter = new unibusadapter_c();
 
 	app = new application_c();
 }
 
 int main(int argc, char *argv[]) {
+
+	// flush stuff on stdin. (Eclipse remote debugging)
+	while (os_kbhit())
+		;
+
 	factory();
 	return app->run(argc, argv);
 }

@@ -1,56 +1,58 @@
 /* pru1_statemachine_dma.c: state machine for bus master DMA
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-
-   12-nov-2018  JH      entered beta phase
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   Statemachines to execute multiple masterr DATO or DATI cycles.
-   All references "PDP11BUS handbook 1979"
-   Precondition: BBSY already asserted (arbitration got)
+ 29-jun-2019	JH		rework: state returns ptr to next state func
+ 12-nov-2018  JH      entered beta phase
 
-    Master reponds to INIT by stopping transactions.
-   new state
 
-   Start: setup dma mailbox setup with
-  	startaddr, wordcount, cycle, words[]
-  	Then sm_dma_init() ;
-  	sm_dma_state = DMA_STATE_RUNNING ;
-  	while(sm_dma_state != DMA_STATE_READY)
-  		sm_dma_service() ;
-  	state is 0 for OK, or 2 for timeout error.
-  	mailbox.dma.cur_addr is error location
+ Statemachines to execute multiple masterr DATO or DATI cycles.
+ All references "PDP11BUS handbook 1979"
+ Precondition: BBSY already asserted (arbitration got)
 
-  	Speed: (clpru 2.2, -O3:
-   	Example: DATI, time SSYN- active -> (processing) -> MSYN inactive
-  	a) 2 states, buslatch_set/get function calls, TIMEOUT_SET/REACHED(75) -> 700ns
-  	b) 2 states, buslatch_set/get macro, TIMEOUT_SET/REACHED(75) -> 605ns
-  	c) 2 states, no TIMEOUT (75 already met) -> 430ns
-  	d) 1 marged state, no TIMEOUT  ca. 350ns
+ Master reponds to INIT by stopping transactions.
+ new state
 
-   ! Uses single global timeout, don't run in parallel with other statemachines using timeout  !
+ Start: setup dma mailbox setup with
+ startaddr, wordcount, cycle, words[]
+ Then sm_dma_init() ;
+ sm_dma_state = DMA_STATE_RUNNING ;
+ while(sm_dma_state != DMA_STATE_READY)
+ sm_dma_service() ;
+ state is 0 for OK, or 2 for timeout error.
+ mailbox.dma.cur_addr is error location
+
+ Speed: (clpru 2.2, -O3:
+ Example: DATI, time SSYN- active -> (processing) -> MSYN inactive
+ a) 2 states, buslatch_set/get function calls, TIMEOUT_SET/REACHED(75) -> 700ns
+ b) 2 states, buslatch_set/get macro, TIMEOUT_SET/REACHED(75) -> 605ns
+ c) 2 states, no TIMEOUT (75 already met) -> 430ns
+ d) 1 marged state, no TIMEOUT  ca. 350ns
+
+ ! Uses single global timeout, don't run in parallel with other statemachines using timeout  !
  */
 #define _PRU1_STATEMACHINE_DMA_C_
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -58,6 +60,7 @@
 #include "mailbox.h"
 #include "pru1_buslatches.h"
 #include "pru1_utils.h"
+#include "pru1_timeouts.h"
 
 #include "pru1_statemachine_arbitration.h"
 #include "pru1_statemachine_dma.h"
@@ -65,38 +68,52 @@
 /* sometimes short timeout of 75 and 150ns are required
  * 75ns between state changes is not necessary, code runs longer
  * 150ns between state changes is necessary
- * Overhead for extra state and TIEOUTSET/REACHED is 100ns
+ * Overhead for extra state and TIMEOUTSET/REACHED is 100ns
  */
 
 statemachine_dma_t sm_dma;
 
 /********** Master DATA cycles **************/
 // forwards ;
-static uint8_t sm_dma_state_1(void);
-static uint8_t sm_dma_state_11(void);
-static uint8_t sm_dma_state_21(void);
-static uint8_t sm_dma_state_99(void);
+static statemachine_state_func sm_dma_state_1(void);
+static statemachine_state_func sm_dma_state_11(void);
+static statemachine_state_func sm_dma_state_21(void);
+static statemachine_state_func sm_dma_state_99(void);
 
 // dma mailbox setup with
 // startaddr, wordcount, cycle, words[]   ?
 // "cycle" must be UNIBUS_CONTROL_DATI or UNIBUS_CONTROL_DATO
-// BBSY already set, SACK held asserted
-void sm_dma_start() {
+// Wait for BBSY, SACK already held asserted
+statemachine_state_func sm_dma_start() {
 	// assert BBSY: latch[1], bit 6
 	// buslatches_setbits(1, BIT(6), BIT(6));
 
 	mailbox.dma.cur_addr = mailbox.dma.startaddr;
 	sm_dma.dataptr = (uint16_t *) mailbox.dma.words; // point to start of data buffer
-	sm_dma.state = &sm_dma_state_1;
 	sm_dma.cur_wordsleft = mailbox.dma.wordcount;
 	mailbox.dma.cur_status = DMA_STATE_RUNNING;
+
+	// do not wait for BBSY here. This is part of Arbitration.
+	buslatches_setbits(1, BIT(6), BIT(6)); // assert BBSY
 	// next call to sm_dma.state() starts state machine
+	return (statemachine_state_func) &sm_dma_state_1;
 }
+
+/*
+// wait for BBSY deasserted, then assert
+static statemachine_state_func sm_dma_state_1() {
+	if (buslatches_getbyte(1) & BIT(6))
+		return (statemachine_state_func) &sm_dma_state_1; // wait
+	buslatches_setbits(1, BIT(6), BIT(6)); // assert BBSY
+	return (statemachine_state_func) &sm_dma_state_1;
+}
+*/
+
 
 // place address and control bits onto bus, also data for DATO
 // If slave address is internal (= implemented by UniBone),
 // fast UNIBUS slave protocol is generated on the bus.
-static uint8_t sm_dma_state_1() {
+static statemachine_state_func sm_dma_state_1() {
 	uint32_t tmpval;
 	uint32_t addr = mailbox.dma.cur_addr; // non-volatile snapshot
 	uint16_t data;
@@ -104,11 +121,10 @@ static uint8_t sm_dma_state_1() {
 	// uint8_t page_table_entry;
 	uint8_t b;
 	bool internal;
- 
-	// should test SACK and BBSY !
-	if (mailbox.dma.cur_status != DMA_STATE_RUNNING || mailbox.dma.wordcount == 0)
-		return 1; // still stopped
 
+	//  BBSY released
+	if (mailbox.dma.cur_status != DMA_STATE_RUNNING || mailbox.dma.wordcount == 0)
+		return NULL; // still stopped
 
 	if (sm_dma.cur_wordsleft == 1) {
 		// deassert SACK, enable next arbitration cycle
@@ -173,17 +189,18 @@ static uint8_t sm_dma_state_1() {
 			buslatches_setbits(4, BIT(4), 0); // master deassert MSYN
 			buslatches_setbyte(5, 0); // master removes data
 			buslatches_setbyte(6, 0);
-			// perhaps PRU2ARM_INTERRUPT now active,
-			// assert SSYN after ARM completes "active" register logic and INIT
-			while (mailbox.events.eventmask) ;
+			// perhaps ARM issued ARM2PRU_INTR, request set in parallel state machine.
+			// Arbitrator will GRANT it after DMA ready (SACK deasserted).
+			// assert SSYN after ARM completes "active" register logic
+			// while (mailbox.events.event_deviceregister) ;
 
 			buslatches_setbits(4, BIT(5), 0); // slave deassert SSYN
-			sm_dma.state = &sm_dma_state_99; // next word
+			return (statemachine_state_func) &sm_dma_state_99; // next word
 		} else {
 			// DATO to external slave
 			// wait for a slave SSYN
-			TIMEOUT_SET(NANOSECS(1000*UNIBUS_TIMEOUT_PERIOD_US));
-			sm_dma.state = &sm_dma_state_21; // wait SSYN DATAO
+			timeout_set(TIMEOUT_DMA, MICROSECS(UNIBUS_TIMEOUT_PERIOD_US));
+			return (statemachine_state_func) &sm_dma_state_21; // wait SSYN DATAO
 		}
 	} else {
 		// DATI or DATIP
@@ -219,30 +236,29 @@ static uint8_t sm_dma_state_1() {
 			buslatches_setbits(4, BIT(4), 0); // master deassert MSYN
 			buslatches_setbyte(5, 0); // slave removes data
 			buslatches_setbyte(6, 0);
-			// perhaps PRU2ARM_INTERRUPT now active,
-			// assert SSYN after ARM completes "active" register logic and INIT
-			while (mailbox.events.eventmask) ;
+			// perhaps ARM issued ARM2PRU_INTR, request set in parallel state machine.
+			// Arbitrator will GRANT it after DMA ready (SACK deasserted).
+			// assert SSYN after ARM completes "active" register logic
+			// while (mailbox.events.event_deviceregister) ;
 
 			buslatches_setbits(4, BIT(5), 0); // slave deassert SSYN
-			sm_dma.state = &sm_dma_state_99; // next word
+			return (statemachine_state_func) &sm_dma_state_99; // next word
 		} else {
 			// DATI to external slave
 			// wait for a slave SSYN
-			TIMEOUT_SET(NANOSECS(1000*UNIBUS_TIMEOUT_PERIOD_US));
-			sm_dma.state = &sm_dma_state_11; // wait SSYN DATI
+			timeout_set(TIMEOUT_DMA, MICROSECS(UNIBUS_TIMEOUT_PERIOD_US));
+			return (statemachine_state_func) &sm_dma_state_11; // wait SSYN DATI
 		}
 	}
-
-	return 0; // still running
 }
 
 // DATI to external slave: MSYN set, wait for SSYN or timeout
-static uint8_t sm_dma_state_11() {
+static statemachine_state_func sm_dma_state_11() {
 	uint16_t tmpval;
-	sm_dma.state_timeout = TIMEOUT_REACHED;
+	sm_dma.state_timeout = timeout_reached(TIMEOUT_DMA);
 	// SSYN = latch[4], bit 5
 	if (!sm_dma.state_timeout && !(buslatches_getbyte(4) & BIT(5)))
-		return 0; // no SSYN yet: wait
+		return (statemachine_state_func) &sm_dma_state_11; // no SSYN yet: wait
 	// SSYN set by slave (or timeout). read data
 	__delay_cycles(NANOSECS(75) - 6); // assume 2*3 cycles for buslatches_getbyte
 
@@ -257,16 +273,15 @@ static uint8_t sm_dma_state_11() {
 	buslatches_setbits(4, BIT(4), 0);
 	// DATI: remove address,control, MSYN,SSYN from bus, 75ns after MSYN inactive
 	__delay_cycles(NANOSECS(75) - 8); // assume 8 cycles for state change
-	sm_dma.state = &sm_dma_state_99;
-	return 0; // still running
+	return (statemachine_state_func) &sm_dma_state_99;
 }
 
 // DATO to external slave: wait for SSYN or timeout
-static uint8_t sm_dma_state_21() {
-	sm_dma.state_timeout = TIMEOUT_REACHED; // SSYN timeout?
+static statemachine_state_func sm_dma_state_21() {
+	sm_dma.state_timeout = timeout_reached(TIMEOUT_DMA); // SSYN timeout?
 	// SSYN = latch[4], bit 5
 	if (!sm_dma.state_timeout && !(buslatches_getbyte(4) & BIT(5)))
-		return 0; // no SSYN yet: wait
+		return (statemachine_state_func) &sm_dma_state_21; // no SSYN yet: wait
 
 	// SSYN set by slave (or timeout): negate MSYN, remove DATA from bus
 	buslatches_setbits(4, BIT(4), 0); // deassert MSYN
@@ -274,12 +289,11 @@ static uint8_t sm_dma_state_21() {
 	buslatches_setbyte(6, 0);
 	// DATO: remove address,control, MSYN,SSYN from bus, 75ns after MSYN inactive
 	__delay_cycles(NANOSECS(75) - 8); // assume 8 cycles for state change
-	sm_dma.state = &sm_dma_state_99;
-	return 0; // still running
+	return (statemachine_state_func) &sm_dma_state_99;
 }
 
 // word is transfered, or timeout.
-static uint8_t sm_dma_state_99() {
+static statemachine_state_func sm_dma_state_99() {
 	uint8_t final_dma_state;
 	// from state_12, state_21
 
@@ -302,14 +316,12 @@ static uint8_t sm_dma_state_99() {
 			buslatches_setbits(1, BIT(5), 0); // deassert SACK = latch[1], bit 5
 		} else
 			final_dma_state = DMA_STATE_RUNNING; // more words:  continue
-
 	}
-	sm_dma.state = &sm_dma_state_1; // in any case, reloop
 
 	if (final_dma_state == DMA_STATE_RUNNING) {
-		// dataptr and wordsleft already incremented
+		// dataptr and words_left already incremented
 		mailbox.dma.cur_addr += 2; // signal progress to ARM
-		return 0;
+		return (statemachine_state_func) &sm_dma_state_1; // reloop
 	} else {
 		// remove addr and control from bus
 		buslatches_setbyte(2, 0);
@@ -317,10 +329,20 @@ static uint8_t sm_dma_state_99() {
 		buslatches_setbits(4, 0x3f, 0);
 		// remove BBSY: latch[1], bit 6
 		buslatches_setbits(1, BIT(6), 0);
-		// terminate arbitration state
-		sm_arb.state = &sm_arb_state_idle;
+		// SACK already de-asserted at wordcount==1
+		timeout_cleanup(TIMEOUT_DMA);
 		mailbox.dma.cur_status = final_dma_state; // signal to ARM
-		return 1; // now stopped
+
+		timeout_cleanup(TIMEOUT_DMA);
+
+		// signal to ARM
+		mailbox.events.event_dma = 1;
+		// ARM is clearing this, before requesting new DMA.
+		// no concurrent ARP+PRU access
+		PRU2ARM_INTERRUPT
+		;
+
+		return NULL; // now stopped
 	}
 }
 

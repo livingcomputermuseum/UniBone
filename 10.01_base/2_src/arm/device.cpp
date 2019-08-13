@@ -1,27 +1,27 @@
 /* device.cpp - abstract base class for devices
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   12-nov-2018  JH      entered beta phase
+ 12-nov-2018  JH      entered beta phase
 
  Abstract device, with or without UNIBUS registers.
  maybe mass storage controller, storage drive or other UNIBUS device
@@ -32,7 +32,7 @@
  - has a worker()
  - has a logger
  - has parameters
-*/
+ */
 #define _DEVICE_CPP_
 
 #include <string.h>
@@ -55,30 +55,28 @@ list<device_c *> device_c::mydevices;
 
 // called on cancel and exit()
 static void device_worker_pthread_cleanup_handler(void *context) {
-	device_c *device = (device_c *) context;
+	device_worker_c *worker_instance = (device_worker_c *) context;
+	device_c *device = worker_instance->device;
 #define this device // make INFO work
-	device->worker_terminate = false;
-	device->worker_terminated = true; // ended on its own or on worker_terminate
-	INFO("Worker terminated for device %s.", device->name.value.c_str());
-	device->worker_terminate = false;
-	device->worker_terminated = true; // ended on its own or on worker_terminate
+	worker_instance->running = false;
+	INFO("%s::worker(%d) terminated.", device->name.value.c_str(), worker_instance->instance);
 //	printf("cleanup for device %s\n", device->name.value.c_str()) ;
 #undef this
 }
 
 static void *device_worker_pthread_wrapper(void *context) {
-	device_c *device = (device_c *) context;
-	int	oldstate ; // not used
+	device_worker_c *worker_instance = (device_worker_c *) context;
+	device_c *device = worker_instance->device;
+	int oldstate; // not used
 #define this device // make INFO work
 	// call real worker
-	INFO("%s::worker() started", device->name.value.c_str());
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &oldstate) ;
-	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldstate) ; //ASYNCH not allowed!
-	device->worker_terminate = false;
-	device->worker_terminated = false;
-	pthread_cleanup_push(device_worker_pthread_cleanup_handler, device) ;
-	device->worker();
-	pthread_cleanup_pop(1) ; // call cleanup_handler on regular exit
+	INFO("%s::worker(%u) started", device->name.value.c_str(), worker_instance->instance);
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &oldstate);
+	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldstate); //ASYNCH not allowed!
+	worker_instance->running = true;
+	pthread_cleanup_push(device_worker_pthread_cleanup_handler, worker_instance);
+		device->worker(worker_instance->instance);
+		pthread_cleanup_pop(1); // call cleanup_handler on regular exit
 	// not reached on pthread_cancel()
 #undef this
 	return NULL;
@@ -92,17 +90,21 @@ device_c::device_c() {
 
 	parent = NULL;
 
-	worker_terminate = false;
-	worker_terminated = true;
+	// init workers
+	workers_terminate = false;
+	set_workers_count(1); // default: 1 worker
 
 	// do not link params to this device over param constructor
 	// creation order of vector vs params?
 	name.parameterized = this;
 	type_name.parameterized = this;
+	enabled.parameterized = this;
 	verbosity.parameterized = this;
 	verbosity.value = *log_level_ptr; // global default value from logger->logsource
+	enabled.value = false; // must be activated by emulation logic/user interaction
 	param_add(&name);
 	param_add(&type_name);
+	param_add(&enabled);
 	param_add(&emulation_speed);
 	param_add(&verbosity);
 	emulation_speed.value = 1;
@@ -125,7 +127,40 @@ device_c::~device_c() {
 		mydevices.erase(p);
 }
 
+// default is 1 worker. Default: null function, terminates if not overwritten by child class
+// can be set > 1 if device needs multiple worker instances
+// only to be called in constructors
+void device_c::set_workers_count(unsigned workers_count) {
+	workers.resize(workers_count);
+	for (unsigned instance = 0; instance < workers_count; instance++) {
+		device_worker_c *worker_instance = &workers[instance];
+		worker_instance->device = this;
+		worker_instance->instance = instance;
+		worker_instance->running = false;
+	}
+}
 
+bool device_c::on_param_changed(parameter_c *param) {
+	if (param == &enabled) {
+		if (enabled.new_value)
+			workers_start();
+		else
+			workers_stop();
+	}
+	// all devices forward their "on_param_changed" to parent classes,
+	// until a class rejects a value.
+	// device_c is the grand pratnes and produces "OK" for unknown or passive parameters
+	return true;
+}
+
+// search device in global list mydevices[]				
+device_c *device_c::find_by_name(char *name) {
+	list<device_c *>::iterator it;
+	for (it = device_c::mydevices.begin(); it != device_c::mydevices.end(); ++it)
+		if (!strcasecmp((*it)->name.value.c_str(), name))
+			return *it;
+	return NULL;
+}
 
 // set priority to max, keep policy, return current priority
 // do not change worker_sched_priority
@@ -251,51 +286,59 @@ void device_c::worker_init_realtime_priority(enum worker_priority_e priority) {
 /* worker_start - executes threads
  *
  * use of C++11 std::thread failed:
- * thead.join() crashes with random system_errors
+ * thread.join() crashes with random system_errors
  * So use classic "pthread" wrapper
+ * TODO: crash still there, was caused by cross compile -> back to C++11 threads!
  */
 
-void device_c::worker_start(void) {
-	worker_terminate = false;
-	{
+void device_c::workers_start(void) {
+	workers_terminate = false;
+	for (unsigned instance = 0; instance < workers.size(); instance++) {
+		device_worker_c *worker_instance = &workers[instance];
+		worker_instance->running = true;
 		// start pthread
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
 		// pthread_attr_setstacksize(&attr, 1024*1024);
-		int status = pthread_create(&worker_pthread, &attr, &device_worker_pthread_wrapper,
-				(void *) this);
+		int status = pthread_create(&worker_instance->pthread, &attr,
+				&device_worker_pthread_wrapper, (void *) worker_instance);
 		if (status != 0) {
 			FATAL("Failed to create pthread with status = %d", status);
 		}
-		pthread_attr_destroy(&attr) ; // why?
+		pthread_attr_destroy(&attr); // why?
 	}
 }
 
-void device_c::worker_stop(void) {
+void device_c::workers_stop(void) {
 	timeout_c timeout;
 	int status;
-	if (worker_terminated) {
-		DEBUG("%s.worker_stop(): already terminated.", name.name.c_str());
-		return;
-	}
-	INFO("Waiting for %s.worker() to stop ...", name.value.c_str());
-	worker_terminate = true;
-	// 100ms
-	timeout.wait_ms(100);
-	// worker_wrapper must do "worker_terminated = true;" on exit
-	if (!worker_terminated) {
-		// if thread is hanging in pthread_cond_wait(): send a cancellation request
-		status = pthread_cancel(worker_pthread);
-		if (status != 0)
-			FATAL("Failed to send cancellation request to worker_pthread with status = %d", status);
-	}
 
-	// !! If crosscompling: this causes a crash in the worker thread
-	// !! at pthread_cond_wait() or other cancellation points.
-	// !! No problem for compiles build on BBB itself.
-	status = pthread_join(worker_pthread, NULL);
-	if (status != 0) {
-		FATAL("Failed to join worker_pthread with status = %d", status);
+	workers_terminate = true; // global signal to all instances
+	timeout.wait_ms(100);
+
+	for (unsigned instance = 0; instance < workers.size(); instance++) {
+		device_worker_c *worker_instance = &workers[instance];
+
+//	if (!worker_instance->running) {
+//		DEBUG("%s.worker_stop(%u): already terminated.", name.name.c_str(), instance);
+//		return;
+//	}
+		if (worker_instance->running) {
+			INFO("%s.worker(%u) not cooperative: cancel it ...", name.value.c_str(), instance);
+			// if thread is hanging in pthread_cond_wait(): send a cancellation request
+			status = pthread_cancel(worker_instance->pthread);
+			if (status != 0)
+				FATAL("Failed to send cancellation request to worker_pthread with status = %d",
+						status);
+		}
+
+		// !! If crosscompling: this causes a crash in the worker thread
+		// !! at pthread_cond_wait() or other cancellation points.
+		// !! No problem for compiles build on BBB itself.
+		status = pthread_join(worker_instance->pthread, NULL);
+		if (status != 0) {
+			FATAL("Failed to join worker_pthread with status = %d", status);
+		}
 	}
 }
 

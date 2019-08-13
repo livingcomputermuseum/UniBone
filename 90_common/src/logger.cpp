@@ -259,6 +259,7 @@ void logger_c::message_render(char *buffer, unsigned buffer_size, logmessage_t *
 
 		// very long text? 10000 = reserve for % place holder expansion
 		assert(buffer_size > (strlen(msg->printf_format) + 1000));
+		assert(strlen(msg->logsource->log_label	.c_str())) ; // forgotten?
 		switch (style) {
 		case RENDER_STYLE_CONSOLE:
 

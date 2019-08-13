@@ -48,6 +48,7 @@
 #include "resource_table_empty.h"
 
 #include "pru1_utils.h"
+#include "pru1_timeouts.h"
 
 #include "pru_pru_mailbox.h"
 #include "mailbox.h"
@@ -62,10 +63,46 @@
 #include "pru1_statemachine_init.h"
 #include "pru1_statemachine_powercycle.h"
 
+// supress warnigns about using void * as function pointers
+//	sm_slave_state = (statemachine_state_func)&sm_slave_start;
+// while (sm_slave_state = sm_slave_state()) << usage
+#pragma diag_push
+#pragma diag_remark=515
+
+/***
+ 3 major states executed in circular 1- 2- 3 order.
+
+ 1. "SLAVE":
+ UniBone monitoring BUS traffic as slave for DATI/DATO cycles
+ Watch UNIBUS for CPU access to emulated memory/devices
+ High speed not necessary: Bus master will wait with MSYN if UniBone not responding.
+ wathcin BG/BPG signals, catching requested GRANts and forwardinf
+ other GRANTS
+ - monitorinf INIT and AC_LO/DC_LO
+ - watching fpr AMR2PRU commands
+ 2. "BBSYWAIT": UNibone got PRIORITY GRAMT, has set SACK and released BR/NPR
+ waits for current BUS master to relaeasy BBSY (ony DATI/DATO cycle max)
+ - SACK active: no GRANT forward necessary, no arbitration necessary
+ - INIT is monitored by DMA statemachine: no DC_LO/INIT monitoring necessary
+ 3. "MASTER": UniBone is Bus master: transfering INTR vector or doing DMA
+ - Own timing: transfer DMA data block or INTR vector with master cycles
+ - SACK active: no GRANT forward necessary, no arbitration necessary
+ - INIT is monitored by DMA statemachine: no DC_LO/INIT monitoring necessary
+ */
+
 void main(void) {
+	// state function pointer for different state machines
+	statemachine_arb_worker_func sm_arb_worker = &sm_arb_worker_client;
+	statemachine_state_func sm_data_slave_state = NULL;
+	statemachine_state_func sm_data_master_state = NULL;
+	statemachine_state_func sm_init_state = NULL;
+	statemachine_state_func sm_powercycle_state = NULL;
+	// these are function pointers: could be 16bit on PRU?
 
 	/* Clear SYSCFG[STANDBY_INIT] to enable OCP master port */
 	CT_CFG.SYSCFG_bit.STANDBY_INIT = 0;
+
+	timeout_init();
 
 	// clear all tables, as backup if ARM fails todo
 	iopageregisters_init();
@@ -73,137 +110,151 @@ void main(void) {
 	buslatches_reset(); // all deasserted, caches cleared
 
 	/* ARM must init mailbox, especially:
-	mailbox.arm2pru_req = ARM2PRU_NONE;
-	mailbox.events.eventmask = 0;
-	mailbox.events.initialization_signals_prev = 0;
-	mailbox.events.initialization_signals_cur = 0;
-	*/
-
-	/* start parallel emulation of all devices,
-	 * Process __DMA and _INTR bus master operations
-	 *
-	 * ! Several state machines (DMA, Powercycle, INIT,) use the same global timeout.
-	 * ! Never execute these in parallel !
+	 mailbox.arm2pru_req = ARM2PRU_NONE;
+	 mailbox.events.eventmask = 0;
+	 mailbox.events.initialization_signals_prev = 0;
+	 mailbox.events.initialization_signals_cur = 0;
 	 */
-	// Reset PDP-11 with power-cycle simulation.
-	// Necessary, as until now NPR/NPG/BG/BR/SACK lines were "unconnected"
-//	buslatches_powercycle();
-//	__delay_cycles(MILLISECS(100));
-	// execute 2x, because M9312 boot ROMs need this
-	//			__delay_cycles(MILLISECS(250));
-	//			buslatches_powercycle();
 
-	// buslatches_pulse_debug ;
-
-	// base operation: accept and execute slave cycles
-	sm_slave_start();
+	sm_arb_reset();
 
 	while (true) {
-		uint32_t arm2pru_req_cached;
-		// do all states of an access, start when MSYN found.
+		uint8_t arm2pru_req_cached;
 
-		// slave cycles may trigger events to ARM, which changes "active" registers
-		// and issues interrupts
-		while (!sm_slave.state())
-			; // execute complete slave cycle, then check NPR/INTR
+		if (sm_data_master_state == NULL) {
+			// State 1 "SLAVE" 
+			// fast: a complete slave data cycle
+			if (!sm_data_slave_state)
+				sm_data_slave_state = (statemachine_state_func) &sm_slave_start;
+			while ((sm_data_slave_state = sm_data_slave_state()) && !mailbox.events.event_deviceregister)
+				// throws signals to ARM,
+				// Acess to interna lregsitres may may issue AMR2PRU opcode, so exit loop then
+				;// execute complete slave cycle, then check NPR/INTR
 
-		// update state of init lines
-		// INIT never asserted in the midst of a transaction, bit 3,4,5
-		do_event_initializationsignals();
+			// one phase of INIT or power cycle
+			if (sm_powercycle_state)
+				sm_powercycle_state = sm_powercycle_state();
+			else if (sm_init_state)
+				// init only if no power cycle, power cycle overrides INIT
+				sm_init_state = sm_init_state();
 
-		// standard operation may be interrupt by other requests
-		arm2pru_req_cached = mailbox.arm2pru_req;
-		switch (arm2pru_req_cached) {
-		case ARM2PRU_NONE:
-			// pass BG[4-7] to next device, state machine "idle"
-			// pass all Arbitration GRANT IN to GRANT OUT for next device.
-			// This is not necessary while INTR or DMA is actiove:
+			// signal INT or PWR FAIL to ARM
+			do_event_initializationsignals();
+
+			// Priority Arbitration
+			// execute one of the arbitration workers
+			uint8_t grant_mask = sm_arb_worker();
+			// sm_arb_worker()s include State 2 "BBSYWAIT". 
+			// So now SACK maybe set, even if grant_mask is still 0
+
+			if (grant_mask & PRIORITY_ARBITRATION_BIT_NP) {
+				sm_data_master_state = (statemachine_state_func) &sm_dma_start;
+				// can data_master_state  be overwritten in the midst of a running data_master_state ?
+				// no: when running, SACK is set, no new GRANTs
+			} else if (grant_mask & PRIORITY_ARBITRATION_INTR_MASK) {
+				// convert bit in grant_mask to INTR index
+				uint8_t idx = PRIORITY_ARBITRATION_INTR_BIT2IDX(grant_mask);
+				// now transfer INTR vector for interupt of GRANted level.
+				// vector and ARM context have been setup by ARM before ARM2PRU_INTR already
+				sm_intr.vector = mailbox.intr.vector[idx];
+				sm_intr.level_index = idx; // to be returned to ARM on complete
+
+				sm_data_master_state = (statemachine_state_func) &sm_intr_start;
+			}
+		} else {
+			// State 3 "MASTER"
+			// we have been GRANTed bus mastership and are doing DMA or INTR
+			// SACK held here -> no further arbitration
 			// INTR is only 1 cycle, DMA has SACK set all the time, arbitration
-			// prohibited then.
-			sm_arb_state_idle();
-			// do only forward GRANT lines if not INTR is pending,
-			// else our GRANT would be passed too.
-			break; // fast case: only slave operation
-		case ARM2PRU_NOP: // needed to probe PRU run state
-			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
-			break;
-		case ARM2PRU_DMA_ARB_NONE: // ignore SACK condition
-		case ARM2PRU_DMA_ARB_MASTER: // also without arbitration, TODO!
-			sm_dma_start();
-			while (!sm_dma.state())
-				;
-			// a dma cycle into a device register may trigger an interrupt
-			// do not delete that condition
-			if (mailbox.arm2pru_req == arm2pru_req_cached)
-				mailbox.arm2pru_req = ARM2PRU_NONE; // clear request
-			break;
-		case ARM2PRU_DMA_ARB_CLIENT:
-			// start DMA cycle
-			// can not run parallel with INTR levels
-			sm_arb_start(ARBITRATION_PRIORITY_BIT_NP);
-			while (!sm_arb.state()) {
-				// sm_slave is most time critical, as it must keep track with MSYN/SSYN bus traffic.
-				// so give it more cpu cycles
-				while (!sm_slave.state())
-					;
+			// prohibited then.		
+
+			sm_data_master_state = sm_data_master_state(); // execute only ONE state ,
+			// else DMA blocks will block prcoessing of other state machines
+			// throws signals to ARM, causes may issue mailbox.arm2pru_req
+		}
+
+		// process ARM commands in master and slave mode
+		// standard operation may be interrupt by other requests
+		if (arm2pru_req_cached = mailbox.arm2pru_req) {
+			// not ARM2PRU_NONE
+			switch (arm2pru_req_cached) {
+			case ARM2PRU_NOP: // needed to probe PRU run state
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				break;
+			case ARM2PRU_ARB_MODE_NONE: // ignore SACK condition
+				// from now on, ignore INTR requests and allow DMA request immediately
+				sm_arb_worker = &sm_arb_worker_none;
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				break;
+			case ARM2PRU_ARB_MODE_CLIENT:
+				// request DMA from external Arbitrator
+				sm_arb_worker = &sm_arb_worker_client;
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				break;
+			case ARM2PRU_ARB_MODE_MASTER:
+				sm_arb_worker = &sm_arb_worker_master;
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				break;
+			case ARM2PRU_DMA:
+				// request INTR, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
+				sm_arb.request_mask |= PRIORITY_ARBITRATION_BIT_NP;
+				// sm_arb_worker() evaluates this,extern Arbitrator raises Grant, excution starts in future loop
+				// end of DMA is signaled to ARM with signal
+
+				/* TODO: speed up DMA
+				 While DMA is active:
+				 - SACK active: no GRANT forward necessary
+				 no arbitration necessary
+				 - INIT is monitored: no DC_LO/INIT monitoring necessary
+				 - no scan for new ARM2PRU commands: ARM2PRU_DMA is blocking
+				 - smaller chunks ?
+				 */
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				break;
+			case ARM2PRU_INTR:
+				// request INTR, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
+				// start one INTR cycle. May be raised in midst of slave cycle
+				// by ARM, if access to "active" register triggers INTR.
+				sm_arb.request_mask |= mailbox.intr.priority_arbitration_bit;
+				// sm_arb_worker() evaluates this,  extern Arbitrator raises Grant,
+				// vector of GRANted level is transfered with statemachine sm_intr
+
+				// Atomically change state in a device's associates interrupt register.
+				// The Interupt Register is set immediately. No wait for INTR GRANT, 
+				// INTR level may be blocked.
+				if (mailbox.intr.iopage_register_handle)
+					deviceregisters.registers[mailbox.intr.iopage_register_handle].value =
+							mailbox.intr.iopage_register_value;
+				mailbox.arm2pru_req = ARM2PRU_NONE;  // done
+				// end of INTR is signaled to ARM with signal
+				break;
+			case ARM2PRU_INTR_CANCEL:
+				// cancels an INTR request. If already Granted, the GRANT is forwarded,
+				// and canceled by reaching a "SACK turnaround terminator" or "No SACK TIMEOUT" in the arbitrator.
+				sm_arb.request_mask &= ~ mailbox.intr.priority_arbitration_bit ;
+				// no completion event, could interfer with othe INTRs?
+				mailbox.arm2pru_req = ARM2PRU_NONE;  // done
+				break ;
+			case ARM2PRU_INITPULSE:
+				if (!sm_init_state)
+					sm_init_state = (statemachine_state_func) &sm_init_start;
+				// INIT aborts DMA
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				break;
+			case ARM2PRU_POWERCYCLE:
+				sm_powercycle_state = (statemachine_state_func) &sm_powercycle_start;
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				break;
+			case ARM2PRU_HALT:
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				__halt() ; // LA: trigger on timeout of REG_WRITE
+				break ;
 			}
-			// now SACK held and BBSY set, slave state machine ended, since BBSY found inactive
+		}
 
-			// debug pin reset by bus access
-			//DEBUG_PIN_SET(1) ;
-			sm_dma_start();
-			//DEBUG_PIN_SET(1) ;
-			while (!sm_dma.state())
-				//DEBUG_PIN_SET(1) ;
-				;// execute dma master cycles
-			// a dma cycle into a device register may trigger an interrupt
-			// do not delete that condition
-			if (mailbox.arm2pru_req == arm2pru_req_cached)
-				mailbox.arm2pru_req = ARM2PRU_NONE; // clear request
-			break;
-		case ARM2PRU_INTR:
-			// start one INTR cycle. May be raised in midst of slave cycle
-			// by ARM, if access to "active" register triggers INTR.
-			// no multiple levels simultaneously allowed, not parallel with DMA !
-			sm_arb_start(mailbox.intr.priority_bit);
-			// wait while INTR is accepted. This may take long time,
-			// if system is at high processor priority (PSW register)
-			while (!sm_arb.state()) {
-				// sm_slave is most time critical, as it must keep track with MSYN/SSYN bus traffic.
-				// so give it more cpu cycles
-				while (!sm_slave.state())
-					;
-			}
-			// now SACK held and BBSY set, slave state machine ended, since BBSY found inactive
-			sm_intr_start();
-			while (!sm_intr.state())
-				; // execute intr cycle as bus master
-			mailbox.arm2pru_req = ARM2PRU_NONE; // clear request
-			break;
-		case ARM2PRU_INITPULSE: // generate a pulse on UNIBUS INIT
-			// only busmaster may assert INIT. violated here!
-			sm_slave_start();
-			sm_init_start();
-			while (!sm_slave.state() || !sm_init.state())
-				;
-			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
-			break;
-		case ARM2PRU_POWERCYCLE: // do ACLO/DCLO power cycle
-			// Runs for 4* POWERCYCLE_DELAY_MS millsecs, approx 1 sec.
-			// perform slave states in parallel, so emulated memory
-			// is existent for power fail trap and reboot
-			sm_slave_start();
-			sm_powercycle_start();
-			while (!sm_slave.state() || !sm_powercycle.state())
-				;
-			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
-			break;
-
-		default: // ignore all other requestes while executing emulation
-			;
-		} // switch
-	} // while (true)
-
+	}
 	// never reached
 }
+
+#pragma diag_pop
 

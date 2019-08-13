@@ -48,47 +48,67 @@
 #include "storagedrive.hpp"
 #include "panel.hpp"
 #include "demo_io.hpp"
-#include "demo_regs.hpp"
+#include "testcontroller.hpp"
 #include "rl11.hpp"
 #include "rk11.hpp"
 #include "uda.hpp"
+#include "dl11w.hpp"
 #include "cpu.hpp"
 
 /*** handle loading of memory content  from macro-11 listing ***/
 static char memory_filename[PATH_MAX + 1];
 
 // entry_label is program start, tpyically "start"
-static void load_memory(enum unibus_c::arbitration_mode_enum arbitration_mode, char *fname,
-		const char *entry_label) {
+// format: 0 = macrop11, 1 = papertape
+static void load_memory(enum unibus_c::arbitration_mode_enum arbitration_mode,
+		memory_fileformat_t format, char *fname, const char *entry_label) {
 	uint32_t firstaddr, lastaddr;
-	bool load_ok = membuffer->load_macro11_listing(fname, entry_label);
+	bool load_ok;
 	bool timeout;
+	switch (format) {
+	case fileformat_macro11_listing:
+		load_ok = membuffer->load_macro11_listing(fname, entry_label);
+		break;
+	case fileformat_papertape:
+		load_ok = membuffer->load_papertape(fname);
+		break;
+	default:
+		load_ok = false;
+	}
 	if (load_ok) {
 		strcpy(memory_filename, fname);
 		membuffer->get_addr_range(&firstaddr, &lastaddr);
 		printf(
 				"Loaded MACRO-11 listing from file \"%s\" into memory: %d words from %06o to %06o.\n",
 				fname, membuffer->get_word_count(), firstaddr, lastaddr);
-		if (membuffer->entry_address != MEMORY_ADDRESS_INVALID)
+		if (entry_label == NULL)
+			printf("  No entry address label.\n");
+		else if (membuffer->entry_address != MEMORY_ADDRESS_INVALID)
 			printf("  Entry address at \"%s\" label is %06o.\n", entry_label,
 					membuffer->entry_address);
 		else
 			printf("  No entry address at \"%s\" label is %06o.\n", entry_label,
 					membuffer->entry_address);
+		unibus->mem_write(arbitration_mode, membuffer->data.words, firstaddr, lastaddr,
+				&timeout);
+		if (timeout)
+			printf("  Error writing UNIBUS memory\n");
 	}
-	unibus->mem_write(arbitration_mode, membuffer->data.words, firstaddr, lastaddr,
-			unibus->dma_wordcount, &timeout);
-	if (timeout)
-		printf("  Error writing UNIBUS memory\n");
+}
+
+static void print_device(device_c *device) {
+	unibusdevice_c *ubdevice = dynamic_cast<unibusdevice_c *>(device);
+	if (ubdevice)
+		printf("- %-12s  Type %s, %s.\n", ubdevice->name.value.c_str(),
+				ubdevice->type_name.value.c_str(), ubdevice->get_unibus_resource_info());
+	else
+		printf("- %-12s  Type %s.\n", device->name.value.c_str(),
+				device->type_name.value.c_str());
 }
 
 // CPU is enabled, act as ARBITRATION_MASTER
 void application_c::menu_devices(bool with_CPU) {
 	/** list of usable devices ***/
-	bool with_DEMOIO = true;
-	bool with_RL = true;
-	bool with_RK = true; // SIGINT on exit?
-	bool with_MSCP = true;
 	bool with_storage_file_test = false;
 
 	enum unibus_c::arbitration_mode_enum arbitration_mode;
@@ -100,11 +120,12 @@ void application_c::menu_devices(bool with_CPU) {
 	unibusdevice_c *unibuscontroller = NULL;
 	unsigned n_fields;
 	char *s_choice;
-	char s_opcode[256], s_param[2][256];
+	char s_opcode[256], s_param[3][256];
 
 	// with_CPU: the emulated CPU is answering BR and NPR requests.
 	if (with_CPU)
-		arbitration_mode = unibus_c::ARBITRATION_MODE_MASTER;
+		arbitration_mode = unibus_c::ARBITRATION_MODE_NONE;
+//		arbitration_mode = unibus_c::ARBITRATION_MODE_MASTER;
 	else
 		arbitration_mode = unibus_c::ARBITRATION_MODE_CLIENT;
 
@@ -113,58 +134,43 @@ void application_c::menu_devices(bool with_CPU) {
 //	iopageregisters_init();
 	// UNIBUS activity
 	// assert(unibus->arbitrator_client) ; // External Bus Arbitrator required
-	hardware_startup(pru_c::PRUCODE_UNIBUS);
+	hardware_startup(pru_c::PRUCODE_UNIBUS, arbitration_mode);
 	// now PRU executing UNIBUS master/slave code, physical PDP-11 CPU as arbitrator required.
 	buslatches_output_enable(true);
 
-	unibusadapter->worker_start();
+	unibusadapter->enabled.set(true);
 
 	// 2 demo controller
 	cur_device = NULL;
-	demo_io_c *demo_io = NULL;
-	//demo_regs_c demo_regs; // mem at 160000: RT11 crashes?
-	cpu_c *cpu = NULL;
-	RL11_c *RL11 = NULL;
-	paneldriver->reset(); // reset I2C, restart worker()
-	rk11_c *RK11 = NULL;
-	uda_c *UDA50 = NULL;
+	demo_io_c *demo_io = new demo_io_c();
 
-	if (with_DEMOIO) {
-		demo_io = new demo_io_c();
-		demo_io->install();
-		demo_io->worker_start();
-	}
+	// uses all slot resource, can onyl run alone
+	//testcontroller_c *test_controller = new testcontroller_c();
+
+	cpu_c *cpu = NULL;
+	// create RL11 +  also 4 RL01/02 drives
+	RL11_c *RL11 = new RL11_c();
+	paneldriver->reset(); // reset I2C, restart worker()
+	// create RK11 + drives
+	rk11_c *RK11 = new rk11_c();
+	// Create UDA50
+	uda_c *UDA50 = new uda_c();
+	// Create SLU+ LTC
+	slu_c *DL11 = new slu_c();
+	// to inject characters into DL11 receiver
+	std::stringstream dl11_rcv_stream(std::ios::app | std::ios::in | std::ios::out);
+	DL11->rs232adapter.stream_rcv = &dl11_rcv_stream;
+	DL11->rs232adapter.stream_xmt = NULL; // do not echo output to stdout
+	DL11->rs232adapter.baudrate = DL11->baudrate.value; // limit speed of injected chars
+
+	ltc_c *LTC = new ltc_c();
 
 //	//demo_regs.install();
 //	//demo_regs.worker_start();
 
-	if (with_RL) {
-		// create RL11 + drives
-		// instantiates also 4 RL01/02 drives
-		RL11 = new RL11_c();
-		RL11->install();
-		RL11->connect_to_panel();
-		RL11->worker_start();
-	}
-
-	if (with_RK) {
-		// create RK11 + drives
-		RK11 = new rk11_c();
-		RK11->install();
-		RK11->worker_start();
-	}
-
 	if (with_CPU) {
 		cpu = new cpu_c();
-		cpu->install();
-		cpu->worker_start();
-	}
-
-	if (with_MSCP) {
-		// Create UDA50
-		UDA50 = new uda_c();
-		UDA50->install();
-		UDA50->worker_start();
+		cpu->enabled.set(true);
 	}
 
 	if (with_storage_file_test) {
@@ -205,8 +211,14 @@ void application_c::menu_devices(bool with_CPU) {
 			if (strlen(memory_filename))
 				printf("m ll             Reload last memory content from file \"%s\"\n",
 						memory_filename);
+			printf("m lp <filename>      Load memory content from absolute papertape image\n");
+			printf("m lp                 Reload last memory content from file \"%s\"\n",
+					memory_filename);
 			printf("ld                   List all defined devices\n");
+			printf("en <dev>             Enable a device\n");
+			printf("dis <dev>            Disable device\n");
 			printf("sd <dev>             Select \"current device\"\n");
+
 			if (cur_device) {
 				printf("p <param> <val>      Set parameter value of current device\n");
 				printf("p <param>            Get parameter value of current device\n");
@@ -220,7 +232,18 @@ void application_c::menu_devices(bool with_CPU) {
 				printf("e <addr>             Examine octal UNIBUS address.\n");
 				printf("d <addr> <val>       Deposit octal val into UNIBUS address.\n");
 			}
-			printf("dl c|s|f             Debug log: Clear, Show on console, dump to File.\n");
+			if (DL11->enabled.value) {
+				printf(
+						"dl11 rcv [<wait_ms>] <string>   inject characters as if DL11 received them.\n");
+				printf(
+						"                     Before output there's an optional pause of <wait_ms> milliseconds.\n");
+				printf(
+						"                     <string> uses C-escapes: \"\\r\"= CR, \040 = space, etc.\n");
+				printf(
+						"dl11 wait <timeout_ms> <string>	wait time until DL11 was ordered to transmit <string>.\n");
+				printf("                     On timeout, script execution is terminated.\n");
+			}
+			printf("dbg c|s|f            Debug log: Clear, Show on console, dump to File.\n");
 			printf("                       (file = %s)\n", logger->default_filepath.c_str());
 			printf("init                 Pulse UNIBUS INIT\n");
 			printf("pwr                  Simulate UNIBUS power cycle (ACLO/DCLO)\n");
@@ -230,14 +253,15 @@ void application_c::menu_devices(bool with_CPU) {
 
 		printf("\n");
 		try {
-			n_fields = sscanf(s_choice, "%s %s %s", s_opcode, s_param[0], s_param[1]);
+			n_fields = sscanf(s_choice, "%s %s %s %s", s_opcode, s_param[0], s_param[1],
+					s_param[2]);
 			if (!strcasecmp(s_opcode, "q")) {
 				ready = true;
 			} else if (!strcasecmp(s_opcode, "init")) {
 				unibus->init();
 			} else if (!strcasecmp(s_opcode, "pwr")) {
 				unibus->powercycle();
-			} else if (!strcasecmp(s_opcode, "dl") && n_fields == 2) {
+			} else if (!strcasecmp(s_opcode, "dbg") && n_fields == 2) {
 				if (!strcasecmp(s_param[0], "c")) {
 					logger->clear();
 					printf("Debug log cleared.\n");
@@ -256,17 +280,14 @@ void application_c::menu_devices(bool with_CPU) {
 				bool timeout;
 				uint16_t fillword = 0;
 				if (n_fields == 3)
-					fillword = strtol(s_param[1], NULL, 8);
+					parse_word(s_param[1], &fillword);
 				membuffer->set_addr_range(emulated_memory_start_addr, emulated_memory_end_addr);
 				membuffer->fill(fillword);
 				// write buffer-> UNIBUS
-				printf(
-						"Fill memory with %06o, writing UNIBUS memory[%06o:%06o] with blocksize %u words\n",
-						fillword, emulated_memory_start_addr, emulated_memory_end_addr,
-						unibus->dma_wordcount);
+				printf("Fill memory with %06o, writing UNIBUS memory[%06o:%06o]\n", fillword,
+						emulated_memory_start_addr, emulated_memory_end_addr);
 				unibus->mem_write(arbitration_mode, membuffer->data.words,
-						emulated_memory_start_addr, emulated_memory_end_addr,
-						unibus->dma_wordcount, &timeout);
+						emulated_memory_start_addr, emulated_memory_end_addr, &timeout);
 				if (timeout)
 					printf("Error writing UNIBUS memory!\n");
 			} else if (!strcasecmp(s_opcode, "m") && n_fields == 2
@@ -276,14 +297,13 @@ void application_c::menu_devices(bool with_CPU) {
 				bool timeout;
 				// 1. read UNIBUS memory
 				uint32_t end_addr = unibus->test_sizer(arbitration_mode) - 2;
-				printf("Reading UNIBUS memory[0:%06o] with DMA blocks of %u words\n", end_addr,
-						unibus->dma_wordcount);
+				printf("Reading UNIBUS memory[0:%06o] with DMA\n", end_addr);
 				//  clear memory buffer, to be sure content changed
 				membuffer->set_addr_range(0, end_addr);
 				membuffer->fill(0);
 
 				unibus->mem_read(arbitration_mode, membuffer->data.words, 0, end_addr,
-						unibus->dma_wordcount, &timeout);
+						&timeout);
 				if (timeout)
 					printf("Error reading UNIBUS memory!\n");
 				else {
@@ -294,31 +314,65 @@ void application_c::menu_devices(bool with_CPU) {
 			} else if (!strcasecmp(s_opcode, "m") && n_fields == 3
 					&& !strcasecmp(s_param[0], "ll")) {
 				// m ll <filename>
-				load_memory(arbitration_mode, s_param[1], "start");
+				load_memory(arbitration_mode, fileformat_macro11_listing, s_param[1], "start");
 			} else if (!strcasecmp(s_opcode, "m") && n_fields == 2
 					&& !strcasecmp(s_param[0], "ll") && strlen(memory_filename)) {
 				// m ll
-				load_memory(arbitration_mode, memory_filename, "start");
+				load_memory(arbitration_mode, fileformat_macro11_listing, memory_filename,
+						"start");
+			} else if (!strcasecmp(s_opcode, "m") && n_fields == 3
+					&& !strcasecmp(s_param[0], "lp")) {
+				// m lp <filename>
+				load_memory(arbitration_mode, fileformat_papertape, s_param[1], NULL);
+			} else if (!strcasecmp(s_opcode, "m") && n_fields == 2
+					&& !strcasecmp(s_param[0], "lp") && strlen(memory_filename)) {
+				// m lp
+				load_memory(arbitration_mode, fileformat_papertape, memory_filename, NULL);
 			} else if (!strcasecmp(s_opcode, "ld") && n_fields == 1) {
+				unsigned n;
 				list<device_c *>::iterator it;
-				cout << "Registered devices:\n";
-				for (it = device_c::mydevices.begin(); it != device_c::mydevices.end(); ++it) {
-					cout << "- " << (*it)->name.value << " (type is " << (*it)->type_name.value
-							<< ")\n";
-					if ((*it)->name.value.empty())
-						printf("EMPTY\n");
-				}
-			} else if (!strcasecmp(s_opcode, "sd") && n_fields == 2) {
-				list<device_c *>::iterator it;
-				bool found = false;
-				for (it = device_c::mydevices.begin(); it != device_c::mydevices.end(); ++it)
-					if (!strcasecmp((*it)->name.value.c_str(), s_param[0])) {
-						found = true;
-						cur_device = *it;
+				for (n = 0, it = device_c::mydevices.begin(); it != device_c::mydevices.end();
+						++it)
+					if ((*it)->enabled.value) {
+						if (n == 0)
+							cout << "Enabled devices:\n";
+						n++;
+						print_device(*it);
 					}
-				if (!found)
+				if (n == 0)
+					cout << "No enabled devices.\n";
+
+				for (n = 0, it = device_c::mydevices.begin(); it != device_c::mydevices.end();
+						++it)
+					if (!(*it)->enabled.value) {
+						if (n == 0)
+							cout << "Disabled devices:\n";
+						n++;
+						print_device(*it);
+					}
+				if (n == 0)
+					cout << "No disabled devices.\n";
+			} else if (!strcasecmp(s_opcode, "en") && n_fields == 2) {
+				device_c *dev = device_c::find_by_name(s_param[0]);
+				if (!dev) {
 					cout << "Device \"" << s_param[0] << "\" not found.\n";
-				else {
+					show_help = true;
+				} else
+					dev->enabled.set(true);
+			} else if (!strcasecmp(s_opcode, "dis") && n_fields == 2) {
+				device_c *dev = device_c::find_by_name(s_param[0]);
+				if (!dev) {
+					cout << "Device \"" << s_param[0] << "\" not found.\n";
+					show_help = true;
+				} else
+					dev->enabled.set(false);
+			} else if (!strcasecmp(s_opcode, "sd") && n_fields == 2) {
+				cur_device = device_c::find_by_name(s_param[0]);
+
+				if (!cur_device) {
+					cout << "Device \"" << s_param[0] << "\" not found.\n";
+					show_help = true;
+				} else {
 					printf("Current device is \"%s\"\n", cur_device->name.value.c_str());
 					// find base address of assoiated UNIBUS unibuscontroller
 					if (cur_device != NULL && dynamic_cast<unibusdevice_c *>(cur_device))
@@ -361,63 +415,121 @@ void application_c::menu_devices(bool with_CPU) {
 				}
 			} else if (unibuscontroller && !strcasecmp(s_opcode, "d") && n_fields == 3) {
 				uint32_t addr;
+				uint16_t wordbuffer;
 				unibusdevice_register_t *reg = unibuscontroller->register_by_name(s_param[0]);
 				if (reg) // register name given
 					addr = reg->addr;
 				else
 					// interpret as 18 bit address
-					addr = strtol(s_param[0], NULL, 8);
+					parse_addr18(s_param[0], &addr);
 
-				mailbox->dma.words[0] = strtol(s_param[1], NULL, 8);
-				bool timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATO, addr, 1);
+				parse_word(s_param[1], &wordbuffer);
+				bool timeout = !unibus->dma(arbitration_mode, true, UNIBUS_CONTROL_DATO, addr,
+						&wordbuffer, 1);
 				if (reg) {
 					assert(
 							reg
 									== unibuscontroller->register_by_unibus_address(
-											mailbox->dma.cur_addr));
+											unibus->dma_request->unibus_end_addr));
 					printf("DEPOSIT reg #%d \"%s\" %06o <- %06o\n", reg->index, reg->name,
-							reg->addr, mailbox->dma.words[0]);
+							reg->addr, wordbuffer);
 				} else
-					printf("DEPOSIT %06o <- %06o\n", addr, mailbox->dma.words[0]);
+					printf("DEPOSIT %06o <- %06o\n", addr, wordbuffer);
 				if (timeout)
 					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);
 			} else if (unibuscontroller && !strcasecmp(s_opcode, "e") && n_fields <= 2) {
-				unsigned blocksize = 0; // default: no EXAM
-				bool timeout ;
+				bool timeout;
 				uint32_t addr;
+
 				unibusdevice_register_t *reg;
 				if (n_fields == 2) { // single reg number given
-					blocksize = 1; // exam 1 word
+					uint16_t wordbuffer; // exam single word
 					reg = unibuscontroller->register_by_name(s_param[0]);
 					if (reg)
 						addr = reg->addr;
 					else
-						addr = strtol(s_param[0], NULL, 8); 	// interpret as 18 bit address
-					timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATI, addr,
-							blocksize);
-					printf("EXAM %06o -> %06o\n", addr, mailbox->dma.words[0]);
+						parse_addr18(s_param[0], &addr); // interpret as 18 bit address
+					timeout = !unibus->dma(arbitration_mode, true, UNIBUS_CONTROL_DATI, addr,
+							&wordbuffer, 1);
+					printf("EXAM %06o -> %06o\n", addr, wordbuffer);
 				} else { // list all regs
+					unsigned wordcount = 0; // default: no EXAM
+					uint16_t wordbuffer[MAX_REGISTERS_PER_DEVICE];
 					addr = unibuscontroller->base_addr.value; // all device registers
-					blocksize = unibuscontroller->register_count;
-					if (blocksize) {
+					wordcount = unibuscontroller->register_count;
+					if (wordcount) {
 						unsigned i;
-						timeout = !unibus->dma(arbitration_mode, UNIBUS_CONTROL_DATI, addr,
-								blocksize);
+						timeout = !unibus->dma(arbitration_mode, true, UNIBUS_CONTROL_DATI,
+								addr, wordbuffer, wordcount);
 						for (i = 0; addr <= mailbox->dma.cur_addr; i++, addr += 2) {
 							reg = unibuscontroller->register_by_unibus_address(addr);
 							assert(reg);
 							printf("EXAM reg #%d %s %06o -> %06o\n", reg->index, reg->name,
-									reg->addr, mailbox->dma.words[i]);
+									reg->addr, wordbuffer[i]);
 						}
 					} else {
-						timeout = false ;
+						timeout = false;
 						printf("Device has no UNIBUS registers.\n");
 					}
 				}
 				if (timeout)
 					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);
 				// cur_addr now on last address in block
+			} else if (DL11->enabled.value && !strcasecmp(s_opcode, "dl11")) {
+				if ((n_fields == 3 || n_fields == 4) && !strcasecmp(s_param[0], "rcv")) {
+					// dl11 rcv [<wait_ms>] <string>
+					char buff[256];
+					unsigned wait_ms;
+					timeout_c timeout;
+					char *s;
+					if (n_fields == 3) {
+						wait_ms = 0;
+						s = s_param[1];
+					} else {
+						wait_ms = strtol(s_param[1], NULL, 10);
+						s = s_param[2];
+					}
+					if (!str_decode_escapes(buff, sizeof(buff), s)) {
+						printf("Error in escape sequences.\n");
+						inputline_init();
+						continue;
+					}
+					timeout.wait_ms(wait_ms);
+					// let DL11 produce chars in 'buff'
+					pthread_mutex_lock(&DL11->rs232adapter.mutex);
+					dl11_rcv_stream.clear();
+					dl11_rcv_stream.write(buff, strlen(buff)); // add endlessly to string
+					// dl11_rcv_stream.str(buff);
+					pthread_mutex_unlock(&DL11->rs232adapter.mutex);
+//							printf("AAA %d\n", (int)dl11_rcv_stream.get()) ;
+				} else if (n_fields == 4 && !strcasecmp(s_param[0], "wait")) {
+					// dl11 wait <timeout_ms> <string>
+					timeout_c timeout, timeout2;
+					unsigned ms = strtol(s_param[1], NULL, 10);
+					char buff[256];
+					if (!str_decode_escapes(buff, sizeof(buff), s_param[2])) {
+						printf("Error in escape sequences.\n");
+						inputline_init();
+						continue;
+					}
+					// while waiting echo to stdout, for diag
+					DL11->rs232adapter.stream_xmt = &cout;
+					DL11->rs232adapter.set_pattern(buff);
+					timeout.start_ms(ms);
+					while (!timeout.reached() && !DL11->rs232adapter.pattern_found)
+						timeout2.wait_ms(1);
+					DL11->rs232adapter.stream_xmt = NULL; // stop echo
 
+					if (!DL11->rs232adapter.pattern_found) {
+						printf(
+								"\nPDP-11 did not xmt \"%s\" over DL11 within %u ms, aborting script\n",
+								s_param[2], ms);
+						inputline_init();
+					}
+				} else {
+					printf("Unknown DL11 command \"%s\"!\n", s_choice);
+					show_help = true;
+				}
 			} else {
 				printf("Unknown command \"%s\"!\n", s_choice);
 				show_help = true;
@@ -428,40 +540,31 @@ void application_c::menu_devices(bool with_CPU) {
 	} // ready
 
 	if (with_CPU) {
-		cpu->worker_stop();
-		cpu->uninstall();
+		cpu->enabled.set(false);
 		delete cpu;
 	}
 
-	if (with_RL) {
-		RL11->worker_stop();
-		RL11->disconnect_from_panel();
-		RL11->uninstall();
-		delete RL11;
-	}
+	LTC->enabled.set(false);
+	delete LTC;
+	DL11->enabled.set(false);
+	delete DL11;
 
-	if (with_RK) {
-		RK11->worker_stop();
-		RK11->uninstall();
-		delete RK11;
-	}
+	RL11->enabled.set(false);
+	delete RL11;
 
-	if (with_MSCP) {
-		UDA50->worker_stop();
-		UDA50->uninstall();
-		delete UDA50;
-	}
+	RK11->enabled.set(false);
+	delete RK11;
 
-//	//demo_regs.worker_stop();
-//	//demo_regs.uninstall();
+	UDA50->enabled.set(false);
+	delete UDA50;
 
-	if (with_DEMOIO) {
-		demo_io->worker_stop();
-		demo_io->uninstall();
-		delete demo_io;
-	}
+	//test_controller->enabled.set(false);
+	//delete test_controller;
 
-	unibusadapter->worker_stop();
+	demo_io->enabled.set(false);
+	delete demo_io;
+
+	unibusadapter->enabled.set(false);
 
 	buslatches_output_enable(false);
 	hardware_shutdown(); // stop PRU

@@ -14,6 +14,7 @@
 using namespace std;
 
 #include "utils.hpp"
+#include "unibusadapter.hpp"
 #include "unibusdevice.hpp"
 #include "storagecontroller.hpp"
 #include "rk05.hpp"
@@ -149,18 +150,26 @@ private:
        Worker_Finish = 2,
     } _worker_state;
 
+	// Unibusadapter: RK11 has one INTR and DMA
+	// should be merged with RK11::DMARequest
+	dma_request_c dma_request = dma_request_c(this) ; // operated by unibusadapter
+	intr_request_c intr_request = intr_request_c(this) ;
+
+	
 public:
 
     rk11_c();
     virtual ~rk11_c();    
 
     // background worker function
-    void worker(void) override;
+    void worker(unsigned instance) override;
 
     // called by unibusadapter on emulated register access
     void on_after_register_access(
         unibusdevice_register_t *device_reg,
         uint8_t unibus_control) override;
+
+	bool on_param_changed(parameter_c *param) override;
 
     void on_power_changed(void) override;
     void on_init_changed(void) override;

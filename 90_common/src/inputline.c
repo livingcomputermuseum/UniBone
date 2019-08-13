@@ -35,6 +35,7 @@
 #include <ctype.h>
 #include <time.h>
 
+#include "kbhit.h"
 #include "inputline.h"
 
 /*
@@ -99,6 +100,9 @@ static int inputline_internal(char *line) {
 	} else if (!strncasecmp(line, ".input", 6)) {
 		char buffer[100] ;
 		printf("<<< Press ENTER to continue.\n");
+		// flush stuff on stdin. (Eclipse remote debugging)
+		while (os_kbhit()) ;
+		
 		fgets(buffer, sizeof(buffer), stdin) ;
 		return 1 ;
 	} else if (!strncasecmp(line, ".end", 3)) {

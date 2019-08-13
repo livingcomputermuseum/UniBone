@@ -15,7 +15,8 @@ psw	=	177776	; processor status
 
 monitr = 165020 		; entry into M9312 monitor
 
-	;; RL11 commands
+	; RL11 commands
+cmnop	= 2*0			; no op
 cmstat	= 2*2			; get status
 cmseek	= 3*2			; seek
 cmrdhd	= 4*2			; read header
@@ -41,12 +42,14 @@ start:
 	mov	#stack,sp	; init stack
 	mov	#rlbase,r4	; r4 points to RL11 register space
 
+	reset
+
 	mov	#shello,r1
 	call	@#puts
 
-	 call  @#test1
+	; call	  @#test1
 	; call	  @#test2
-
+	call  @#test3
 	jmp	@#monitr
 
 
@@ -155,6 +158,92 @@ test2:
 	return
 
 
+	; --- TEST3 - ZRLG test 24
+	; execute NOP with Interrupt, with multiple CPU intr levels
+	; INTR accepted for level 5 and 4
+test3:
+	clr	@#isrcnt
+	; mov	  #1,r0 	  ; idle: expected CRDY and not INTR
+	; call	  @#test3b
+
+	mov	#340,@#psw	; level 7
+	call	@#test3a	; NOP
+	mov	#1,r0		; expected CRDY and not INTR
+	call	@#test3b
+
+	mov	#300,@#psw	; level 6
+	call	@#test3a	; NOP
+	mov	#1,r0		; expected CRDY and not INTR
+	call	@#test3b
+
+	mov	#240,@#psw	; level 5
+	call	@#test3a	; NOP
+	mov	#1,r0		; expected CRDY and not INTR
+	call	@#test3b
+
+	mov	#200,@#psw	; level 4, below BR5, pending triggered
+	mov	#3,r0		; expected CRDY and INTR
+	call	@#test3b
+
+	clr	@#isrcnt
+	call	@#test3a	; NOP at level 4
+	mov	#3,r0		; expected CRDY and INTR
+	call	@#test3b
+
+	clr	@#isrcnt
+	mov	#0,@#psw	; level 0
+	call	@#test3a	; NOP
+	mov	#3,r0		; expected CRDY and INTR
+	call	@#test3b
+	return
+
+
+	; send NOP cmd and wait for crdy
+test3a:
+	; pending interupt condition not cleared
+	clr	@#isrcnt
+	mov	#cmnop!100,r0	; nop with Interrupt Enable
+	mov	r0,(r4) 	; NOOP
+	return
+
+	; check CRDY and ISR
+	; r0: expected result
+	; 0 = neither ISR nor CRDY
+	; 1 = CRDY without ISR
+	; 2 = ISR without CRDY
+	; 3 = ISR and CRDY
+test3b:
+	mov	r0,-(sp)	; push
+	; pending interupt condition not cleared
+	clr	r3		; result
+	mov	#1750,r0	; wait 1000us for ISR and CRDY
+	call	@#wtcrdy
+	bcs	1$
+	bis	#1,r3		; Carry clear = NO timeout: CRDY r3 = 1
+1$:
+	tst	@#isrcnt
+	beq	2$
+	bis	#2,r3		   ; ISR detected: result |= 2
+2$:
+	mov	(sp)+,r2	; pop
+	; r2 = crd+isr code as expected, r3 = as measured
+	cmp r2,r3
+	beq 3$
+ halt
+3$:
+	; print "CRDY+ISR = ..., expected ....
+	mov	#scrdy1,r1	; "CRDY+ISR ="
+	call	@#puts
+	mov	r3,r0
+	call	@#putnum
+	mov	#scrdy2,r1	; "expected"
+	call	@#puts
+	mov	r2,r0
+	call	@#putnum
+	mov	#scrlf,r1	; print end of line
+	call	@#puts
+	return
+
 
 ;	--------------
 ;	--- isr - called on interupt
@@ -164,12 +253,35 @@ isr:
 	inc	@#isrcnt	; signal "done"
 	rti
 
+	; - wait for "controller ready", but max r0 microseconds
+	; result: carry clear = OK,
+	; carry set = timeout
 
+wtcrdy:
+	asr	r0	; wait loop is 4 cycles
+	asr	r0
+1$:
+	tstb	(r4)	; 2 cycles
+	bmi	9$	; bit 7 set -> controller ready
+	sob	r0,1$
+
+	sec	; "timeout"
+	return
+9$:
+	clc	; "OK"
+	return
 
 
 	; -- wait 65ms, uses r0
 wait65:
 	clr	r0
+0$:
+	sob	r0,0$	: subtract one, loop until zero
+	return
+
+	; -- wait 1ms, uses r0
+wait1:
+	mov	#1750,r0	; 1000 us
 0$:
 	sob	r0,0$	: subtract one, loop until zero
 	return
@@ -204,6 +316,8 @@ puts:
 numbf0:  .blkw	 10		 ; space to mount number string
 numbf1	=.
 putnum:
+	mov	r2,-(sp)
+	mov	r3,-(sp)
 	mov	r0,r2		; r2 = shifter
 	mov	#numbf1,r1	; r1 = buffer pointer, backwards
 	movb	#0,-(r1)	; set terminating 0
@@ -216,12 +330,14 @@ putnum:
 	add	#60,r0	; r0 += '0'
 	movb	r0,-(r1) ; write in buffer
 	clc
-	ror	r2	; shift to next digit
-	ror	r2
-	ror	r2
+	asr	r2	; shift to next digit
+	asr	r2
+	asr	r2
 	sob	r3,1$	; loop for all 6 digits
 
 	call	@#puts
+	mov	(sp)+,r3
+	mov	(sp)+,r2
 	return
 
 
@@ -237,13 +353,10 @@ putc:
 
 
 	; --- string constants
-scrlf:	.byte	15,12		; CR, LF,
-	.byte	0
-
-
 shello:
 	.byte	15,12		; CR, LF,
-	.ascii	/Starting test!/
+	.ascii	/Starting RL11 test!/
+scrlf:
 	.byte	15,12		; CR, LF,
 	.byte	0
 
@@ -253,6 +366,13 @@ sba:	.ascii	/BA=/
 sready: .ascii	/Sector 0 transfered to 100000, ISR hit./
 	.byte	15,12		; CR, LF,
 	.byte	0
+
+
+scrdy1: .ascii	/CRDY+ISR = /
+	.byte	0
+scrdy2: .ascii	/, expected /
+	.byte	0
+
 
 	; ---- 32kb page
 	. = 100000

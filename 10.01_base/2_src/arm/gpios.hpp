@@ -83,11 +83,11 @@ typedef struct {
 #define MAX_GPIOCOUNT	100
 
 // test pins
-// set 1 -> pin auf H
-#define SET_DEBUG_PIN0(n)	GPIO_SETVAL(gpios->led[0], !!(n))
-#define SET_DEBUG_PIN1(n)	GPIO_SETVAL(gpios->led[1], !!(n))
-#define SET_DEBUG_PIN2(n)	GPIO_SETVAL(gpios->led[2], !!(n))
-#define SET_DEBUG_PIN3(n)	GPIO_SETVAL(gpios->led[3], !!(n))
+// SET(1) -> pin auf H, LED OFF
+#define ARM_DEBUG_PIN0(n)	GPIO_SETVAL(gpios->led[0], !!(n))
+#define ARM_DEBUG_PIN1(n)	GPIO_SETVAL(gpios->led[1], !!(n))
+#define ARM_DEBUG_PIN2(n)	GPIO_SETVAL(gpios->led[2], !!(n))
+#define ARM_DEBUG_PIN3(n)	GPIO_SETVAL(gpios->led[3], !!(n))
 
 class gpios_c: public logsource_c {
 private:
@@ -116,7 +116,6 @@ public:
 	void test_toggle(gpio_config_t *gpio);
 	void test_loopback(void);
 };
-
 
 #define BUSLATCHES_COUNT	8
 
@@ -235,7 +234,7 @@ void buslatches_setval(unsigned reg_sel, unsigned bitmask, unsigned val);
 unsigned buslatches_getval(unsigned reg_sel);
 
 void buslatches_test_simple_pattern(unsigned pattern, unsigned reg_sel);
-void buslatches_test_simple_pattern_multi(		unsigned pattern);
+void buslatches_test_simple_pattern_multi(unsigned pattern);
 
 void buslatches_test_timing(uint8_t addr_0_7, uint8_t addr_8_15, uint8_t data_0_7,
 		uint8_t data_8_15);

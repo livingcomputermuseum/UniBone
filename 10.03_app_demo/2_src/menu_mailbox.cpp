@@ -45,7 +45,7 @@ void application_c::menu_mailbox() {
 	char s_id[256], s_opcode[256];
 	ready = false;
 	// test PRUs
-	hardware_startup(pru_c::PRUCODE_TEST) ;
+	hardware_startup(pru_c::PRUCODE_TEST);
 	while (!ready) {
 		if (show_help) {
 			show_help = false; // only once
@@ -70,6 +70,6 @@ void application_c::menu_mailbox() {
 			show_help = true;
 		}
 	}
-	hardware_shutdown() ;	
+	hardware_shutdown();
 }
 

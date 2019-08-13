@@ -50,20 +50,20 @@ private:
 public:
 
 	demo_io_c();
-	~demo_io_c() ;
+	~demo_io_c();
+
+	bool on_param_changed(parameter_c *param) override;  // must implement
 
 	parameter_bool_c switch_feedback = parameter_bool_c(this, "switch_feedback", "sf",/*readonly*/
 	false, "1 = hard wire Switches to LEDs, PDP-11 can not set LEDs");
 
-
 	// background worker function
-	void worker(void) override;
+	void worker(unsigned instance) override;
 
 	// called by unibusadapter on emulated register access
 	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control)
 			override;
 
-	bool on_param_changed(parameter_c *param) override;  // must implement
 	void on_power_changed(void) override;
 	void on_init_changed(void) override;
 };

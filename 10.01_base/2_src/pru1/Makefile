@@ -46,7 +46,8 @@ CFLAGS_OPTIMIZER=--opt_level=3 --opt_for_speed=5 --auto_inline   --c_src_interli
 #CFLAGS_OPTIMIZER=--opt_level=3 --auto_inline   --c_src_interlist --optimizer_interlist --gen_opt_info=2
 #Common compiler and linker flags (Defined in 'PRU Optimizing C/C++ Compiler User's Guide)
 CFLAGS=-v3 $(CFLAGS_OPTIMIZER) \
-	--display_error_number --endian=little --hardware_mac=on --obj_directory=$(OBJ_DIR) --pp_directory=$(OBJ_DIR) -ppd -ppa
+	--display_error_number --emit_warnings_as_errors --verbose_diagnostics \
+	--endian=little --hardware_mac=on --obj_directory=$(OBJ_DIR) --pp_directory=$(OBJ_DIR) -ppd -ppa
 
 #Linker flags (Defined in 'PRU Optimizing C/C++ Compiler User's Guide)
 LFLAGS=--reread_libs --warn_sections --stack_size=$(STACK_SIZE) --heap_size=$(HEAP_SIZE)
@@ -74,6 +75,7 @@ OBJECTS_COMMON= \
     $(OBJ_DIR)/pru1_statemachine_intr.object  \
     $(OBJ_DIR)/pru1_statemachine_powercycle.object  \
     $(OBJ_DIR)/pru1_statemachine_slave.object  \
+    $(OBJ_DIR)/pru1_timeouts.object	\
     $(OBJ_DIR)/pru1_utils.object
 
 

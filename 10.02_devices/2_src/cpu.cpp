@@ -36,6 +36,11 @@
 #include "unibusdevice.hpp"	// definition of class device_c
 #include "cpu.hpp"
 
+/* Adapter procs to Angelos CPU are not members of cpu_c calss
+ and need one global reference.
+ */
+static cpu_c *the_cpu = NULL;
+
 cpu_c::cpu_c() :
 		unibusdevice_c()  // super class constructor
 {
@@ -46,62 +51,77 @@ cpu_c::cpu_c() :
 	default_base_addr = 0; // none
 	default_intr_vector = 0;
 	default_intr_level = 0;
+	priority_slot.value	= 1 ;
+
+	dma_request.set_priority_slot(priority_slot.value);
 
 	// init parameters
 	runmode.value = false;
 	init.value = false;
 
 	// current CPU does not publish registers to the bus
+	// must be unibusdevice_c then!
 	register_count = 0;
 
-	memset(&bus, 0, sizeof(bus)) ;
-	memset(&ka11, 0, sizeof(ka11)) ;
-	ka11.bus = &bus ;
+	memset(&bus, 0, sizeof(bus));
+	memset(&ka11, 0, sizeof(ka11));
+	ka11.bus = &bus;
+
+	assert(the_cpu == NULL); // only one possible
+	the_cpu = this; // Singleton
 }
 
 cpu_c::~cpu_c() {
+	the_cpu = NULL;
+}
 
+bool cpu_c::on_param_changed(parameter_c *param) {
+	if (param == &enabled) {
+		if (!enabled.new_value) {
+			// HALT disabled CPU
+			runmode.value = false;
+			init.value = false;
+		}
+	}
+	return device_c::on_param_changed(param); // more actions (for enable)
 }
 
 extern "C" {
 // functions to be used by Angelos CPU emulator
 // Result: 1 = OK, 0 = bus timeout
 int cpu_dato(unsigned addr, unsigned data) {
-	bool timeout;
-	mailbox->dma.words[0] = data;
-	timeout = !unibus->dma(unibus_c::ARBITRATION_MODE_MASTER , UNIBUS_CONTROL_DATO, addr, 1);
-	return !timeout;
+	uint16_t wordbuffer = (uint16_t) data;
+	unibusadapter->DMA(the_cpu->dma_request, true, UNIBUS_CONTROL_DATO, addr, &wordbuffer, 1);
+	return the_cpu->dma_request.success;
 
 }
 
 int cpu_datob(unsigned addr, unsigned data) {
+	uint16_t wordbuffer = (uint16_t) data;
 	// TODO DATOB als 1 byte-DMA !
-	bool timeout;
-	mailbox->dma.words[0] = data;
-	timeout = !unibus->dma(unibus_c::ARBITRATION_MODE_MASTER, UNIBUS_CONTROL_DATOB, addr, 1);
-	return !timeout;
-
+	unibusadapter->DMA(the_cpu->dma_request, true, UNIBUS_CONTROL_DATOB, addr, &wordbuffer, 1);
+	return the_cpu->dma_request.success;
 }
 
 int cpu_dati(unsigned addr, unsigned *data) {
-	bool timeout;
-
-	timeout = !unibus->dma(unibus_c::ARBITRATION_MODE_MASTER, UNIBUS_CONTROL_DATI, addr, 1);
-	*data = mailbox->dma.words[0];
-	return !timeout;
+	uint16_t wordbuffer;
+	unibusadapter->DMA(the_cpu->dma_request, true, UNIBUS_CONTROL_DATI, addr, &wordbuffer, 1);
+	*data = wordbuffer;
+	// printf("DATI; ba=%o, data=%o\n", addr, *data) ;
+	return the_cpu->dma_request.success;
 }
 }
 
 // background worker.
-// udpate LEDS, poll switches direct to register flipflops
-void cpu_c::worker(void) {
+void cpu_c::worker(unsigned instance) {
+	UNUSED(instance); // only one
 	timeout_c timeout;
 	bool nxm;
 	unsigned pc = 0;
 	unsigned dr = 0760102;
 	unsigned opcode = 0;
 	(void) opcode;
-	while (!worker_terminate) {
+	while (!workers_terminate) {
 		// run full speed!
 		timeout.wait_us(1);
 
@@ -115,10 +135,9 @@ void cpu_c::worker(void) {
 
 		if (init.value) {
 			// user wants CPU reset
-			reset(&ka11) ;
-			init.value = 0 ;
+			reset(&ka11);
+			init.value = 0;
 		}
-
 
 #if 0
 		if (runmode.value) {
@@ -155,11 +174,6 @@ void cpu_c::on_after_register_access(unibusdevice_register_t *device_reg,
 	UNUSED(unibus_control);
 }
 
-bool cpu_c::on_param_changed(parameter_c *param) {
-	UNUSED(param) ;
-	return true ;
-}
-
 void cpu_c::on_power_changed(void) {
 	if (power_down) { // power-on defaults
 	}
@@ -170,7 +184,7 @@ void cpu_c::on_init_changed(void) {
 	// write all registers to "reset-values"
 	if (init_asserted) {
 		reset_unibus_registers();
-		INFO("demo_io_c::on_init()");
+		INFO("cpu::on_init()");
 	}
 }
 

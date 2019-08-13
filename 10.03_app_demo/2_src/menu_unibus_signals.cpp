@@ -64,7 +64,7 @@ void application_c::menu_unibus_signals(void) {
 	ready = false;
 	while (!ready) {
 		if (show_all) {
-			show_all = false ; // only once
+			show_all = false; // only once
 			// display all known signals
 			mcout_init(&mcout, unibus_signals->signals.size());
 			// put all panel controls into array view

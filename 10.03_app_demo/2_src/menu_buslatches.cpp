@@ -77,7 +77,7 @@ static bool buslatches_oscillate_pin(buslatches_wire_info_t *si, unsigned timeou
 	timeout_c timeout;
 	unsigned count;
 
-	timeout.start(1000000L * timeout_ms);
+	timeout.start_ms(timeout_ms);
 	SIGINTcatchnext();
 
 	// high speed loop

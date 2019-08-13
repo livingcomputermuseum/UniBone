@@ -143,6 +143,7 @@ class mscp_server : public device_c
 public:
     mscp_server(uda_c *port);
     ~mscp_server();
+	bool on_param_changed(parameter_c *param) override ;
 
 public:
     void Reset(void);
@@ -152,8 +153,6 @@ public:
 public:
     void on_power_changed(void) override {}
     void on_init_changed(void) override {}
-    void worker(void) override {}
-    bool on_param_changed(parameter_c *param) override { UNUSED(param); return true; }
 
 private:
     uint32_t Abort(void);

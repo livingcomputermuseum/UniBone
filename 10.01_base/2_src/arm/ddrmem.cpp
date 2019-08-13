@@ -1,28 +1,28 @@
 /* ddrmem.cpp - Control the shared DDR RAM - used for UNIBUS memory
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   12-nov-2018  JH      entered beta phase
-*/
+ 12-nov-2018  JH      entered beta phase
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,9 +42,8 @@
 ddrmem_c *ddrmem;
 
 ddrmem_c::ddrmem_c() {
-	log_label = "DDRMEM" ;
+	log_label = "DDRMEM";
 }
-
 
 // check allocated memory and print info
 void ddrmem_c::info() {
@@ -130,7 +129,7 @@ void ddrmem_c::fill_pattern(void) {
 void ddrmem_c::fill_pattern_pru(void) {
 	// ddrmem_base_physical and _len already set
 	assert((uint32_t )mailbox->ddrmem_base_physical == base_physical);
-	mailbox_execute(ARM2PRU_DDR_FILL_PATTERN, ARM2PRU_NONE);
+	mailbox_execute(ARM2PRU_DDR_FILL_PATTERN);
 }
 
 // set corrected values for emulated memory range
@@ -183,6 +182,6 @@ void ddrmem_c::unibus_slave(uint32_t startaddr, uint32_t endaddr) {
 		s = inputline(buf, sizeof(buf), NULL);
 	} while (strlen(s) == 0);
 	// clearing  arm2pru_req stops the emulation
-	mailbox_execute(ARM2PRU_NONE, ARM2PRU_NONE);
+	mailbox_execute(ARM2PRU_NONE);
 }
 

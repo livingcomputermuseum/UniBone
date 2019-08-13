@@ -69,7 +69,6 @@ extern buslatches_t buslatches;
 	(__R31 & 0xff)									\
 	)
 
-
 // identify register which must be set byte-wise
 #define BUSLATCHES_REG_IS_BYTE(reg_sel) (                                            \
 	((reg_sel) == 2) || ((reg_sel) == 3) || ((reg_sel) == 5) || ((reg_sel) == 6) \
@@ -133,7 +132,7 @@ void buslatches_reset(void);
 
 void buslatches_powercycle(void);
 
-void buslatches_exerciser(void) ;
+void buslatches_exerciser(void);
 
 void buslatches_test(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
 

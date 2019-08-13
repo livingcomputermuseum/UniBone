@@ -1,28 +1,28 @@
 /* rl02.cpp: implementation of RL01/RL02 disk drive, attached to RL11 controller
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+ Permission is hereby granted, free of charge, to any person obtaining a
+ copy of this software and associated documentation files (the "Software"),
+ to deal in the Software without restriction, including without limitation
+ the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ and/or sell copies of the Software, and to permit persons to whom the
+ Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ JOERG HOPPE BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-   12-nov-2018  JH      entered beta phase
-*/
+ 12-nov-2018  JH      entered beta phase
+ */
 #ifndef _RL0102_HPP_
 #define _RL0102_HPP_
 
@@ -120,8 +120,8 @@ public:
 
 	volatile uint16_t status_word; // visible to controller
 
-	parameter_unsigned_c rotation_umin = parameter_unsigned_c(this, "rotation",
-			"rot",/*readonly*/true, "rpm", "%d", "Current speed of disk", 32, 10);
+	parameter_unsigned_c rotation_umin = parameter_unsigned_c(this, "rotation", "rot",/*readonly*/
+	true, "rpm", "%d", "Current speed of disk", 32, 10);
 	// RL0102_STATE_*. no enum, is param
 	parameter_unsigned_c state = parameter_unsigned_c(this, "state", "st", /*readonly*/
 	true, "", "%d", "Internal state", 32, 10);
@@ -137,16 +137,15 @@ public:
 	true, "State of READY lamp");
 	parameter_bool_c fault_lamp = parameter_bool_c(this, "faultlamp", "fl", /*readonly*/
 	true, "State of FAULT lamp");
-	parameter_bool_c writeprotect_lamp = parameter_bool_c(this, "writeprotectlamp",
-			"wpl", /*readonly*/true, "State of WRITE PROTECT lamp");
-	parameter_bool_c writeprotect_button = parameter_bool_c(this,
-			"writeprotectbutton", "wpb", /*readonly*/false, "Writeprotect button pressed");
+	parameter_bool_c writeprotect_lamp = parameter_bool_c(this, "writeprotectlamp", "wpl", /*readonly*/
+	true, "State of WRITE PROTECT lamp");
+	parameter_bool_c writeprotect_button = parameter_bool_c(this, "writeprotectbutton", "wpb", /*readonly*/
+	false, "Writeprotect button pressed");
 
 	// cover normally always "closed", need to get opened for ZRLI
 	parameter_bool_c cover_open = parameter_bool_c(this, "coveropen", "co", /*readonly*/
 	false, "1, if RL cover is open");
 	// not readonly only in "load" state
-
 
 	RL0102_c(storagecontroller_c *controller);
 
@@ -188,7 +187,7 @@ public:
 	void clear_error_register(void);
 
 	// background worker function
-	void worker(void) override;
+	void worker(unsigned instance) override;
 };
 
 #endif
