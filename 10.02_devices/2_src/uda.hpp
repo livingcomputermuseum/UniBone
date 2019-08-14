@@ -76,9 +76,9 @@ public:
     void on_drive_status_changed(storagedrive_c *drive) override;
 
 	
-	// As every storage controller UDA has one INTR and DMA
-	dma_request_c dma_request = dma_request_c(this) ; // operated by unibusadapter
-	intr_request_c intr_request = intr_request_c(this) ;
+    // As every storage controller UDA has one INTR and DMA
+    dma_request_c dma_request = dma_request_c(this) ; // operated by unibusadapter
+    intr_request_c intr_request = intr_request_c(this) ;
 	
 public:
 
@@ -103,6 +103,7 @@ public:
 private:
     // TODO: consolidate these private/public groups here 
     void Reset(void);
+    void Interrupt(uint16_t sa_value); 
     void Interrupt(void);
 
     uint32_t GetCommandDescriptorAddress(size_t index);
