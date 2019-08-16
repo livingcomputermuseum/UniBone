@@ -46,12 +46,12 @@ uda_c::uda_c() :
     type_name.value = "UDA50";
     log_label = "uda";
 
-	// base addr, intr-vector, intr level
-	set_default_bus_params(0772150, 20, 0154, 5) ;
-	dma_request.set_priority_slot(default_priority_slot) ;
-	intr_request.set_priority_slot(default_priority_slot) ;
-	intr_request.set_level(default_intr_level) ;
-	intr_request.set_vector(default_intr_vector) ;
+    // base addr, intr-vector, intr level
+    set_default_bus_params(0772150, 20, 0154, 5) ;
+    dma_request.set_priority_slot(default_priority_slot) ;
+    intr_request.set_priority_slot(default_priority_slot) ;
+    intr_request.set_level(default_intr_level) ;
+    intr_request.set_vector(default_intr_vector) ;
 
     // The UDA50 controller has two registers.
     register_count = 2;
@@ -98,8 +98,8 @@ uda_c::~uda_c()
 }
 
 bool uda_c::on_param_changed(parameter_c *param) {
-	// no own parameter or "enable" logic
-	return storagecontroller_c::on_param_changed(param) ; // more actions (for enable)
+    // no own parameter or "enable" logic
+    return storagecontroller_c::on_param_changed(param) ; // more actions (for enable)
 }
 
 
@@ -169,7 +169,7 @@ void uda_c::StateTransition(
 //
 void uda_c::worker(unsigned instance)
 {
-	UNUSED(instance) ; // only one
+    UNUSED(instance) ; // only one
 
     worker_init_realtime_priority(rt_device); 
 
@@ -224,8 +224,7 @@ void uda_c::worker(unsigned instance)
                  // Update the SA read value for step 2:
                  // S2 is set, unibus port type (0),  SA bits 15-8 written
                  // by the host in step 1.
-                 update_SA(0x1000 | ((_step1Value >> 8) & 0xff));
-                 Interrupt();
+                 Interrupt(0x1000 | ((_step1Value >> 8) & 0xff));
                  break;
 
             case InitializationStep::Step3:
@@ -234,8 +233,7 @@ void uda_c::worker(unsigned instance)
                  DEBUG("Transition to Init state S3.");
                  // Update the SA read value for step 3:
                  // S3 set, plus SA bits 7-0 written by the host in step 1.
-                 update_SA(0x2000 | (_step1Value & 0xff));
-                 Interrupt();
+                 Interrupt(0x2000 | (_step1Value & 0xff));
                  break;
  
             case InitializationStep::Step4:
@@ -275,8 +273,7 @@ void uda_c::worker(unsigned instance)
                  DEBUG("Transition to Init state S4, comm area initialized.");
                  // Update the SA read value for step 4:
                  // Bits 7-0 indicating our control microcode version.
-                 update_SA(UDA50_ID);  // UDA50 ID, makes RSTS happy
-                 Interrupt();
+                 Interrupt(UDA50_ID);  // UDA50 ID, makes RSTS happy
                  break;
 
             case InitializationStep::Complete:
@@ -304,7 +301,8 @@ uda_c::on_after_register_access(
             {
                 // "When written with any value, it causes a hard initialization
                 //  of the port and the device controller."
-                DEBUG("Reset due to IP read");  
+                DEBUG("Reset due to IP read"); 
+                update_SA(0x0); 
                 StateTransition(InitializationStep::Uninitialized);
             }
             else
@@ -352,7 +350,9 @@ uda_c::on_after_register_access(
                     // during initialization.
                     _step1Value = value;
 
-                    intr_vector.value = _interruptVector = ((value & 0x7f) << 2);
+                    _interruptVector = ((value & 0x7f) << 2);
+
+                    intr_request.set_vector(_interruptVector);
                     _interruptEnable = !!(value & 0x80);
                     _responseRingLength = (1 << ((value & 0x700) >> 8));
                     _commandRingLength = (1 << ((value & 0x3800) >> 11));
@@ -531,7 +531,7 @@ uda_c::GetNextCommand(void)
             DMAReadWord(
                 messageAddress - 4,
                 success);
-        
+       
         assert(messageLength > 0 && messageLength < MAX_MESSAGE_LENGTH);
         
         std::unique_ptr<Message> cmdMessage(
@@ -591,7 +591,7 @@ uda_c::GetNextCommand(void)
         DMAWrite(
             descriptorAddress,
             sizeof(Descriptor),
-            reinterpret_cast<uint8_t*>(cmdDescriptor.get()));        
+            reinterpret_cast<uint8_t*>(cmdDescriptor.get()));     
 
         //
         // Move to the next descriptor in the ring for next time.
@@ -805,6 +805,24 @@ uda_c::GetControllerClassModel()
 //
 // Interrupt():
 //  Invokes a Unibus interrupt if interrupts are enabled and the interrupt
+//  vector is non-zero.  Updates SA to the specified value atomically.
+//
+void
+uda_c::Interrupt(uint16_t sa_value)
+{
+    if ((_interruptEnable || _initStep == InitializationStep::Complete) && _interruptVector != 0)
+    {
+        unibusadapter->INTR(intr_request, SA_reg, sa_value);
+    }
+    else
+    {
+        update_SA(sa_value);
+    }
+}
+
+//
+// Interrupt():
+//  Invokes a Unibus interrupt if interrupts are enabled and the interrupt
 //  vector is non-zero.
 //
 void
@@ -812,7 +830,7 @@ uda_c::Interrupt(void)
 {
     if ((_interruptEnable || _initStep == InitializationStep::Complete) && _interruptVector != 0)
     {
-        unibusadapter->INTR(intr_request, NULL, 0); // todo: link to interupt register
+        unibusadapter->INTR(intr_request, NULL, 0); 
     }
 }
 
@@ -989,6 +1007,6 @@ uda_c::DMARead(
     }
     else
     {
-        return nullptr;
+        return nullptr;     
     }
 } 

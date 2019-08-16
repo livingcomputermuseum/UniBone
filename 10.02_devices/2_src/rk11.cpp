@@ -4,7 +4,7 @@
     Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
     Contributed under the BSD 2-clause license.
 
- */
+*/
 
 #include <string.h>
 #include <assert.h>
@@ -188,7 +188,6 @@ void rk11_c::dma_transfer(DMARequest &request)
 		request.timeout = !dma_request.success ;
         }
     }
-
 
     // If an IBA DMA read from memory, we need to fill the request buffer
     // with the single word returned from memory by the DMA operation.

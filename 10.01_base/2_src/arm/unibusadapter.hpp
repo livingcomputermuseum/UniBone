@@ -100,7 +100,7 @@ public:
 	void INTR(intr_request_c& intr_request, unibusdevice_register_t *interrupt_register,
 			uint16_t interrupt_register_value);
 	void cancel_INTR(intr_request_c& intr_request) ;
-	
+    
 
 	void print_shared_register_map(void);
 

@@ -56,12 +56,10 @@ private:
 
         volatile bool _scp;          // Indicates the completion of a seek
 
-
         uint64_t get_disk_byte_offset(
             uint32_t cylinder,
             uint32_t surface,
             uint32_t sector);
-
      
 public:
         Geometry get_geometry(void);
@@ -96,7 +94,6 @@ public:
     bool on_param_changed(parameter_c* param) override;
 
 	void on_power_changed(void) override;
-
 	void on_init_changed(void) override;
 
 	// background worker function

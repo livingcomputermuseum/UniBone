@@ -200,16 +200,17 @@ mscp_server::Poll(void)
         //
         std::queue<shared_ptr<Message>> messages;
 
+        int msgCount = 0;
         while (!_abort_polling && _pollState != PollingState::InitRestart)
         {
             shared_ptr<Message> message(_port->GetNextCommand());
-
             if (nullptr == message)
             {
-                DEBUG("End of command ring; %d messages to be executed.");
+                DEBUG("End of command ring; %d messages to be executed.", msgCount);
                 break;
             }
 
+            msgCount++;
             messages.push(message);
         } 
 
@@ -220,8 +221,6 @@ mscp_server::Poll(void)
         {
             shared_ptr<Message> message(messages.front());  
             messages.pop();
-
-            DEBUG("Processing message.");
 
             //
             // Handle the message.  We dispatch on opcodes to the
