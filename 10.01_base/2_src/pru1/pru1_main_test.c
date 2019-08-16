@@ -30,7 +30,7 @@
  from d:\RetroCmp\dec\pdp11\UniBone\91_3rd_party\pru-c-compile\pru-software-support-package\examples\am335x\PRU_gpioToggle
  Test GPIO, shared mem and interrupt
  a) waits until ARM writes a value to mailbox.arm2pru_req
- b) ACKs the value in mailbox.arm2pru_resp, clears arm2pru_req
+ b) ACKs with clear of arm2pru_req
  c) toggles 1 mio times GPIO, with delay as set by ARM
  d) signal EVENT0
  e) goto a
@@ -82,12 +82,6 @@ void main(void) {
 	while (1) {
 		// display opcode (active for one cycle
 //		__R30 = (mailbox.arm2pru_req & 0xf) << 8;
-		/*
-		 mailbox.arm2pru_resp = mailbox.arm2pru_req ;
-		 __R30 = (mailbox.arm2pru_resp & 0xf) << 8;
-		 mailbox.arm2pru_resp = mailbox.arm2pru_req ;
-		 }
-		 */
 		/*** Attention: arm2pru_req (and all mailbox vars) change at ANY TIME
 		 * - ARM must set arm2pru_req as last operation on mailbox,
 		 *    memory barrier needed.

@@ -46,10 +46,11 @@
 #define ARM2PRU_ARB_MODE_CLIENT		12               // DMA with arbitration by external Arbitrator
 #define ARM2PRU_ARB_MODE_MASTER		13               // DMA as Arbitrator
 #define ARM2PRU_DMA		14               // DMA with selcted arbitration
-#define ARM2PRU_INTR		15               // INTR with arbitration by external Arbitrator
-#define ARM2PRU_INTR_CANCEL		16               // clear INTR which has been requested
-#define ARM2PRU_DDR_FILL_PATTERN	17	// fill DDR with test pattern
-#define ARM2PRU_DDR_SLAVE_MEMORY	18	// use DDR as UNIBUS slave memory
+#define PRU2ARM_DMA_CPU_TRANSFER_BLOCKED 15 // possible result of ARM2PRU_DMA
+#define ARM2PRU_INTR		16               // INTR with arbitration by external Arbitrator
+#define ARM2PRU_INTR_CANCEL		17               // clear INTR which has been requested
+#define ARM2PRU_DDR_FILL_PATTERN	18	// fill DDR with test pattern
+#define ARM2PRU_DDR_SLAVE_MEMORY	19	// use DDR as UNIBUS slave memory
 
 // possible states of DMA machine
 #define DMA_STATE_READY	0        	// idle
@@ -106,10 +107,30 @@ typedef struct {
 	uint8_t data_8_15;
 } mailbox_buslatch_test_t;
 
+
+// data for bus arbitrator 
+typedef struct {
+	// arbitrator.device_BBSY indicates a device wants or has acquired the UNIBUS
+	// cpu DATA transfer must be delayed until == 00
+	// set by arbitration logic
+	uint8_t device_BBSY ;
+
+	// Command by ARM on DMA start: DATA transfer as CPU, else as device	
+	uint8_t	cpu_BBSY ; 
+
+	uint8_t	cpu_priority_level ; // Priority level of CPU, visible in PSW. 7,6,5,4 <4.
+
+	uint8_t _dummy1 ;	// keep 32 bit borders
+
+} mailbox_arbitrator_t ;
+
+
 // data for a requested DMA operation
 typedef struct {
 	// take care of 32 bit word borders for struct members
-	uint8_t cur_status; // 0 = idle, 1 = running, 2 = timeout error
+	uint8_t cur_status; // 0 = idle, 1 = DMA running, 2 = timeout error
+	// 0x80: set on start to indicate CPU access
+	
 	uint8_t control; // cycle to perform: only DATO, DATI allowed
 	uint16_t wordcount; // # of remaining words transmit/receive, static
 	// ---dword---
@@ -167,12 +188,12 @@ typedef struct {
 	 After that, mailbox_dma_t is updated and signal raised.
 	 */
 	uint8_t event_dma; // trigger flag
+	uint8_t event_dma_cpu_transfer ; // 1: ARM must process DMa as compelted cpu DATA transfer
 
 	/*** Event priority arbitration data transfer complete
 	 After ARM2PRU_INTR, one of BR4/5/6/7 NP was requested,
 	 granted, and the data transfer was handled as bus master.
 	 */
-	uint8_t _dummy1;
 	// ---dword---
 	uint8_t event_intr; // trigger flag: 1 = one of BR4,5,6,7 vector on UNIBUS
 	uint8_t event_intr_level_index; // 0..3 -> BR4..BR7
@@ -193,10 +214,12 @@ typedef struct {
 
 	// generic request/response flags
 	uint32_t arm2pru_req;
-	uint32_t arm2pru_resp;
 
 	// physical location of shared DDR memory. PDP-11 memory words.
 	volatile ddrmem_t *ddrmem_base_physical;
+
+	mailbox_arbitrator_t arbitrator;
+
 
 	// set by PRU, read by ARM on event
 	mailbox_events_t events;
@@ -230,7 +253,7 @@ extern volatile mailbox_t *mailbox;
 void mailbox_print(void);
 int mailbox_connect(void);
 void mailbox_test1(void);
-void mailbox_execute(uint8_t request);
+bool mailbox_execute(uint8_t request);
 
 #else
 // included by PRU code

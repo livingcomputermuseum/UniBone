@@ -24,7 +24,7 @@ p emulation_speed 10	# 10x speed. Load disk in 5 seconds
 # set type to "rl02"
 p runstopbutton 0	# released: "LOAD"
 p powerswitch 1		# power on, now in "load" state
-p image scratch2.rl02 	# mount image file with test pattern
+p image scratch0.rl02 	# mount image file with test pattern
 p runstopbutton 1	# press RUN/STOP, will start
 #.end
 

@@ -29,6 +29,7 @@
 using namespace std;
 
 #include "utils.hpp"
+#include "unibusadapter.hpp"
 #include "unibusdevice.hpp"
 extern "C" {
 #include "cpu20/11.h"
@@ -46,8 +47,8 @@ public:
 	cpu_c();
 	~cpu_c();
 
-	// CPU accesses memory actively
-	dma_request_c dma_request = dma_request_c(this);
+	// used for DATI/DATO, operated by unibusadapter
+	dma_request_c data_transfer_request = dma_request_c(this);
 
 	bool on_param_changed(parameter_c *param) override;  // must implement
 

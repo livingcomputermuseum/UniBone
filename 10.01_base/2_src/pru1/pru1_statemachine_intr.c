@@ -33,6 +33,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 //#include "devices.h"
 #include "mailbox.h"
@@ -97,6 +98,9 @@ static statemachine_state_func sm_intr_state_2() {
 
 	// deassert BBSY
 	buslatches_setbits(1, BIT(6), 0);
+	// device cycle ended: now CPU may become UNIBUS master again
+	mailbox.arbitrator.device_BBSY = false ;
+
 	// SACK already removed
 
 	// signal to ARM which INTR was completed

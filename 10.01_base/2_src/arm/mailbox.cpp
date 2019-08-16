@@ -65,7 +65,7 @@ int mailbox_connect(void) {
 
 void mailbox_print(void) {
 	printf("INFO: Content of mailbox to PRU:\n"
-			"arm2pru: req=0x%x, resp=0x%x\n", mailbox->arm2pru_req, mailbox->arm2pru_resp);
+			"arm2pru: req=0x%x\n", mailbox->arm2pru_req);
 }
 
 /* simulate simple register accesses:
@@ -101,17 +101,25 @@ void mailbox_test1() {
 /* start cmd to PRU via mailbox. Wait until ready
  * mailbox union members must have been filled.
  */
-uint32_t xxx;
-void mailbox_execute(uint8_t request) {
+//uint32_t xxx;
+bool  mailbox_execute(uint8_t request) {
 // write to arm2pru_req must be last memory operation
 	__sync_synchronize();
 	while (mailbox->arm2pru_req != ARM2PRU_NONE)
 		; // wait to complete
 
 	mailbox->arm2pru_req = request; // go!
+
+	// wait until ACKed	
+	while (mailbox->arm2pru_req == request);
+	/*
 	do {
 		xxx = mailbox->arm2pru_req;
 	} while (xxx != ARM2PRU_NONE);
+
 	while (mailbox->arm2pru_req != ARM2PRU_NONE)
 		; // wait until processed
+	*/
+	// result false = error
+	return (mailbox->arm2pru_req == ARM2PRU_NONE) ;
 }

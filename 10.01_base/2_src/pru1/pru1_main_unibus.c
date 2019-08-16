@@ -36,7 +36,7 @@
  from d:\RetroCmp\dec\pdp11\UniBone\91_3rd_party\pru-c-compile\pru-software-support-package\examples\am335x\PRU_gpioToggle
  Test GPIO, shared mem and interrupt
  a) waits until ARM writes a value to mailbox.arm2pru_req
- b) ACKs the value in mailbox.arm2pru_resp, clears arm2pru_req
+ b) ACKs with clear of arm2pru_req
  c) toggles 1 mio times GPIO, with delay as set by ARM
  d) signal EVENT0
  e) goto a
@@ -126,7 +126,8 @@ void main(void) {
 			// fast: a complete slave data cycle
 			if (!sm_data_slave_state)
 				sm_data_slave_state = (statemachine_state_func) &sm_slave_start;
-			while ((sm_data_slave_state = sm_data_slave_state()) && !mailbox.events.event_deviceregister)
+			while ((sm_data_slave_state = sm_data_slave_state())
+					&& !mailbox.events.event_deviceregister)
 				// throws signals to ARM,
 				// Acess to interna lregsitres may may issue AMR2PRU opcode, so exit loop then
 				;// execute complete slave cycle, then check NPR/INTR
@@ -196,19 +197,32 @@ void main(void) {
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_DMA:
-				// request INTR, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
-				sm_arb.request_mask |= PRIORITY_ARBITRATION_BIT_NP;
-				// sm_arb_worker() evaluates this,extern Arbitrator raises Grant, excution starts in future loop
-				// end of DMA is signaled to ARM with signal
+				if (mailbox.arbitrator.cpu_BBSY) {
+					// ARM CPU emulation did a single word DATA transfer with cpu_DATA_transfer()
+					if (mailbox.arbitrator.device_BBSY) {
+						// ARM started cpu DATA transfer, but arbitration logic 
+						// GRANTed a device request in the mean time. Tell ARM.
+						mailbox.arm2pru_req = PRU2ARM_DMA_CPU_TRANSFER_BLOCKED; // error
+						mailbox.arbitrator.cpu_BBSY = false;
+					}
+					// start bus cycle
+					sm_data_master_state = (statemachine_state_func) &sm_dma_start;
+				} else {
+					// Emulated device: raise request for emulated or physical Arbitrator.
+					// request DMA, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
+					sm_arb.request_mask |= PRIORITY_ARBITRATION_BIT_NP;
+					// sm_arb_worker() evaluates this,extern Arbitrator raises Grant, excution starts in future loop
+					// end of DMA is signaled to ARM with signal
 
-				/* TODO: speed up DMA
-				 While DMA is active:
-				 - SACK active: no GRANT forward necessary
-				 no arbitration necessary
-				 - INIT is monitored: no DC_LO/INIT monitoring necessary
-				 - no scan for new ARM2PRU commands: ARM2PRU_DMA is blocking
-				 - smaller chunks ?
-				 */
+					/* TODO: speed up DMA
+					 While DMA is active:
+					 - SACK active: no GRANT forward necessary
+					 no arbitration necessary
+					 - INIT is monitored: no DC_LO/INIT monitoring necessary
+					 - no scan for new ARM2PRU commands: ARM2PRU_DMA is blocking
+					 - smaller chunks ?
+					 */
+				}
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_INTR:
@@ -231,10 +245,10 @@ void main(void) {
 			case ARM2PRU_INTR_CANCEL:
 				// cancels an INTR request. If already Granted, the GRANT is forwarded,
 				// and canceled by reaching a "SACK turnaround terminator" or "No SACK TIMEOUT" in the arbitrator.
-				sm_arb.request_mask &= ~ mailbox.intr.priority_arbitration_bit ;
+				sm_arb.request_mask &= ~mailbox.intr.priority_arbitration_bit;
 				// no completion event, could interfer with othe INTRs?
 				mailbox.arm2pru_req = ARM2PRU_NONE;  // done
-				break ;
+				break;
 			case ARM2PRU_INITPULSE:
 				if (!sm_init_state)
 					sm_init_state = (statemachine_state_func) &sm_init_start;
@@ -247,8 +261,8 @@ void main(void) {
 				break;
 			case ARM2PRU_HALT:
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
-				__halt() ; // LA: trigger on timeout of REG_WRITE
-				break ;
+				__halt(); // LA: trigger on timeout of REG_WRITE
+				break;
 			}
 		}
 

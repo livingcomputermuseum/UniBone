@@ -79,7 +79,7 @@ void timeout_set(uint32_t *target_cycles_var, uint32_t delta_cycles) {
 	timeouts_active++; // now one more active
 }
 
-// msut be called, if timeout polled anymore for "timeout-reached()
+// must be called, if timeout not polled anymore for "timeout-reached()
 void timeout_cleanup(uint32_t *target_cycles_var) {
 	if (*target_cycles_var > 0) {
 		*target_cycles_var = 0;

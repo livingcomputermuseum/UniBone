@@ -53,15 +53,18 @@ public:
 class unibusadapter_c: public device_c {
 private:
 
-	// handle arbitration for each of the 5 request levels in parallel
+	// handle arbitration for each of the 5 device request levels in parallel
 	priority_request_level_c request_levels[PRIORITY_LEVEL_COUNT];
+
+	// access of master CPU to memory not handled via priority arbitration
+	dma_request_c 	*cpu_data_transfer_request ; // needs no link to CPU
 
 	pthread_mutex_t requests_mutex;
 
 	void worker_init_event(void);
 	void worker_power_event(void);
 	void worker_deviceregister_event(void);
-	void worker_dma_chunk_complete_event(void);
+	void worker_dma_chunk_complete_event(bool cpu_DATA_transfer);
 	void worker_intr_complete_event(uint8_t level_index);
 	void worker(unsigned instance) override; // background worker function
 
@@ -99,8 +102,9 @@ public:
 			uint32_t unibus_addr, uint16_t *buffer, uint32_t wordcount);
 	void INTR(intr_request_c& intr_request, unibusdevice_register_t *interrupt_register,
 			uint16_t interrupt_register_value);
-	void cancel_INTR(intr_request_c& intr_request) ;
-    
+	void cancel_INTR(intr_request_c& intr_request);
+
+	void cpu_DATA_transfer(dma_request_c& dma_request, uint8_t unibus_control, uint32_t unibus_addr, uint16_t *buffer);
 
 	void print_shared_register_map(void);
 
