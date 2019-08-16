@@ -296,13 +296,14 @@ void unibusadapter_c::requests_cancel_scheduled(void) {
 			if ((req = prl->slot_request[slot])) {
 				dma_request_c *dmareq;
 				req->executing_on_PRU = false;
-				req->complete = true;
 				if ((dmareq = dynamic_cast<dma_request_c *>(req)))
 					dmareq->success = false; // device gets an DMA error, but will not understand
 				prl->slot_request[slot] = NULL;
-				// signal to blockin DMA() or INTR()
-				pthread_mutex_unlock(&req->complete_mutex);
-				//pthread_cond_signal(&req->complete_cond);
+				// signal to blocking DMA() or INTR()
+				pthread_mutex_lock(&req->complete_mutex);
+                                	req->complete = true;
+					pthread_cond_signal(&req->complete_cond);
+                                pthread_mutex_unlock(&req->complete_mutex);
 			}
 	}
 }
@@ -489,12 +490,10 @@ void unibusadapter_c::request_active_complete(unsigned level_index) {
 	prl->active = NULL;
 
 	// signal to DMA() or INTR()
-	tmprq->complete = true; // close to signal
-	pthread_mutex_unlock(&tmprq->complete_mutex);
-
-//	pthread_cond_signal(&tmprq->complete_cond);
-
-//	pthread_cond_broadcast(&tmprq->complete_cond); 	
+	pthread_mutex_lock(&tmprq->complete_mutex);
+		tmprq->complete = true;
+		pthread_cond_signal(&tmprq->complete_cond);
+        pthread_mutex_unlock(&tmprq->complete_mutex);
 }
 
 // Request a DMA cycle from Arbitrator.
@@ -522,9 +521,9 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 	priority_request_level_c *prl = &request_levels[PRIORITY_LEVEL_INDEX_NPR];
 	assert(prl->slot_request[dma_request.slot] == NULL); // not scheduled or prev completed
 
-	pthread_mutex_lock(&dma_request.complete_mutex); // lock early, else PRU can signal cond before we lock
 	// 	dma_request.level-index, priority_slot in constructor
 	dma_request.complete = false;
+        dma_request.success = false;
 	dma_request.executing_on_PRU = false;
 	dma_request.unibus_control = unibus_control;
 	dma_request.unibus_start_addr = unibus_addr;
@@ -549,20 +548,13 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 
 	// DEBUG("device DMA start: %s @ %06o, len=%d", unibus->control2text(unibus_control), unibus_addr, wordcount);
 	if (blocking) {
-		// acquire  locked mutex => wait for worker to release
 		pthread_mutex_lock(&dma_request.complete_mutex);
+		// DMA() is blocking: Wait for request to finish.
+		while (!dma_request.complete) {
+			int res = pthread_cond_wait(&dma_request.complete_cond, &dma_request.complete_mutex);
+		 	assert(!res);
+		}
 		pthread_mutex_unlock(&dma_request.complete_mutex);
-
-		/*
-		 // DMA() is blocking: Wait for request to finish.
-		 //	pthread_mutex_lock(&dma_request.mutex);
-		 while (!dma_request.complete) {
-		 // busy waiting OK
-		 int res = pthread_cond_wait(&dma_request.complete_cond, &dma_request.complete_mutex);
-		 assert(!res) ;
-		 dma_request.dbg_complete_sig_received++ ;
-		 }
-		 */
 	}
 }
 
@@ -685,6 +677,9 @@ void unibusadapter_c::cancel_INTR(intr_request_c& intr_request) {
 	}
 	// both empty, or both filled
 	assert((prl->slot_request_mask == 0) == (prl->active == NULL));
+
+        pthread_mutex_lock(&intr_request.complete_mutex);
+		pthread_cond_signal(&intr_request.complete_cond);
 	pthread_mutex_unlock(&intr_request.complete_mutex);
 
 	pthread_mutex_unlock(&requests_mutex); // lock schedule table operations

@@ -82,7 +82,7 @@ public:
 
 	// PRU -> signal -> worker() -> request -> device. INTR/DMA
 	pthread_mutex_t complete_mutex;
-	//pthread_cond_t complete_cond; // PRU signal notifies request on completeness
+	pthread_cond_t complete_cond; // PRU signal notifies request on completeness
 
 	priority_request_c(unibusdevice_c *device);
 	virtual ~priority_request_c(); // not used, but need dynamic_cast

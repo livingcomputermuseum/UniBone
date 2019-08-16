@@ -81,4 +81,4 @@
 // Addtional delay on PDP11s with private memory interconnect (PMI)
 // and UNIBUS/PMI translation?
 // Experiments with "250" made still occasional errors.
-#define UNIBUS_DMA_MASTER_PRE_MSYN_NS	350
+#define UNIBUS_DMA_MASTER_PRE_MSYN_NS	400

@@ -37,7 +37,7 @@ priority_request_c::priority_request_c(unibusdevice_c *device) {
 	this->executing_on_PRU = false;
 	this->slot = 0xff; // uninitialized, asserts() if used
 	complete_mutex = PTHREAD_MUTEX_INITIALIZER;
-	//complete_cond = PTHREAD_COND_INITIALIZER; // PRU signal notifies request on completeness
+	complete_cond = PTHREAD_COND_INITIALIZER; // PRU signal notifies request on completeness
 }
 
 priority_request_c::~priority_request_c() {

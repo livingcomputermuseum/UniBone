@@ -531,7 +531,7 @@ uda_c::GetNextCommand(void)
             DMAReadWord(
                 messageAddress - 4,
                 success);
-        
+       
         assert(messageLength > 0 && messageLength < MAX_MESSAGE_LENGTH);
         
         std::unique_ptr<Message> cmdMessage(
@@ -591,7 +591,7 @@ uda_c::GetNextCommand(void)
         DMAWrite(
             descriptorAddress,
             sizeof(Descriptor),
-            reinterpret_cast<uint8_t*>(cmdDescriptor.get()));        
+            reinterpret_cast<uint8_t*>(cmdDescriptor.get()));     
 
         //
         // Move to the next descriptor in the ring for next time.
@@ -1007,6 +1007,6 @@ uda_c::DMARead(
     }
     else
     {
-        return nullptr;
+        return nullptr;     
     }
 } 
