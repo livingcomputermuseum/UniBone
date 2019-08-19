@@ -1,0 +1,200 @@
+	.title Multi Arbitration DMA/INTR test
+
+	; *************************************************
+	; Exercises several devices in parallel,
+	; each with INTR and DMA
+	; For a device XX we have
+	; XXENAB - flag to enable devcie
+	; XXBASE - base address of devcie
+	; XXVEC - the INTR vector
+	; XXISR - Interrupt Service
+	; XXIFLG - flag which is incremented in ISR
+	; XXBUF - data buffer for DMA transfer
+	; XXINIT - Initialize device after RESET
+	; XXGO - subroutine to initiate DMA and INTR
+	; XXECNT - event counter, indicates activity
+	; XXLABL - single char label to print activity
+	;
+	; Devices are
+	; CO - serial console
+	; RK - RK11/RK05 disk
+	; RL - RL11/RL02 disk
+	; RY - Serial RX211 Floppy,
+
+	; enable tests
+kwenab	=	1
+rkenab	=	0
+rlenab	=	0
+ryenab	=	0
+
+	.enable AMA
+	.asect
+
+	; *************************************************
+	; Vectors
+
+	. = corvec
+	.word	corisr		; RCV interrupt
+	.word	340
+	. = coxvec
+	.word	coxisr		; XMT interrupt
+	.word	340
+
+.if ne kwenab
+	. = kwvect
+	.word	kwisr		; periodic interrupt
+	.word	340
+.endc
+
+.if ne rlenab
+	. = rlvect		; RL11
+	.word	rlisr
+	.word	340
+.endc
+
+.if ne rkenab
+	. = rkvect		; RK11
+	.word	rkisr
+	.word	340
+.endc
+
+.if ne ryenab
+	. = ryvect		; RX211
+	.word	ryisr
+	.word	340
+.endc
+
+psw	= 177776
+monitr	= 165020		; Monitor addr for back jump
+
+	; *************************************************
+	; Main
+	. = 1000
+stack	= .-2
+start:
+	mov	#stack,sp
+	clr	@#psw		; priorty level 0, allow INTR
+	; Initialize devices
+	reset
+	call	corini
+	call	coxini
+.if ne kwenab
+	call	kwinit
+.endc
+.if ne rkenab
+	call	rkinit
+.endc
+.if ne rlenab
+	call	rlinit
+.endc
+.if ne ryenab
+	call	ryinit
+.endc
+
+	mov	#shello,r1	; Print "Hello" message
+	call	puts
+
+	; main loop: check interrupt flags, restart DMA
+	; process serial input
+loop:
+	call	dokbd		; check keyboard input
+	call	dodev		; check device activities
+	br	loop
+
+
+
+	; --- check keyboard input
+dokbd:
+	call	getc
+	bcc	9$		; nothing received
+	; process char in r0
+	cmpb	r0,#3
+	bne	1$
+	mov	#sbye,r1 	; ^C: print "Bye", back to monitor
+	call	puts
+	jmp	monitr
+1$:
+	; echo chars without special meaning
+	call	putc
+9$:
+	return
+
+	; -- check device activities
+dodev:
+	; For all devices: restart device DMA if Interrupt received
+.if ne kwenab
+	tst	kwiflg
+	beq	1$
+	clr	kwiflg
+	call	kwgo
+	mov	#kwlabl,r0	; progress printout
+	mov	#kwecnt,r1
+	call	progrs
+1$:
+.endc
+
+.if ne rkenab
+	tst	rkiflg
+	beq	2$
+	clr	rkiflg
+	call	rkgo
+	mov	#rklabl,r0	; progress printout
+	mov	#rkecnt,r1
+	call	progrs
+2$:
+.endc
+.if ne rlenab
+	tst	rliflg
+	beq	3$
+	clr	rliflg
+	call	rlgo
+	mov	#rllabl,r0	; progress printout
+	mov	#rlecnt,r1
+	call	progrs
+3$:
+.endc
+.if ne ryenab
+	tst	ryiflg
+	beq	4$
+	clr	ryiflg
+	call	rygo
+	mov	#rylabl,r0	; progress printout
+	mov	#ryecnt,r1
+	call	progrs
+4$:
+.endc
+
+	return
+
+
+	; progress
+	; check if the counter with address in r1 is at
+	; 1024. if yes, print the char in r0
+progrs:
+	bic	#776000,(r1)	; mask counter to 0..1023
+	bne	9$
+	call	putc		; is at 0: print label character
+9$:
+	return
+
+
+
+	.include ma_cons.mac
+.if ne kwenab
+	.include ma_kw.mac
+.endc
+.if ne rkenab
+	.include ma_rk.mac
+.endc
+.if ne rlenab
+	.include ma_rl.mac
+.endc
+.if ne ryenab
+	.include ma_ry.mac
+.endc
+	.include ma_strings.mac
+
+	.end
+
+
+

@@ -1,0 +1,25 @@
+; UNIBUS machine to verify "multi arbitration" test program
+; To run under PDP11GUI
+
+; for all devices:
+;	unit 0 is attached to an empty scratch disk
+
+set cpu 11/34
+set cpu hist=100
+set throttle 2m
+set clk 50hz
+
+set rl enabled
+set rl0 rl02
+attach rl0 scratch.rl02
+
+set rk enabled
+attach rk0 scratch.rk05
+
+set rx disabled
+set ry  enabled
+set ry0 double
+attach ry0 scratch.rx02_dd
+
+# PDP11GUI
+set stdio telnet=23

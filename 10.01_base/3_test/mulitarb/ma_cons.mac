@@ -1,0 +1,104 @@
+
+	.title ma_cons - Serial Console I/O
+corvec= 060		; vector for Receiver
+coxvec= 064		; vector for Xmitter
+
+corbas= 777560		; base addr of Receiver
+coxbas= 777564		; base addr of Xmitter
+
+
+
+	; -- ISRs, increment Interrupt FLags
+
+corifl:	.word	1	; Interrupt flags
+coxifl:	.word	1
+
+corbuf:	.blkw	1  	; data buffer
+coxbuf: .blkw 	1
+
+corisr:
+	mov	@#corbas+2,corbuf	; read char, clear INTR
+	inc	corifl
+	rti
+
+coxisr:
+	inc	coxifl
+	rti
+
+	; -- Initialize device after RESET
+corini:
+	mov	#100,@#corbas	; Bit 6 = Receiver Interrupt Enable
+	clr	corifl
+	return
+coxini:
+	mov	#100,@#coxbas	; Bit 6 = Transmitter Interrupt Enable
+	clr	coxifl
+	return
+
+
+
+	; -------- Console I/O --------
+
+	; puts - print a string
+	; r1 = pointer, r0,r1 changed
+puts:
+	movb	(r1)+,r0	; load xmt char
+	beq	1$		; string ends with 0
+	call	@#putc
+	br	puts		; transmit nxt char of string
+1$:	return
+
+
+	; putnum - print the octal number in r0
+numbf0:  .blkw	 10		 ; space to mount number string
+numbf1	=.
+putnum:
+	mov	r3,-(sp)
+	mov	r0,r2		; r2 = shifter
+	mov	#numbf1,r1	; r1 = buffer pointer, backwards
+	movb	#0,-(r1)	; set terminating 0
+	; repeat 6 times
+	mov	#6,r3
+1$:
+	mov	r2,r0
+	; extract lower 3 bits = octal digit
+	bic	#177770,r0 ; r0 &= 0x07
+	add	#60,r0	; r0 += '0'
+	movb	r0,-(r1) ; write in buffer
+	clc
+	asr	r2	; shift to next digit
+	asr	r2
+	asr	r2
+	sob	r3,1$	; loop for all 6 digits
+
+	call	@#puts
+	mov	(sp)+,r3
+	return
+
+
+	; putc - output a single char
+	; r0 = char
+putc:
+	clr	coxifl		; reset interrupt flag
+	mov	r0,@#coxbas+2	; char into transmit buffer
+1$:	tst	coxifl		; XMT RDY?
+	beq	1$		; no, loop
+	; UART is buffering: char only started to sent now
+	; interrupt active until next putc
+	return
+
+	; getc - poll and input a single char
+	; result in r0
+	; carry clear : nothing received
+	; carry set: char received
+getc:
+	clr	r0
+	tst	corifl
+	bne	1$
+	clc			; Carry clear, no Interrupt, nothing received
+	return
+1$:
+	mov	corbuf,r0 	; Interrupt, return char
+	clr	corifl		; reset interrupt flag
+	sec			; Carry Set
+	return
