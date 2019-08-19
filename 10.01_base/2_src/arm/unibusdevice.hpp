@@ -95,7 +95,7 @@ private:
 public:
 	uint8_t handle; // assigned by "unibus.adapter.register
 
-	// !!! slot, vector, level READONLY. If user shoudl change,
+	// !!! slot, vector, level READONLY. If user should change,
 	// !! add logic to update dma_request_c and intr_request_c
 
 	// 0 = not "Plugged" in to UNIBUS

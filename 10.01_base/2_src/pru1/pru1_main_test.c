@@ -55,8 +55,6 @@
 #include "pru1_statemachine_dma.h"
 #include "pru1_statemachine_intr.h"
 #include "pru1_statemachine_slave.h"
-#include "pru1_statemachine_init.h"
-#include "pru1_statemachine_powercycle.h"
 
 // Supress warnings about using void * as function pointers
 //		sm_slave_state = (statemachine_state_func)&sm_slave_start;
@@ -162,16 +160,21 @@ void main(void) {
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
 		}
-		case ARM2PRU_INITPULSE: // generate a pulse on UNIBUS INIT
-			// INIT: latch[7], bit 3
-			buslatches_setbits(7, BIT(3), BIT(3)); // assert INIT
-			__delay_cycles(MILLISECS(250)); // INIT is 250ms
-			buslatches_setbits(7, BIT(3), 0); // deassert INIT
-			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
-			break;
-
-		case ARM2PRU_POWERCYCLE: // do ACLO/DCLO power cycle
-			buslatches_powercycle();
+		case ARM2PRU_INITALIZATIONSIGNAL_SET:
+			switch (mailbox.initializationsignal.id) {
+			case INITIALIZATIONSIGNAL_ACLO:
+				// assert/deassert ACLO
+				buslatches_setbits(7, BIT(4), mailbox.initializationsignal.val? BIT(4):0);
+				break;
+			case INITIALIZATIONSIGNAL_DCLO:
+				// assert/deassert DCLO
+				buslatches_setbits(7, BIT(5), mailbox.initializationsignal.val? BIT(5):0);
+				break;
+			case INITIALIZATIONSIGNAL_INIT:
+				// assert/deassert INIT
+				buslatches_setbits(7, BIT(3), mailbox.initializationsignal.val? BIT(3):0);
+				break;
+			}
 			mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 			break;
 		case ARM2PRU_DMA: {

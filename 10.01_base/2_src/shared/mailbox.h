@@ -40,8 +40,7 @@
 #define ARM2PRU_BUSLATCH_GET	6 	// read a mux register
 #define ARM2PRU_BUSLATCH_EXERCISER	7 	// exercise 8 accesses to mux registers
 #define ARM2PRU_BUSLATCH_TEST	8 	// read a mux register
-#define ARM2PRU_INITPULSE	9 	// pulse UNIBUS INIT
-#define ARM2PRU_POWERCYCLE	10 	// ACLO/DCLO power cycle simulation
+#define ARM2PRU_INITALIZATIONSIGNAL_SET		9 	// set an ACL=/DCLO/INIT signal
 #define ARM2PRU_ARB_MODE_NONE		11               // DMA without NPR/NPG/SACK arbitration
 #define ARM2PRU_ARB_MODE_CLIENT		12               // DMA with arbitration by external Arbitrator
 #define ARM2PRU_ARB_MODE_MASTER		13               // DMA as Arbitrator
@@ -51,6 +50,14 @@
 #define ARM2PRU_INTR_CANCEL		17               // clear INTR which has been requested
 #define ARM2PRU_DDR_FILL_PATTERN	18	// fill DDR with test pattern
 #define ARM2PRU_DDR_SLAVE_MEMORY	19	// use DDR as UNIBUS slave memory
+
+
+// signal IDs for ARM2PRU_INITALIZATIONSIGNAL_* 
+// states of initialization section lines. Bitmask = latch[7]
+#define INITIALIZATIONSIGNAL_INIT	(1 << 3)
+#define INITIALIZATIONSIGNAL_ACLO	(1 << 4)
+#define INITIALIZATIONSIGNAL_DCLO	(1 << 5)
+
 
 // possible states of DMA machine
 #define DMA_STATE_READY	0        	// idle
@@ -107,6 +114,11 @@ typedef struct {
 	uint8_t data_8_15;
 } mailbox_buslatch_test_t;
 
+typedef struct {
+	uint16_t id; // which signal to set or get? one of INITIALIZATIONSIGNAL_*
+	uint16_t val; // value set/get.
+} mailbox_initializationsignal_t;
+
 
 // data for bus arbitrator 
 typedef struct {
@@ -157,11 +169,6 @@ typedef struct {
 	uint8_t _dummy1, _dummy2, _dummy3;
 	// multiple of 32 bit now
 } mailbox_intr_t;
-
-// states of initialization section lines. Bitmask = latch[7]
-#define INITIALIZATIONSIGNAL_INIT	(1 << 3)
-#define INITIALIZATIONSIGNAL_ACLO	(1 << 4)
-#define INITIALIZATIONSIGNAL_DCLO	(1 << 5)
 
 typedef struct {
 	// trigger flags raised by PRU, reset by ARM
@@ -234,6 +241,7 @@ typedef struct {
 		mailbox_buslatch_t buslatch;
 		mailbox_buslatch_test_t buslatch_test;
 		mailbox_buslatch_exerciser_t buslatch_exerciser;
+		mailbox_initializationsignal_t initializationsignal ;
 	};
 } mailbox_t;
 

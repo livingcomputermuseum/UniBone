@@ -149,7 +149,7 @@ bool device_c::on_param_changed(parameter_c *param) {
 	}
 	// all devices forward their "on_param_changed" to parent classes,
 	// until a class rejects a value.
-	// device_c is the grand pratnes and produces "OK" for unknown or passive parameters
+	// device_c is the grand parent and produces "OK" for unknown or passive parameters
 	return true;
 }
 

@@ -4,7 +4,7 @@
     Copyright Vulcan Inc. 2019 via Living Computers: Museum + Labs, Seattle, WA.
     Contributed under the BSD 2-clause license.
 
-*/
+ */
 
 #include <string.h>
 #include <assert.h>
@@ -28,10 +28,6 @@ rk11_c::rk11_c() :
 
 	// base addr, intr-vector, intr level
 	set_default_bus_params(0777400, 10, 0220, 5) ;
-	dma_request.set_priority_slot(default_priority_slot) ;
-	intr_request.set_priority_slot(default_priority_slot) ;
-	intr_request.set_level(default_intr_level) ;
-	intr_request.set_vector(default_intr_vector) ;
 
     // The RK11 controller has seven registers,
     // We allocate 8 because one address in the address space is unused.
@@ -124,6 +120,14 @@ rk11_c::~rk11_c()
 // verify "new_value", must output error messages
 bool rk11_c::on_param_changed(parameter_c *param) {
 	// no own parameter or "enable" logic
+	if (param == &priority_slot) {
+		dma_request.set_priority_slot(priority_slot.new_value);
+		intr_request.set_priority_slot(priority_slot.new_value);
+	}  else if (param == &intr_level) {
+		intr_request.set_level(intr_level.new_value);
+	} else if (param == &intr_vector) {
+		intr_request.set_vector(intr_vector.new_value);
+	}	
 	return storagecontroller_c::on_param_changed(param) ; // more actions (for enable)
 }
 
@@ -188,6 +192,7 @@ void rk11_c::dma_transfer(DMARequest &request)
 		request.timeout = !dma_request.success ;
         }
     }
+
 
     // If an IBA DMA read from memory, we need to fill the request buffer
     // with the single word returned from memory by the DMA operation.

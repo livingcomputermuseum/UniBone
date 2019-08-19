@@ -125,4 +125,7 @@ typedef void * (*statemachine_state_func)(void);
 	__R31 = PRU2ARM_INTERRUPT_PRU0_R31_VEC_VALID |PRU2ARM_INTERRUPT_SIGNUM ; /* 35 */ \
 	} while(0)
 
+void do_event_initializationsignals(void) ;
+
+
 #endif

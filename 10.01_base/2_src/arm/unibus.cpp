@@ -94,23 +94,44 @@ char *unibus_c::control2text(uint8_t control) {
 	return buffer;
 }
 
-/* pulse INIT cycle for a number of milliseconds
- * Duration see INITPULSE_DELAY_MS
+/* pulse INIT cycle for 50 milliseconds ... source?
  */
 void unibus_c::init(void) {
-	/*
-	 // INIT: latch[7], bit 3
-	 buslatches_setval(7, BIT(3), BIT(3));
-	 timeout.wait_ms(duration_ms);
-	 buslatches_setval(7, BIT(3), 0);
-	 */
-	mailbox_execute(ARM2PRU_INITPULSE);
+	timeout_c timeout;
+	mailbox->initializationsignal.id = INITIALIZATIONSIGNAL_INIT;
+	mailbox->initializationsignal.val = 1;
+	mailbox_execute(ARM2PRU_INITALIZATIONSIGNAL_SET);
+	timeout.wait_ms(50);
+	mailbox->initializationsignal.id = INITIALIZATIONSIGNAL_INIT;
+	mailbox->initializationsignal.val = 0;
+	mailbox_execute(ARM2PRU_INITALIZATIONSIGNAL_SET);
 }
 
 /* Simulate a power cycle
+ * Sequence: 
+ * 1. Line power fail -> ACLO active
+ * 2. Power supply capacitors empty -> DCLO active
+ * 3. Line power back -> ACLO inactive
+ * 4. Logic power OK -> DCLO inactive
  */
 void unibus_c::powercycle(void) {
-	mailbox_execute(ARM2PRU_POWERCYCLE);
+	timeout_c timeout;
+	const unsigned delay_ms = 100; // time between phases
+	mailbox->initializationsignal.id = INITIALIZATIONSIGNAL_ACLO;
+	mailbox->initializationsignal.val = 1;
+	mailbox_execute(ARM2PRU_INITALIZATIONSIGNAL_SET);
+	timeout.wait_ms(delay_ms);
+	mailbox->initializationsignal.id = INITIALIZATIONSIGNAL_DCLO;
+	mailbox->initializationsignal.val = 1;
+	mailbox_execute(ARM2PRU_INITALIZATIONSIGNAL_SET);
+	timeout.wait_ms(delay_ms);
+	mailbox->initializationsignal.id = INITIALIZATIONSIGNAL_ACLO;
+	mailbox->initializationsignal.val = 0;
+	mailbox_execute(ARM2PRU_INITALIZATIONSIGNAL_SET);
+	timeout.wait_ms(delay_ms);
+	mailbox->initializationsignal.id = INITIALIZATIONSIGNAL_DCLO;
+	mailbox->initializationsignal.val = 0;
+	mailbox_execute(ARM2PRU_INITALIZATIONSIGNAL_SET);
 }
 
 void unibus_c::set_arbitration_mode(arbitration_mode_enum arbitration_mode) {

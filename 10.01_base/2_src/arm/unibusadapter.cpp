@@ -1008,7 +1008,7 @@ void unibusadapter_c::worker(unsigned instance) {
 			if (mailbox->events.event_init) {
 				any_event = true;
 				// robust: any change in ACLO/DCL=INIT updates state of all 3.
-				// Initial DCLO-cycle to PDP_11 intialize these states
+				// Initial DCLO-cycle to PDP_11 initialize these states
 				if (mailbox->events.initialization_signals_cur & INITIALIZATIONSIGNAL_INIT) {
 					if (!line_INIT)
 						init_raising_edge = true;

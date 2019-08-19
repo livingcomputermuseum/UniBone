@@ -444,7 +444,7 @@ void application_c::menu_devices(bool with_CPU) {
 				if (timeout)
 					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);
 			} else if (!strcasecmp(s_opcode, "e") && n_fields <= 2) {
-				bool timeout;
+				bool timeout = false;
 				uint32_t addr;
 				unibusdevice_register_t *reg = NULL ;
 				if (n_fields == 2) { // single reg number or address given

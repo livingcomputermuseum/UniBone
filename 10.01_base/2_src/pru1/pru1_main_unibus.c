@@ -60,8 +60,6 @@
 #include "pru1_statemachine_dma.h"
 #include "pru1_statemachine_intr.h"
 #include "pru1_statemachine_slave.h"
-#include "pru1_statemachine_init.h"
-#include "pru1_statemachine_powercycle.h"
 
 // supress warnigns about using void * as function pointers
 //	sm_slave_state = (statemachine_state_func)&sm_slave_start;
@@ -78,7 +76,7 @@
  High speed not necessary: Bus master will wait with MSYN if UniBone not responding.
  wathcin BG/BPG signals, catching requested GRANts and forwardinf
  other GRANTS
- - monitorinf INIT and AC_LO/DC_LO
+ - monitoring INIT and AC_LO/DC_LO
  - watching fpr AMR2PRU commands
  2. "BBSYWAIT": UNibone got PRIORITY GRAMT, has set SACK and released BR/NPR
  waits for current BUS master to relaeasy BBSY (ony DATI/DATO cycle max)
@@ -95,8 +93,6 @@ void main(void) {
 	statemachine_arb_worker_func sm_arb_worker = &sm_arb_worker_client;
 	statemachine_state_func sm_data_slave_state = NULL;
 	statemachine_state_func sm_data_master_state = NULL;
-	statemachine_state_func sm_init_state = NULL;
-	statemachine_state_func sm_powercycle_state = NULL;
 	// these are function pointers: could be 16bit on PRU?
 
 	/* Clear SYSCFG[STANDBY_INIT] to enable OCP master port */
@@ -131,13 +127,6 @@ void main(void) {
 				// throws signals to ARM,
 				// Acess to interna lregsitres may may issue AMR2PRU opcode, so exit loop then
 				;// execute complete slave cycle, then check NPR/INTR
-
-			// one phase of INIT or power cycle
-			if (sm_powercycle_state)
-				sm_powercycle_state = sm_powercycle_state();
-			else if (sm_init_state)
-				// init only if no power cycle, power cycle overrides INIT
-				sm_init_state = sm_init_state();
 
 			// signal INT or PWR FAIL to ARM
 			do_event_initializationsignals();
@@ -249,14 +238,21 @@ void main(void) {
 				// no completion event, could interfer with othe INTRs?
 				mailbox.arm2pru_req = ARM2PRU_NONE;  // done
 				break;
-			case ARM2PRU_INITPULSE:
-				if (!sm_init_state)
-					sm_init_state = (statemachine_state_func) &sm_init_start;
-				// INIT aborts DMA
-				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
-				break;
-			case ARM2PRU_POWERCYCLE:
-				sm_powercycle_state = (statemachine_state_func) &sm_powercycle_start;
+			case ARM2PRU_INITALIZATIONSIGNAL_SET:
+				switch (mailbox.initializationsignal.id) {
+				case INITIALIZATIONSIGNAL_ACLO:
+					// assert/deassert ACLO
+					buslatches_setbits(7, BIT(4), mailbox.initializationsignal.val? BIT(4):0);
+					break;
+				case INITIALIZATIONSIGNAL_DCLO:
+					// assert/deassert DCLO
+					buslatches_setbits(7, BIT(5), mailbox.initializationsignal.val? BIT(5):0);
+					break;
+				case INITIALIZATIONSIGNAL_INIT:
+					// assert/deassert INIT
+					buslatches_setbits(7, BIT(3), mailbox.initializationsignal.val? BIT(3):0);
+					break;
+				}
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_HALT:

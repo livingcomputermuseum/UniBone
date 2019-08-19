@@ -48,10 +48,6 @@ uda_c::uda_c() :
 
     // base addr, intr-vector, intr level
     set_default_bus_params(0772150, 20, 0154, 5) ;
-    dma_request.set_priority_slot(default_priority_slot) ;
-    intr_request.set_priority_slot(default_priority_slot) ;
-    intr_request.set_level(default_intr_level) ;
-    intr_request.set_vector(default_intr_vector) ;
 
     // The UDA50 controller has two registers.
     register_count = 2;
@@ -99,6 +95,14 @@ uda_c::~uda_c()
 
 bool uda_c::on_param_changed(parameter_c *param) {
     // no own parameter or "enable" logic
+	if (param == &priority_slot) {
+		dma_request.set_priority_slot(priority_slot.new_value);
+		intr_request.set_priority_slot(priority_slot.new_value);
+	}  else if (param == &intr_level) {
+		intr_request.set_level(intr_level.new_value);
+	} else if (param == &intr_vector) {
+		intr_request.set_vector(intr_vector.new_value);
+	}	
     return storagecontroller_c::on_param_changed(param) ; // more actions (for enable)
 }
 

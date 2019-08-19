@@ -70,15 +70,6 @@ slu_c::slu_c() :
 	// SLU has 2 Interrupt vectors: base = RCV, base+= XMT
 	// put in slot 1, closest to CPU
 	set_default_bus_params(SLU_ADDR, SLU_SLOT, SLU_VECTOR, SLU_LEVEL); // base addr, intr-vector, intr level
-	rcvintr_request.set_priority_slot(default_priority_slot);
-	rcvintr_request.set_level(default_intr_level);
-	rcvintr_request.set_vector(default_intr_vector);
-	// XMT INTR: lower priority->netx slot, and next vector
-	xmtintr_request.set_priority_slot(default_priority_slot + 1);
-	xmtintr_request.set_level(default_intr_level);
-	xmtintr_request.set_vector(default_intr_vector + 4);
-
-	// init parameters
 
 	// controller has some register
 	register_count = slu_idx_count;
@@ -152,6 +143,16 @@ bool slu_c::on_param_changed(parameter_c *param) {
 			mode.readonly = false;
 			INFO("Serial port %s closed", serialport.value.c_str());
 		}
+	} else if (param == &priority_slot) {
+		rcvintr_request.set_priority_slot(priority_slot.new_value);
+		// XMT INTR: lower priority => nxt slot, and next vector
+		xmtintr_request.set_priority_slot(priority_slot.new_value + 1);
+	} else if (param == &intr_vector) {
+		rcvintr_request.set_vector(intr_vector.new_value);
+		xmtintr_request.set_vector(intr_vector.new_value + 4);
+	} else if (param == &intr_level) {
+		rcvintr_request.set_level(intr_level.new_value);
+		xmtintr_request.set_level(intr_level.new_value);
 	}
 	return unibusdevice_c::on_param_changed(param); // more actions (for enable)
 }
@@ -471,9 +472,6 @@ ltc_c::ltc_c() :
 	log_label = "ltc";
 	// slot = 3:
 	set_default_bus_params(LTC_ADDR, LTC_SLOT, LTC_VECTOR, LTC_LEVEL); // base addr, intr-vector, intr level
-	intr_request.set_priority_slot(default_priority_slot);
-	intr_request.set_level(default_intr_level);
-	intr_request.set_vector(default_intr_vector);
 
 	// controller has only one register
 	register_count = 1;
@@ -501,8 +499,15 @@ bool ltc_c::on_param_changed(parameter_c *param) {
 	if (param == &frequency) {
 		// accept only these
 		return (frequency.new_value == 50 || frequency.new_value == 60);
-	} else
-		return unibusdevice_c::on_param_changed(param); // more actions (for enable)
+	} else if (param == &priority_slot) {
+		intr_request.set_priority_slot(priority_slot.new_value);
+	}  else if (param == &intr_level) {
+		intr_request.set_level(intr_level.new_value);
+	} else if (param == &intr_vector) {
+		intr_request.set_vector(intr_vector.new_value);
+	}
+
+	return unibusdevice_c::on_param_changed(param); // more actions (for enable)
 }
 
 // calc static INTR condition level. 
