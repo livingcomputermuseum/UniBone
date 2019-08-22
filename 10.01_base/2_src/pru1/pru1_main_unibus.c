@@ -125,31 +125,35 @@ void main(void) {
 			while ((sm_data_slave_state = sm_data_slave_state())
 					&& !mailbox.events.event_deviceregister)
 				// throws signals to ARM,
-				// Acess to interna lregsitres may may issue AMR2PRU opcode, so exit loop then
+				// Acess to internal registers may may issue AMR2PRU opcode, so exit loop then
 				;// execute complete slave cycle, then check NPR/INTR
 
 			// signal INT or PWR FAIL to ARM
 			do_event_initializationsignals();
 
 			// Priority Arbitration
-			// execute one of the arbitration workers
-			uint8_t grant_mask = sm_arb_worker();
-			// sm_arb_worker()s include State 2 "BBSYWAIT". 
-			// So now SACK maybe set, even if grant_mask is still 0
+			// Delay INTR or DMA while BUS halted via SSYN.
+			// ARM may start DMA within deviceregister event!
+			if (!mailbox.events.event_deviceregister) {
+				// execute one of the arbitration workers
+				uint8_t grant_mask = sm_arb_worker();
+				// sm_arb_worker()s include State 2 "BBSYWAIT".
+				// So now SACK maybe set, even if grant_mask is still 0
 
-			if (grant_mask & PRIORITY_ARBITRATION_BIT_NP) {
-				sm_data_master_state = (statemachine_state_func) &sm_dma_start;
-				// can data_master_state  be overwritten in the midst of a running data_master_state ?
-				// no: when running, SACK is set, no new GRANTs
-			} else if (grant_mask & PRIORITY_ARBITRATION_INTR_MASK) {
-				// convert bit in grant_mask to INTR index
-				uint8_t idx = PRIORITY_ARBITRATION_INTR_BIT2IDX(grant_mask);
-				// now transfer INTR vector for interupt of GRANted level.
-				// vector and ARM context have been setup by ARM before ARM2PRU_INTR already
-				sm_intr.vector = mailbox.intr.vector[idx];
-				sm_intr.level_index = idx; // to be returned to ARM on complete
+				if (grant_mask & PRIORITY_ARBITRATION_BIT_NP) {
+					sm_data_master_state = (statemachine_state_func) &sm_dma_start;
+					// can data_master_state  be overwritten in the midst of a running data_master_state ?
+					// no: when running, SACK is set, no new GRANTs
+				} else if (grant_mask & PRIORITY_ARBITRATION_INTR_MASK) {
+					// convert bit in grant_mask to INTR index
+					uint8_t idx = PRIORITY_ARBITRATION_INTR_BIT2IDX(grant_mask);
+					// now transfer INTR vector for interupt of GRANted level.
+					// vector and ARM context have been setup by ARM before ARM2PRU_INTR already
+					sm_intr.vector = mailbox.intr.vector[idx];
+					sm_intr.level_index = idx; // to be returned to ARM on complete
 
-				sm_data_master_state = (statemachine_state_func) &sm_intr_start;
+					sm_data_master_state = (statemachine_state_func) &sm_intr_start;
+				}
 			}
 		} else {
 			// State 3 "MASTER"

@@ -150,7 +150,7 @@ static statemachine_state_func sm_dma_state_1() {
 		tmpval |= BIT(3); // DATO: c1=1, c0=0
 		// bit 2,4,5 == 0  -> C0,MSYN,SSYN not asserted
 		buslatches_setbits(4, 0x3f, tmpval);
-		// write data. SSYN may still be active???
+		// write data. SSYN may still be active and cleared now? by sm_slave_10 etc?
 //		data = mailbox.dma.words[sm_dma.cur_wordidx];
 		data = *sm_dma.dataptr;
 		buslatches_setbyte(5, data & 0xff); // DATA[0..7] = latch[5]

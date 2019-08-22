@@ -62,7 +62,7 @@ private:
 	pthread_mutex_t requests_mutex;
 
 	void worker_init_event(void);
-	void worker_power_event(void);
+	void worker_power_event(bool power_down);
 	void worker_deviceregister_event(void);
 	void worker_dma_chunk_complete_event(bool cpu_DATA_transfer);
 	void worker_intr_complete_event(uint8_t level_index);
@@ -80,6 +80,7 @@ public:
 
 	volatile bool line_INIT; // current state of these UNIBUS signals
 	volatile bool line_DCLO;
+	volatile bool line_ACLO;
 
 	void on_power_changed(void) override; // must implement
 	void on_init_changed(void) override; // must implement

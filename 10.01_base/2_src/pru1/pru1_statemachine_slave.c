@@ -52,7 +52,7 @@
 //statemachine_state_func sm_slave_start(void);
 static statemachine_state_func sm_slave_state_10(void);
 static statemachine_state_func sm_slave_state_20(void);
-static statemachine_state_func sm_slave_state_99(void);
+//static statemachine_state_func sm_slave_state_99(void);
 
 // check for MSYN active
 statemachine_state_func sm_slave_start() {
@@ -115,7 +115,8 @@ statemachine_state_func sm_slave_start() {
 			// perhaps PRU2ARM_INTERRUPT now active
 		} else
 			// no address match: wait for MSYN to go inactive
-			return (statemachine_state_func) &sm_slave_state_99;
+			// return (statemachine_state_func) &sm_slave_state_99;
+			return NULL ;
 	case UNIBUS_CONTROL_DATO:
 		// fetch data in any case
 		// DATA[0..7] = latch[5]
@@ -131,7 +132,8 @@ statemachine_state_func sm_slave_start() {
 			// perhaps PRU2ARM_INTERRUPT now active
 		} else
 			// no address match: wait for MSYN to go inactive
-			return (statemachine_state_func) &sm_slave_state_99;
+			// return (statemachine_state_func) &sm_slave_state_99;
+			return NULL ;
 	case UNIBUS_CONTROL_DATOB:
 		// A00 = 1, odd address: get upper byte
 		// A00 = 0: even address, get lower byte
@@ -151,7 +153,8 @@ statemachine_state_func sm_slave_start() {
 			// perhaps PRU2ARM_INTERRUPT now active
 		} else
 			// no address match: wait for MSYN to go inactive
-			return (statemachine_state_func) &sm_slave_state_99;
+			// return (statemachine_state_func) &sm_slave_state_99;
+			return NULL ;
 	}
 	return NULL; // not reached
 }
@@ -198,11 +201,15 @@ static statemachine_state_func sm_slave_state_20() {
 	return NULL; // ready 
 }
 
+
 // end of inactive cycle: wait for MSYN to go inactive
+// Not necessary, start() state simply checks addr again if MSYN still set.
 static statemachine_state_func sm_slave_state_99() {
 	// MSYN = latch[4], bit 4
-	if (buslatches_getbyte(4) & BIT(4))
+	if (buslatches_getbyte(4) & BIT(4)) {
 		return (statemachine_state_func) &sm_slave_state_99; // wait, MSYN still active
+	}
+//	PRU_DEBUG_PIN(1) ;
 
 	return NULL; // ready
 }

@@ -102,8 +102,13 @@ void mailbox_test1() {
  * mailbox union members must have been filled.
  */
 //uint32_t xxx;
+
+pthread_mutex_t arm2pru_mutex = PTHREAD_MUTEX_INITIALIZER ;
+
 bool  mailbox_execute(uint8_t request) {
 // write to arm2pru_req must be last memory operation
+	pthread_mutex_lock(&arm2pru_mutex) ;
+
 	__sync_synchronize();
 	while (mailbox->arm2pru_req != ARM2PRU_NONE)
 		; // wait to complete
@@ -121,5 +126,7 @@ bool  mailbox_execute(uint8_t request) {
 		; // wait until processed
 	*/
 	// result false = error
-	return (mailbox->arm2pru_req == ARM2PRU_NONE) ;
+	bool result = (mailbox->arm2pru_req == ARM2PRU_NONE) ;
+	pthread_mutex_unlock(&arm2pru_mutex) ;
+	return result ;
 }

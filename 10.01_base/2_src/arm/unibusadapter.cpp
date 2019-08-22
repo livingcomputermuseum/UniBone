@@ -85,6 +85,7 @@ unibusadapter_c::unibusadapter_c() :
 		devices[i] = NULL;
 	line_INIT = false;
 	line_DCLO = false;
+	line_ACLO = false ;
 
 	requests_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -756,14 +757,14 @@ void unibusadapter_c::worker_init_event() {
 	pthread_mutex_unlock(&requests_mutex);
 }
 
-void unibusadapter_c::worker_power_event() {
+void unibusadapter_c::worker_power_event(bool power_down) {
 	unsigned device_handle;
 	unibusdevice_c *device;
 	// notify device on change of DC_LO line
-	DEBUG("worker_power_event(): DCLO %s", line_DCLO ? "asserted" : "deasserted");
+	DEBUG("worker_power_event(power_down=%d)", power_down);
 	for (device_handle = 0; device_handle <= MAX_DEVICE_HANDLE; device_handle++)
 		if ((device = devices[device_handle])) {
-			device->power_down = line_DCLO;
+			device->power_down = power_down;
 			device->on_power_changed();
 		}
 
@@ -1004,6 +1005,8 @@ void unibusadapter_c::worker(unsigned instance) {
 			bool init_falling_edge = false;
 			bool dclo_raising_edge = false;
 			bool dclo_falling_edge = false;
+			bool aclo_raising_edge = false;
+			bool aclo_falling_edge = false;
 			// DEBUG("mailbox->events: mask=0x%x", mailbox->events.eventmask);
 			if (mailbox->events.event_init) {
 				any_event = true;
@@ -1031,16 +1034,27 @@ void unibusadapter_c::worker(unsigned instance) {
 						dclo_falling_edge = true;
 					line_DCLO = false;
 				}
+				if (mailbox->events.initialization_signals_cur & INITIALIZATIONSIGNAL_ACLO) {
+					if (!line_ACLO)
+						aclo_raising_edge = true;
+					line_ACLO = true;
+				} else {
+					if (line_ACLO)
+						aclo_falling_edge = true;
+					line_ACLO = false;
+				}
 				mailbox->events.event_power = 0; // PRU may re-raise and change mailbox now
 				DEBUG(
-						"EVENT_INITIALIZATIONSIGNALS: (sigprev=0x%x,) cur=0x%x, init_raise=%d, init_fall=%d, dclo_raise=%d, dclo_fall=%d",
+						"EVENT_INITIALIZATIONSIGNALS: (sigprev=0x%x,) cur=0x%x, init_raise=%d, init_fall=%d, dclo_raise/fall=%d%/d, aclo_raise/fall=%d/%d",
 						mailbox->events.initialization_signals_prev,
 						mailbox->events.initialization_signals_cur, init_raising_edge,
-						init_falling_edge, dclo_raising_edge, dclo_falling_edge);
+						init_falling_edge, dclo_raising_edge, dclo_falling_edge, aclo_raising_edge, aclo_falling_edge);
 
 			}
-			if (dclo_raising_edge || dclo_falling_edge)
-				worker_power_event(); // power signal power change
+			if (dclo_raising_edge)
+				worker_power_event(true); // power signal power change
+			else if (aclo_falling_edge)
+				worker_power_event(false); // power signal power change
 			if (init_falling_edge) // INIT asserted -> deasserted.  DATI/DATO cycle only possible after that.
 				worker_init_event();
 			if (mailbox->events.event_deviceregister) {
@@ -1050,7 +1064,7 @@ void unibusadapter_c::worker(unsigned instance) {
 				// DEBUG("EVENT_DEVICEREGISTER:  control=%d, addr=%06o", (int)mailbox->events.unibus_control, mailbox->events.addr);
 				worker_deviceregister_event();
 				// ARM2PRU opcodes raised by device logic are processed in midst of bus cycle
-				mailbox->events.event_deviceregister = 0; // PRU continous bus cycle with SSYN now
+				mailbox->events.event_deviceregister = 0; // PRU continues bus cycle with SSYN now
 			}
 			if (mailbox->events.event_dma) {
 				any_event = true;
