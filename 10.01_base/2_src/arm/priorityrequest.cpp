@@ -47,6 +47,8 @@ priority_request_c::~priority_request_c() {
 void priority_request_c::set_priority_slot(uint8_t priority_slot) {
 	assert(priority_slot > 0); // 0 reserved
 	assert(priority_slot < PRIORITY_SLOT_COUNT);
+	if (this->slot == priority_slot)
+		return ; // called on every on_param_change()
 	unibusdevice_c *ubdevice = unibusdevice_c::find_by_request_slot(priority_slot);
 	if (ubdevice && ubdevice != this->device) {
 			WARNING("Slot %u already used by device %s", (unsigned) priority_slot, ubdevice->name.value.c_str());
@@ -104,4 +106,5 @@ void intr_request_c::set_vector(uint16_t vector) {
 	assert((vector & 3) == 0); // multiple of 2 words
 	this->vector = vector;
 }
+
 

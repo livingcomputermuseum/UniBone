@@ -28,6 +28,10 @@
 
 #include <stdint.h>
 
+// Arbitration master restes GRANT if devcie does not respond with
+// SACK within this period.
+#define ARB_MASTER_SACK_TIMOUT_MS	10
+
 // a priority-arbitration-worker returns a bit mask with the GRANT signal he recognized
 
 typedef uint8_t (*statemachine_arb_worker_func)();
@@ -43,9 +47,14 @@ typedef struct {
 	// for BBSY clear. 
 	// 0: not waitong for BBSY.
 	// != saves GRANTed reqiest and idnicates BBSY wait state
-	uint8_t	bbsy_wait_grant_mask ;
+	uint8_t bbsy_wait_grant_mask;
 
-	
+	/*** master ****/
+	// only used wif working as Arbitrator/Interupt Fielding Processor
+	uint8_t ifs_priority_level; // priority level of Interrupt Fielding processor (CPU)
+
+	uint8_t arbitrator_grant_mask; // GRANT line set by master
+
 } statemachine_arbitration_t;
 
 /* receives a grant_mask with 1 bit set and returns the index of that bit

@@ -167,27 +167,6 @@ public:
 	parameter_bool_c break_enable = parameter_bool_c(this, "break", "b", /*readonly*/false,
 			"Enable BREAK transmission (M7856 SW4-1)");
 
-#ifdef USED
-	// @David: duplicating device registers as parameters is not necessary ...
-	// they can be seen with "exam" anyhow.
-	parameter_unsigned_c rcsr = parameter_unsigned_c(this, "Receiver Status Register", "rcsr", /*readonly*/
-			false, "", "%o", "Internal state", 32, 8);
-	parameter_unsigned_c rbuf = parameter_unsigned_c(this, "Receiver Buffer Register", "rbuf", /*readonly*/
-			false, "", "%o", "Internal state", 32, 8);
-	parameter_unsigned_c xcsr = parameter_unsigned_c(this, "Transmitter Status Register",
-			"xcsr", /*readonly*/false, "", "%o", "Internal state", 32, 8);
-	parameter_unsigned_c xbuf = parameter_unsigned_c(this, "Transmitter Buffer Register",
-			"xbuf", /*readonly*/false, "", "%o", "Internal state", 32, 8);
-
-	parameter_bool_c xmit_interrupt_enable = parameter_bool_c(this, "XMIT interrupt enable",
-			"xie",/*readonly*/false, "1 = enable interrupt");
-	parameter_bool_c rcvr_interrupt_enable = parameter_bool_c(this, "RCVR interrupt enable",
-			"rie",/*readonly*/false, "1 = enable interrupt");
-	parameter_bool_c slu_maint = parameter_bool_c(this, "XCSR Maintenance", "maint",/*readonly*/
-			false, "1 = enable Maintenance mode enabled");
-	parameter_bool_c rdr_enable = parameter_bool_c(this, "RDR enable", "rdre",/*readonly*/false,
-			"1 = enable reader enable");
-#endif
 	// background worker function
 	void worker(unsigned instance) override;
 	void worker_rcv(void);

@@ -43,6 +43,7 @@ unibusdevice_c::unibusdevice_c() :
 	register_count = 0;
 	// device is not yet enabled, UNIBUS properties can be set
 	base_addr.readonly = false;
+	priority_slot.readonly = false;
 	intr_vector.readonly = false;
 	intr_level.readonly = false;
 	default_base_addr = 0;
@@ -80,13 +81,17 @@ bool unibusdevice_c::on_param_changed(parameter_c *param) {
 }
 
 // define default values for device BASE address and INTR
-void unibusdevice_c::set_default_bus_params(uint32_t default_base_addr, unsigned priority_slot,
+void unibusdevice_c::set_default_bus_params(uint32_t default_base_addr, unsigned default_priority_slot,
 		unsigned default_intr_vector, unsigned default_intr_level) {
-	assert(priority_slot <= PRIORITY_SLOT_COUNT); // bitmask!
-	this->default_base_addr = this->base_addr.value = default_base_addr;
-	this->default_priority_slot = this->intr_vector.value = priority_slot;
-	this->default_intr_vector = this->intr_vector.value = default_intr_vector;
-	this->default_intr_level = this->intr_level.value = default_intr_level;
+	assert(default_priority_slot <= PRIORITY_SLOT_COUNT); // bitmask!
+	this->default_base_addr = default_base_addr;
+	this->default_priority_slot = default_priority_slot;
+	this->default_intr_vector = this->intr_vector.new_value = default_intr_vector;
+	this->default_intr_level = this->intr_level.new_value = default_intr_level;
+	base_addr.set(default_base_addr) ;
+	priority_slot.set(default_priority_slot) ;
+	this->on_param_changed(&this->intr_vector) ;
+	this->on_param_changed(&this->intr_level) ;
 }
 
 void unibusdevice_c::install(void) {

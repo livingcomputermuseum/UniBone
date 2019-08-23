@@ -51,9 +51,7 @@ cpu_c::cpu_c() :
 	default_base_addr = 0; // none
 	default_intr_vector = 0;
 	default_intr_level = 0;
-	priority_slot.value	= 1 ;
-
-	dma_request.set_priority_slot(priority_slot.value);
+	priority_slot.value = 0; // not used
 
 	// init parameters
 	runmode.value = false;
@@ -91,24 +89,25 @@ extern "C" {
 // Result: 1 = OK, 0 = bus timeout
 int cpu_dato(unsigned addr, unsigned data) {
 	uint16_t wordbuffer = (uint16_t) data;
-	unibusadapter->DMA(the_cpu->dma_request, true, UNIBUS_CONTROL_DATO, addr, &wordbuffer, 1);
-	return the_cpu->dma_request.success;
 
+	unibusadapter->cpu_DATA_transfer(the_cpu->data_transfer_request, UNIBUS_CONTROL_DATO, addr, &wordbuffer);
+	return the_cpu->data_transfer_request.success ;
 }
 
 int cpu_datob(unsigned addr, unsigned data) {
 	uint16_t wordbuffer = (uint16_t) data;
 	// TODO DATOB als 1 byte-DMA !
-	unibusadapter->DMA(the_cpu->dma_request, true, UNIBUS_CONTROL_DATOB, addr, &wordbuffer, 1);
-	return the_cpu->dma_request.success;
+	unibusadapter->cpu_DATA_transfer(the_cpu->data_transfer_request, UNIBUS_CONTROL_DATOB, addr, &wordbuffer);
+	return the_cpu->data_transfer_request.success ;
 }
 
 int cpu_dati(unsigned addr, unsigned *data) {
 	uint16_t wordbuffer;
-	unibusadapter->DMA(the_cpu->dma_request, true, UNIBUS_CONTROL_DATI, addr, &wordbuffer, 1);
+unibusadapter->cpu_DATA_transfer(the_cpu->data_transfer_request, UNIBUS_CONTROL_DATI, addr, &wordbuffer);
 	*data = wordbuffer;
 	// printf("DATI; ba=%o, data=%o\n", addr, *data) ;
-	return the_cpu->dma_request.success;
+
+	return the_cpu->data_transfer_request.success ;
 }
 }
 

@@ -1,0 +1,17 @@
+
+	.title ma_strings - String constants
+shello:
+	.byte	15,12		; space, CR, LF,
+	.ascii	/*** Multi Device Interrupt&DMA test ***/
+	.byte	15,12		; CR, LF
+	.ascii	/^C to stop./
+	.byte	15,12		; CR, LF
+	.byte	0
+
+
+sbye:
+	.byte	15,12
+	.ascii	/Good Bye!/
+	.byte	15,12 	; CR, LF
+	.byte	0
+

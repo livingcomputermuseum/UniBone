@@ -122,10 +122,10 @@ void application_c::menu_devices(bool with_CPU) {
 	char *s_choice;
 	char s_opcode[256], s_param[3][256];
 
-	// with_CPU: the emulated CPU is answering BR and NPR requests.
+	// with_CPU: PRU Arbitrator is answering BR and NPR requests.
 	if (with_CPU)
-		arbitration_mode = unibus_c::ARBITRATION_MODE_NONE;
-//		arbitration_mode = unibus_c::ARBITRATION_MODE_MASTER;
+		arbitration_mode = unibus_c::ARBITRATION_MODE_MASTER;
+//		arbitration_mode = unibus_c::ARBITRATION_MODE_NONE;
 	else
 		arbitration_mode = unibus_c::ARBITRATION_MODE_CLIENT;
 
@@ -137,6 +137,10 @@ void application_c::menu_devices(bool with_CPU) {
 	hardware_startup(pru_c::PRUCODE_UNIBUS, arbitration_mode);
 	// now PRU executing UNIBUS master/slave code, physical PDP-11 CPU as arbitrator required.
 	buslatches_output_enable(true);
+
+	// without PDP-11 CPU no INIT after power ON was generated.
+	// Devices may trash the bus lines.
+	unibus->init();
 
 	unibusadapter->enabled.set(true);
 
@@ -229,9 +233,9 @@ void application_c::menu_devices(bool with_CPU) {
 				printf("d <regname> <val>    Deposit octal value into named device register\n");
 				printf("e <regname>          Examine single device register (regno decimal)\n");
 				printf("e                    Examine all device registers\n");
-				printf("e <addr>             Examine octal UNIBUS address.\n");
-				printf("d <addr> <val>       Deposit octal val into UNIBUS address.\n");
 			}
+			printf("e <addr>             Examine octal UNIBUS address.\n");
+			printf("d <addr> <val>       Deposit octal val into UNIBUS address.\n");
 			if (DL11->enabled.value) {
 				printf(
 						"dl11 rcv [<wait_ms>] <string>   inject characters as if DL11 received them.\n");
@@ -413,10 +417,12 @@ void application_c::menu_devices(bool with_CPU) {
 					p->parse(sval);
 					print_params(cur_device, p);
 				}
-			} else if (unibuscontroller && !strcasecmp(s_opcode, "d") && n_fields == 3) {
+			} else if (!strcasecmp(s_opcode, "d") && n_fields == 3) {
 				uint32_t addr;
 				uint16_t wordbuffer;
-				unibusdevice_register_t *reg = unibuscontroller->register_by_name(s_param[0]);
+				unibusdevice_register_t *reg = NULL ;
+				if (unibuscontroller)
+					reg = unibuscontroller->register_by_name(s_param[0]);
 				if (reg) // register name given
 					addr = reg->addr;
 				else
@@ -437,14 +443,14 @@ void application_c::menu_devices(bool with_CPU) {
 					printf("DEPOSIT %06o <- %06o\n", addr, wordbuffer);
 				if (timeout)
 					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);
-			} else if (unibuscontroller && !strcasecmp(s_opcode, "e") && n_fields <= 2) {
-				bool timeout;
+			} else if (!strcasecmp(s_opcode, "e") && n_fields <= 2) {
+				bool timeout = false;
 				uint32_t addr;
-
-				unibusdevice_register_t *reg;
-				if (n_fields == 2) { // single reg number given
+				unibusdevice_register_t *reg = NULL ;
+				if (n_fields == 2) { // single reg number or address given
 					uint16_t wordbuffer; // exam single word
-					reg = unibuscontroller->register_by_name(s_param[0]);
+					if (unibuscontroller)
+						reg = unibuscontroller->register_by_name(s_param[0]);
 					if (reg)
 						addr = reg->addr;
 					else
@@ -452,7 +458,7 @@ void application_c::menu_devices(bool with_CPU) {
 					timeout = !unibus->dma(arbitration_mode, true, UNIBUS_CONTROL_DATI, addr,
 							&wordbuffer, 1);
 					printf("EXAM %06o -> %06o\n", addr, wordbuffer);
-				} else { // list all regs
+				} else if (n_fields == 1 && unibuscontroller) { // list all regs
 					unsigned wordcount = 0; // default: no EXAM
 					uint16_t wordbuffer[MAX_REGISTERS_PER_DEVICE];
 					addr = unibuscontroller->base_addr.value; // all device registers
@@ -471,6 +477,9 @@ void application_c::menu_devices(bool with_CPU) {
 						timeout = false;
 						printf("Device has no UNIBUS registers.\n");
 					}
+				} else {
+					// no device: no "display all"
+					show_help = true;
 				}
 				if (timeout)
 					printf("Bus timeout at %06o.\n", mailbox->dma.cur_addr);

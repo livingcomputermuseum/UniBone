@@ -84,6 +84,8 @@ static statemachine_state_func sm_dma_state_99(void);
 // startaddr, wordcount, cycle, words[]   ?
 // "cycle" must be UNIBUS_CONTROL_DATI or UNIBUS_CONTROL_DATO
 // Wait for BBSY, SACK already held asserted
+// Sorting between device and CPU transfers:
+// IF a device DMA is busy mailbox.device_BBSY is set.
 statemachine_state_func sm_dma_start() {
 	// assert BBSY: latch[1], bit 6
 	// buslatches_setbits(1, BIT(6), BIT(6));
@@ -100,15 +102,14 @@ statemachine_state_func sm_dma_start() {
 }
 
 /*
-// wait for BBSY deasserted, then assert
-static statemachine_state_func sm_dma_state_1() {
-	if (buslatches_getbyte(1) & BIT(6))
-		return (statemachine_state_func) &sm_dma_state_1; // wait
-	buslatches_setbits(1, BIT(6), BIT(6)); // assert BBSY
-	return (statemachine_state_func) &sm_dma_state_1;
-}
-*/
-
+ // wait for BBSY deasserted, then assert
+ static statemachine_state_func sm_dma_state_1() {
+ if (buslatches_getbyte(1) & BIT(6))
+ return (statemachine_state_func) &sm_dma_state_1; // wait
+ buslatches_setbits(1, BIT(6), BIT(6)); // assert BBSY
+ return (statemachine_state_func) &sm_dma_state_1;
+ }
+ */
 
 // place address and control bits onto bus, also data for DATO
 // If slave address is internal (= implemented by UniBone),
@@ -149,7 +150,7 @@ static statemachine_state_func sm_dma_state_1() {
 		tmpval |= BIT(3); // DATO: c1=1, c0=0
 		// bit 2,4,5 == 0  -> C0,MSYN,SSYN not asserted
 		buslatches_setbits(4, 0x3f, tmpval);
-		// write data. SSYN may still be active???
+		// write data. SSYN may still be active and cleared now? by sm_slave_10 etc?
 //		data = mailbox.dma.words[sm_dma.cur_wordidx];
 		data = *sm_dma.dataptr;
 		buslatches_setbyte(5, data & 0xff); // DATA[0..7] = latch[5]
@@ -329,16 +330,21 @@ static statemachine_state_func sm_dma_state_99() {
 		buslatches_setbits(4, 0x3f, 0);
 		// remove BBSY: latch[1], bit 6
 		buslatches_setbits(1, BIT(6), 0);
-		// SACK already de-asserted at wordcount==1
-		timeout_cleanup(TIMEOUT_DMA);
-		mailbox.dma.cur_status = final_dma_state; // signal to ARM
 
-		timeout_cleanup(TIMEOUT_DMA);
+		timeout_cleanup(TIMEOUT_DMA); 
+
+		// device or cpu cycle ended: now CPU may become UNIBUS master again
+		mailbox.events.event_dma_cpu_transfer = mailbox.arbitrator.cpu_BBSY ;
+		mailbox.arbitrator.device_BBSY = false;
+		mailbox.arbitrator.cpu_BBSY = false;
+
+		// SACK already de-asserted at wordcount==1
+		mailbox.dma.cur_status = final_dma_state; // signal to ARM
 
 		// signal to ARM
 		mailbox.events.event_dma = 1;
 		// ARM is clearing this, before requesting new DMA.
-		// no concurrent ARP+PRU access
+		// no concurrent ARM+PRU access
 		PRU2ARM_INTERRUPT
 		;
 

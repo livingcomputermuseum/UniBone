@@ -1,0 +1,371 @@
+       1                                	.title Multi Arbitration DMA/INTR test
+       2                                
+       3                                	; *************************************************
+       4                                	; Exercises several devices in parallel,
+       5                                	; each with INTR and DMA
+       6                                	; For a device XX we have
+       7                                	; XXENAB - flag to enable devcie
+       8                                	; XXBASE - base address of devcie
+       9                                	; XXVEC - the INTR vector
+      10                                	; XXISR - Interrupt Service
+      11                                	; XXIFLG - flag which is incremented in ISR
+      12                                	; XXBUF - data buffer for DMA transfer
+      13                                	; XXINIT - Initialize device after RESET
+      14                                	; XXGO - subroutine to initiate DMA and INTR
+      15                                	; XXECNT - event counter, indicates activity
+      16                                	; XXLABL - single char label to print activity
+      17                                	;
+      18                                	; Devices are
+      19                                	; CO - serial console
+      20                                	; RK - RK11/RK05 disk
+      21                                	; RL - RL11/RL02 disk
+      22                                	; RY - Serial RX211 Floppy,
+      23                                
+      24                                	; enable tests
+      25 000001                         kwenab	=	1
+      26 000000                         rkenab	=	0
+      27 000000                         rlenab	=	0
+      28 000000                         ryenab	=	0
+      29                                
+      30                                	.enable AMA
+      31                                	.asect
+      32                                
+      33                                	; *************************************************
+      34                                	; Vectors
+      35                                
+      36 000060                         	. = corvec
+      37 000060 001166                  	.word	corisr		; RCV interrupt
+      38 000062 000340                  	.word	340
+      39 000064                         	. = coxvec
+      40 000064 001202                  	.word	coxisr		; XMT interrupt
+      41 000066 000340                  	.word	340
+      42                                
+      43 000001                         .if ne kwenab
+      44 000100                         	. = kwvect
+      45 000100 001426                  	.word	kwisr		; periodic interrupt
+      46 000102 000340                  	.word	340
+      47                                .endc
+      48                                
+      49 000000                         .if ne rlenab
+      50                                	. = rlvect		; RL11
+      51                                	.word	rlisr
+      52                                	.word	340
+      53                                .endc
+      54                                
+      55 000000                         .if ne rkenab
+      56                                	. = rkvect		; RK11
+      57                                	.word	rkisr
+      58                                	.word	340
+      59                                .endc
+      60                                
+      61 000000                         .if ne ryenab
+      62                                	. = ryvect		; RX211
+      63                                	.word	ryisr
+      64                                	.word	340
+      65                                .endc
+      66                                
+      67 177776                         psw	= 177776
+      68 165020                         monitr	= 165020		; Monitor addr for back jump
+      69                                
+      70                                	; *************************************************
+      71                                	; Main
+      72 001000                         	. = 1000
+      73 000776                         stack	= .-2
+      74                                start:
+      75 001000 012706  000776          	mov	#stack,sp
+      76 001004 005037  177776          	clr	@#psw		; priorty level 0, allow INTR
+      77                                	; Initialize devices
+      78 001010 000005                  	reset
+      79 001012 004737  001210          	call	corini
+      80 001016 004737  001224          	call	coxini
+      81 000001                         .if ne kwenab
+      82 001022 004737  001440          	call	kwinit
+      83                                .endc
+      84 000000                         .if ne rkenab
+      85                                	call	rkinit
+      86                                .endc
+      87 000000                         .if ne rlenab
+      88                                	call	rlinit
+      89                                .endc
+      90 000000                         .if ne ryenab
+      91                                	call	ryinit
+      92                                .endc
+      93                                
+      94 001026 012701  001456          	mov	#shello,r1	; Print "Hello" message
+      95 001032 004737  001240          	call	puts
+      96                                
+      97                                	; main loop: check interrupt flags, restart DMA
+      98                                	; process serial input
+      99                                loop:
+     100 001036 004737  001050          	call	dokbd		; check keyboard input
+     101 001042 004737  001106          	call	dodev		; check device activities
+     102 001046 000773                  	br	loop
+     103                                
+     104                                
+     105                                
+     106                                	; --- check keyboard input
+     107                                dokbd:
+     108 001050 004737  001372          	call	getc
+     109 001054 103013                  	bcc	9$		; nothing received
+     110                                	; process char in r0
+     111 001056 120027  000003          	cmpb	r0,#3
+     112 001062 001006                  	bne	1$
+     113 001064 012701  001547          	mov	#sbye,r1 	; ^C: print "Bye", back to monitor
+     114 001070 004737  001240          	call	puts
+     115 001074 000137  165020          	jmp	monitr
+     116                                1$:
+     117                                	; echo chars without special meaning
+     118 001100 004737  001352          	call	putc
+     119                                9$:
+     120 001104 000207                  	return
+     121                                
+     122                                	; -- check device activities
+     123                                dodev:
+     124                                	; For all devices: restart device DMA if Interrupt received
+     125 000001                         .if ne kwenab
+     126 001106 005737  001422          	tst	kwiflg
+     127 001112 001412                  	beq	1$
+     128 001114 005037  001422          	clr	kwiflg
+     129 001120 004737  001454          	call	kwgo
+     130 001124 012700  000127          	mov	#kwlabl,r0	; progress printout
+     131 001130 012701  001424          	mov	#kwecnt,r1
+     132 001134 004737  001142          	call	progrs
+     133                                1$:
+     134                                .endc
+     135                                
+     136 000000                         .if ne rkenab
+     137                                	tst	rkiflg
+     138                                	beq	2$
+     139                                	clr	rkiflg
+     140                                	call	rkgo
+     141                                	mov	#rklabl,r0	; progress printout
+     142                                	mov	#rkecnt,r1
+     143                                	call	progrs
+     144                                2$:
+     145                                .endc
+     146 000000                         .if ne rlenab
+     147                                	tst	rliflg
+     148                                	beq	3$
+     149                                	clr	rliflg
+     150                                	call	rlgo
+     151                                	mov	#rllabl,r0	; progress printout
+     152                                	mov	#rlecnt,r1
+     153                                	call	progrs
+     154                                3$:
+     155                                .endc
+     156 000000                         .if ne ryenab
+     157                                	tst	ryiflg
+     158                                	beq	4$
+     159                                	clr	ryiflg
+     160                                	call	rygo
+     161                                	mov	#rylabl,r0	; progress printout
+     162                                	mov	#ryecnt,r1
+     163                                	call	progrs
+     164                                4$:
+     165                                .endc
+     166                                
+     167 001140 000207                  	return
+     168                                
+     169                                
+     170                                	; progress
+     171                                	; check if the counter with address in r1 is at
+     172                                	; 1024. if yes, print the char in r0
+     173                                progrs:
+     174 001142 042711  176000          	bic	#776000,(r1)	; mask counter to 0..1023
+     175 001146 001002                  	bne	9$
+     176 001150 004737  001352          	call	putc		; is at 0: print label character
+     177                                9$:
+     178 001154 000207                  	return
+     179                                
+     180                                
+     181                                
+     182                                	.include ma_cons.mac
+       1                                
+       2                                	.title ma_cons - Serial Console I/O
+       3 000060                         corvec= 060		; vector for Receiver
+       4 000064                         coxvec= 064		; vector for Xmitter
+       5                                
+       6 177560                         corbas= 777560		; base addr of Receiver
+       7 177564                         coxbas= 777564		; base addr of Xmitter
+       8                                
+       9                                
+      10                                
+      11                                	; -- ISRs, increment Interrupt FLags
+      12                                
+      13 001156 000001                  corifl:	.word	1	; Interrupt flags
+      14 001160 000001                  coxifl:	.word	1
+      15                                
+      16 001162                         corbuf:	.blkw	1  	; data buffer
+      17 001164                         coxbuf: .blkw 	1
+      18                                
+      19                                corisr:
+      20 001166 013737  177562  001162  	mov	@#corbas+2,corbuf	; read char, clear INTR
+      21 001174 005237  001156          	inc	corifl
+      22 001200 000002                  	rti
+      23                                
+      24                                coxisr:
+      25 001202 005237  001160          	inc	coxifl
+      26 001206 000002                  	rti
+      27                                
+      28                                	; -- Initialize device after RESET
+      29                                corini:
+      30 001210 012737  000100  177560  	mov	#100,@#corbas	; Bit 6 = Receiver Interrupt Enable
+      31 001216 005037  001156          	clr	corifl
+      32 001222 000207                  	return
+      33                                coxini:
+      34 001224 012737  000100  177564  	mov	#100,@#coxbas	; Bit 6 = Transmitter Interrupt Enable
+      35 001232 005037  001160          	clr	coxifl
+      36 001236 000207                  	return
+      37                                
+      38                                
+      39                                
+      40                                	; -------- Console I/O --------
+      41                                
+      42                                	; puts - print a string
+      43                                	; r1 = pointer, r0,r1 changed
+      44                                puts:
+      45 001240 112100                  	movb	(r1)+,r0	; load xmt char
+      46 001242 001403                  	beq	1$		; string ends with 0
+      47 001244 004737  001352          	call	@#putc
+      48 001250 000773                  	br	puts		; transmit nxt char of string
+      49 001252 000207                  1$:	return
+      50                                
+      51                                
+      52                                	; putnum - print the octal number in r0
+      53 001254                         numbf0:  .blkw	 10		 ; space to mount number string
+      54 001274                         numbf1	=.
+      55                                putnum:
+      56 001274 010346                  	mov	r3,-(sp)
+      57 001276 010002                  	mov	r0,r2		; r2 = shifter
+      58 001300 012701  001274          	mov	#numbf1,r1	; r1 = buffer pointer, backwards
+      59 001304 112741  000000          	movb	#0,-(r1)	; set terminating 0
+      60                                	; repeat 6 times
+      61 001310 012703  000006          	mov	#6,r3
+      62                                1$:
+      63 001314 010200                  	mov	r2,r0
+      64                                	; extract lower 3 bits = octal digit
+      65 001316 042700  177770          	bic	#177770,r0 ; r0 &= 0x07
+      66 001322 062700  000060          	add	#60,r0	; r0 += '0'
+      67 001326 110041                  	movb	r0,-(r1) ; write in buffer
+      68 001330 000241                  	clc
+      69 001332 006202                  	asr	r2	; shift to next digit
+      70 001334 006202                  	asr	r2
+      71 001336 006202                  	asr	r2
+      72 001340 077313                  	sob	r3,1$	; loop for all 6 digits
+      73                                
+      74 001342 004737  001240          	call	@#puts
+      75 001346 012603                  	mov	(sp)+,r3
+      76 001350 000207                  	return
+      77                                
+      78                                
+      79                                	; putc - output a single char
+      80                                	; r0 = char
+      81                                putc:
+      82 001352 005037  001160          	clr	coxifl		; reset interrupt flag
+      83 001356 010037  177566          	mov	r0,@#coxbas+2	; char into transmit buffer
+      84 001362 005737  001160          1$:	tst	coxifl		; XMT RDY?
+      85 001366 001775                  	beq	1$		; no, loop
+      86                                	; UART is buffering: char only started to sent now
+      87                                	; interrupt active until next putc
+      88 001370 000207                  	return
+      89                                
+      90                                	; getc - poll and input a single char
+      91                                	; result in r0
+      92                                	; carry clear : nothing received
+      93                                	; carry set: char received
+      94                                getc:
+      95 001372 005000                  	clr	r0
+      96 001374 005737  001156          	tst	corifl
+      97 001400 001002                  	bne	1$
+      98 001402 000241                  	clc			; Carry clear, no Interrupt, nothing received
+      99 001404 000207                  	return
+     100                                1$:
+     101 001406 013700  001162          	mov	corbuf,r0 	; Interrupt, return char
+     102 001412 005037  001156          	clr	corifl		; reset interrupt flag
+     103 001416 000261                  	sec			; Carry Set
+     104 001420 000207                  	return
+     104                                
+     183 000001                         .if ne kwenab
+     184                                	.include ma_kw.mac
+       1                                	.title ma_kw - KW11 test driver
+       2                                
+       3                                	; KW11 raises INTR at 50 Hz
+       4                                
+       5 000100                         kwvect = 100		; vector of KW11 line clock
+       6 177546                         kwbase = 777546		; base addr of KW11 register
+       7 000127                         kwlabl = 'W		; label char
+       8                                
+       9                                
+      10                                	; --- ISRs, increment Interrupt FLags
+      11 001422 000001                  kwiflg:	.word	1	; Interrupt flags
+      12                                
+      13 001424 000001                  kwecnt:	.word	1	; event counter
+      14                                
+      15                                kwisr:
+      16 001426 005237  001424          	inc	kwecnt			; register as event
+      17 001432 005237  001422          	inc	kwiflg	; set ISR flag
+      18 001436 000002                  	rti
+      19                                
+      20                                	; --- Initialize device after RESET
+      21                                kwinit:
+      22 001440 012737  000100  177546  	mov	#100,@#kwbase		; set  interrupt enable
+      23 001446 005037  001424          	clr	kwecnt
+      24 001452 000207                  	return
+      25                                
+      26                                	; --- Restart new INTR
+      27                                kwgo:
+      28 001454 000207                  	return
+      29                                
+      29                                
+     185                                .endc
+     186 000000                         .if ne rkenab
+     187                                	.include ma_rk.mac
+     188                                .endc
+     189 000000                         .if ne rlenab
+     190                                	.include ma_rl.mac
+     191                                .endc
+     192 000000                         .if ne ryenab
+     193                                	.include ma_ry.mac
+     194                                .endc
+     195                                	.include ma_strings.mac
+       1                                
+       2                                	.title ma_strings - String constants
+       3                                shello:
+       4 001456    015     012          	.byte	15,12		; space, CR, LF,
+       5 001460    052     052     052  	.ascii	/*** Multi Device Interrupt&DMA test ***/
+         001463    040     115     165  
+         001466    154     164     151  
+         001471    040     104     145  
+         001474    166     151     143  
+         001477    145     040     111  
+         001502    156     164     145  
+         001505    162     162     165  
+         001510    160     164     046  
+         001513    104     115     101  
+         001516    040     164     145  
+         001521    163     164     040  
+         001524    052     052     052  
+       6 001527    015     012          	.byte	15,12		; CR, LF
+       7 001531    136     103     040  	.ascii	/^C to stop./
+         001534    164     157     040  
+         001537    163     164     157  
+         001542    160     056          
+       8 001544    015     012          	.byte	15,12		; CR, LF
+       9 001546    000                  	.byte	0
+      10                                
+      11                                
+      12                                sbye:
+      13 001547    015     012          	.byte	15,12
+      14 001551    107     157     157  	.ascii	/Good Bye!/
+         001554    144     040     102  
+         001557    171     145     041  
+      15 001562    015     012          	.byte	15,12 	; CR, LF
+      16 001564    000                  	.byte	0
+      17                                
+      17                                
+     196                                
+     197                                	.end
+     198                                
+     199                                
+     200                                
+     200                                

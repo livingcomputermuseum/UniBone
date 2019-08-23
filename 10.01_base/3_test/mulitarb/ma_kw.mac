@@ -1,0 +1,29 @@
+	.title ma_kw - KW11 test driver
+
+	; KW11 raises INTR at 50 Hz
+
+kwvect = 100		; vector of KW11 line clock
+kwbase = 777546		; base addr of KW11 register
+kwlabl = 'W		; label char
+
+
+	; --- ISRs, increment Interrupt FLags
+kwiflg:	.word	1	; Interrupt flags
+
+kwecnt:	.word	1	; event counter
+
+kwisr:
+	inc	kwecnt			; register as event
+	inc	kwiflg	; set ISR flag
+	rti
+
+	; --- Initialize device after RESET
+kwinit:
+	mov	#100,@#kwbase		; set  interrupt enable
+	clr	kwecnt
+	return
+
+	; --- Restart new INTR
+kwgo:
+	return
+

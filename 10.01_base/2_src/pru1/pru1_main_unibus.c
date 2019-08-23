@@ -36,7 +36,7 @@
  from d:\RetroCmp\dec\pdp11\UniBone\91_3rd_party\pru-c-compile\pru-software-support-package\examples\am335x\PRU_gpioToggle
  Test GPIO, shared mem and interrupt
  a) waits until ARM writes a value to mailbox.arm2pru_req
- b) ACKs the value in mailbox.arm2pru_resp, clears arm2pru_req
+ b) ACKs with clear of arm2pru_req
  c) toggles 1 mio times GPIO, with delay as set by ARM
  d) signal EVENT0
  e) goto a
@@ -60,8 +60,6 @@
 #include "pru1_statemachine_dma.h"
 #include "pru1_statemachine_intr.h"
 #include "pru1_statemachine_slave.h"
-#include "pru1_statemachine_init.h"
-#include "pru1_statemachine_powercycle.h"
 
 // supress warnigns about using void * as function pointers
 //	sm_slave_state = (statemachine_state_func)&sm_slave_start;
@@ -78,7 +76,7 @@
  High speed not necessary: Bus master will wait with MSYN if UniBone not responding.
  wathcin BG/BPG signals, catching requested GRANts and forwardinf
  other GRANTS
- - monitorinf INIT and AC_LO/DC_LO
+ - monitoring INIT and AC_LO/DC_LO
  - watching fpr AMR2PRU commands
  2. "BBSYWAIT": UNibone got PRIORITY GRAMT, has set SACK and released BR/NPR
  waits for current BUS master to relaeasy BBSY (ony DATI/DATO cycle max)
@@ -95,8 +93,6 @@ void main(void) {
 	statemachine_arb_worker_func sm_arb_worker = &sm_arb_worker_client;
 	statemachine_state_func sm_data_slave_state = NULL;
 	statemachine_state_func sm_data_master_state = NULL;
-	statemachine_state_func sm_init_state = NULL;
-	statemachine_state_func sm_powercycle_state = NULL;
 	// these are function pointers: could be 16bit on PRU?
 
 	/* Clear SYSCFG[STANDBY_INIT] to enable OCP master port */
@@ -126,40 +122,38 @@ void main(void) {
 			// fast: a complete slave data cycle
 			if (!sm_data_slave_state)
 				sm_data_slave_state = (statemachine_state_func) &sm_slave_start;
-			while ((sm_data_slave_state = sm_data_slave_state()) && !mailbox.events.event_deviceregister)
+			while ((sm_data_slave_state = sm_data_slave_state())
+					&& !mailbox.events.event_deviceregister)
 				// throws signals to ARM,
-				// Acess to interna lregsitres may may issue AMR2PRU opcode, so exit loop then
+				// Acess to internal registers may may issue AMR2PRU opcode, so exit loop then
 				;// execute complete slave cycle, then check NPR/INTR
-
-			// one phase of INIT or power cycle
-			if (sm_powercycle_state)
-				sm_powercycle_state = sm_powercycle_state();
-			else if (sm_init_state)
-				// init only if no power cycle, power cycle overrides INIT
-				sm_init_state = sm_init_state();
 
 			// signal INT or PWR FAIL to ARM
 			do_event_initializationsignals();
 
 			// Priority Arbitration
-			// execute one of the arbitration workers
-			uint8_t grant_mask = sm_arb_worker();
-			// sm_arb_worker()s include State 2 "BBSYWAIT". 
-			// So now SACK maybe set, even if grant_mask is still 0
+			// Delay INTR or DMA while BUS halted via SSYN.
+			// ARM may start DMA within deviceregister event!
+			if (!mailbox.events.event_deviceregister) {
+				// execute one of the arbitration workers
+				uint8_t grant_mask = sm_arb_worker();
+				// sm_arb_worker()s include State 2 "BBSYWAIT".
+				// So now SACK maybe set, even if grant_mask is still 0
 
-			if (grant_mask & PRIORITY_ARBITRATION_BIT_NP) {
-				sm_data_master_state = (statemachine_state_func) &sm_dma_start;
-				// can data_master_state  be overwritten in the midst of a running data_master_state ?
-				// no: when running, SACK is set, no new GRANTs
-			} else if (grant_mask & PRIORITY_ARBITRATION_INTR_MASK) {
-				// convert bit in grant_mask to INTR index
-				uint8_t idx = PRIORITY_ARBITRATION_INTR_BIT2IDX(grant_mask);
-				// now transfer INTR vector for interupt of GRANted level.
-				// vector and ARM context have been setup by ARM before ARM2PRU_INTR already
-				sm_intr.vector = mailbox.intr.vector[idx];
-				sm_intr.level_index = idx; // to be returned to ARM on complete
+				if (grant_mask & PRIORITY_ARBITRATION_BIT_NP) {
+					sm_data_master_state = (statemachine_state_func) &sm_dma_start;
+					// can data_master_state  be overwritten in the midst of a running data_master_state ?
+					// no: when running, SACK is set, no new GRANTs
+				} else if (grant_mask & PRIORITY_ARBITRATION_INTR_MASK) {
+					// convert bit in grant_mask to INTR index
+					uint8_t idx = PRIORITY_ARBITRATION_INTR_BIT2IDX(grant_mask);
+					// now transfer INTR vector for interupt of GRANted level.
+					// vector and ARM context have been setup by ARM before ARM2PRU_INTR already
+					sm_intr.vector = mailbox.intr.vector[idx];
+					sm_intr.level_index = idx; // to be returned to ARM on complete
 
-				sm_data_master_state = (statemachine_state_func) &sm_intr_start;
+					sm_data_master_state = (statemachine_state_func) &sm_intr_start;
+				}
 			}
 		} else {
 			// State 3 "MASTER"
@@ -196,19 +190,32 @@ void main(void) {
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_DMA:
-				// request INTR, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
-				sm_arb.request_mask |= PRIORITY_ARBITRATION_BIT_NP;
-				// sm_arb_worker() evaluates this,extern Arbitrator raises Grant, excution starts in future loop
-				// end of DMA is signaled to ARM with signal
+				if (mailbox.arbitrator.cpu_BBSY) {
+					// ARM CPU emulation did a single word DATA transfer with cpu_DATA_transfer()
+					if (mailbox.arbitrator.device_BBSY) {
+						// ARM started cpu DATA transfer, but arbitration logic 
+						// GRANTed a device request in the mean time. Tell ARM.
+						mailbox.arm2pru_req = PRU2ARM_DMA_CPU_TRANSFER_BLOCKED; // error
+						mailbox.arbitrator.cpu_BBSY = false;
+					}
+					// start bus cycle
+					sm_data_master_state = (statemachine_state_func) &sm_dma_start;
+				} else {
+					// Emulated device: raise request for emulated or physical Arbitrator.
+					// request DMA, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
+					sm_arb.request_mask |= PRIORITY_ARBITRATION_BIT_NP;
+					// sm_arb_worker() evaluates this,extern Arbitrator raises Grant, excution starts in future loop
+					// end of DMA is signaled to ARM with signal
 
-				/* TODO: speed up DMA
-				 While DMA is active:
-				 - SACK active: no GRANT forward necessary
-				 no arbitration necessary
-				 - INIT is monitored: no DC_LO/INIT monitoring necessary
-				 - no scan for new ARM2PRU commands: ARM2PRU_DMA is blocking
-				 - smaller chunks ?
-				 */
+					/* TODO: speed up DMA
+					 While DMA is active:
+					 - SACK active: no GRANT forward necessary
+					 no arbitration necessary
+					 - INIT is monitored: no DC_LO/INIT monitoring necessary
+					 - no scan for new ARM2PRU commands: ARM2PRU_DMA is blocking
+					 - smaller chunks ?
+					 */
+				}
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_INTR:
@@ -231,24 +238,31 @@ void main(void) {
 			case ARM2PRU_INTR_CANCEL:
 				// cancels an INTR request. If already Granted, the GRANT is forwarded,
 				// and canceled by reaching a "SACK turnaround terminator" or "No SACK TIMEOUT" in the arbitrator.
-				sm_arb.request_mask &= ~ mailbox.intr.priority_arbitration_bit ;
+				sm_arb.request_mask &= ~mailbox.intr.priority_arbitration_bit;
 				// no completion event, could interfer with othe INTRs?
 				mailbox.arm2pru_req = ARM2PRU_NONE;  // done
-				break ;
-			case ARM2PRU_INITPULSE:
-				if (!sm_init_state)
-					sm_init_state = (statemachine_state_func) &sm_init_start;
-				// INIT aborts DMA
-				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
-			case ARM2PRU_POWERCYCLE:
-				sm_powercycle_state = (statemachine_state_func) &sm_powercycle_start;
+			case ARM2PRU_INITALIZATIONSIGNAL_SET:
+				switch (mailbox.initializationsignal.id) {
+				case INITIALIZATIONSIGNAL_ACLO:
+					// assert/deassert ACLO
+					buslatches_setbits(7, BIT(4), mailbox.initializationsignal.val? BIT(4):0);
+					break;
+				case INITIALIZATIONSIGNAL_DCLO:
+					// assert/deassert DCLO
+					buslatches_setbits(7, BIT(5), mailbox.initializationsignal.val? BIT(5):0);
+					break;
+				case INITIALIZATIONSIGNAL_INIT:
+					// assert/deassert INIT
+					buslatches_setbits(7, BIT(3), mailbox.initializationsignal.val? BIT(3):0);
+					break;
+				}
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_HALT:
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
-				__halt() ; // LA: trigger on timeout of REG_WRITE
-				break ;
+				__halt(); // LA: trigger on timeout of REG_WRITE
+				break;
 			}
 		}
 
