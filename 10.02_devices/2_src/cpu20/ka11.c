@@ -1,15 +1,18 @@
 #include "11.h"
 #include "ka11.h"
 
-int cpu_dato(unsigned addr, unsigned data);
-int cpu_datob(unsigned addr, unsigned data);
-int cpu_dati(unsigned addr, unsigned *data);
+int unibone_dato(unsigned addr, unsigned data);
+int unibone_datob(unsigned addr, unsigned data);
+int unibone_dati(unsigned addr, unsigned *data);
+void unibone_prioritylevelchange(uint8_t level);
+void unibone_bus_init(unsigned pulsewidth_ms) ;
+
 
 int
 dati_bus(Bus *bus)
 {
 	unsigned int data;
-	if(!cpu_dati(bus->addr, &data))
+	if(!unibone_dati(bus->addr, &data))
 		return 1;
 	bus->data = data;
 	return 0;
@@ -18,15 +21,20 @@ dati_bus(Bus *bus)
 int
 dato_bus(Bus *bus)
 {
-	return !cpu_dato(bus->addr, bus->data);
+	return !unibone_dato(bus->addr, bus->data);
 }
 
 int
 datob_bus(Bus *bus)
 {
-	return !cpu_datob(bus->addr, bus->data);
+	return !unibone_datob(bus->addr, bus->data);
 }
 
+void
+levelchange(word psw)
+{
+	unibone_prioritylevelchange(psw>>5);
+}
 
 
 
@@ -42,11 +50,12 @@ enum {
 
 enum {
 	TRAP_STACK = 1,
-	TRAP_PWR = 2,	// can't happen
+	TRAP_PWR = 2,
 	TRAP_BR7 = 4,
 	TRAP_BR6 = 010,
 	TRAP_BR5 = 040,
 	TRAP_BR4 = 0100,
+	TRAP_BRX = 0200,	// for unibone
 	TRAP_CSTOP = 01000	// can't happen?
 };
 
@@ -107,7 +116,7 @@ printstate(KA11 *cpu)
 }
 
 void
-reset(KA11 *cpu)
+ka11_reset(KA11 *cpu)
 {
 	Busdev *bd;
 
@@ -171,6 +180,7 @@ trace("dato %06o %06o %d\n", cpu->ba, cpu->bus->data, b);
 			/* writes 0 for the odd byte.
 			   I think this is correct. */
 			cpu->psw = cpu->bus->data;
+			levelchange(cpu->psw);
 			goto ok;
 		}
 	}
@@ -546,7 +556,7 @@ step(KA11 *cpu)
 		SVC;
 	case 3:	TR(BPT); TRAP(014);
 	case 4:	TR(IOT); TRAP(020);
-	case 5:	TR(RESET); reset(cpu); SVC;
+	case 5:	TR(RESET); ka11_reset(cpu); unibone_bus_init(10) ; SVC;
 	}
 
 	// All other instructions should be reserved now
@@ -567,6 +577,7 @@ trap:
 	PUSH; OUT(SP, PC);
 	INA(TV, PC);
 	INA(TV+2, PSW);
+	levelchange(PSW);
 	/* no trace trap after a trap */
 	oldpsw = PSW;
 
@@ -586,6 +597,9 @@ service:
 	}else if(cpu->traps & TRAP_PWR){
 		cpu->traps &= ~TRAP_PWR;
 		TRAP(024);
+	}else if(cpu->traps & TRAP_BRX){
+		cpu->traps &= ~TRAP_BRX;
+		TRAP(cpu->trapvec);
 	}else if(c < 7 && cpu->traps & TRAP_BR7){
 		cpu->traps &= ~TRAP_BR7;
 		TRAP(cpu->br[3].bg(cpu->br[3].dev));
@@ -605,7 +619,31 @@ service:
 }
 
 void
-condstep(KA11 *cpu)
+ka11_setintr(KA11 *cpu, unsigned vec)
+{
+	cpu->traps |= TRAP_BRX;
+	cpu->trapvec = vec;
+}
+
+void
+ka11_pwrdown(KA11 *cpu)
+{
+	cpu->traps |= TRAP_PWR;
+}
+
+void
+ka11_pwrup(KA11 *cpu)
+{
+	INA(024, PC);
+	INA(024+2, PSW);
+	return ;
+be:
+	trace("BE\n");
+	cpu->be++ ;
+}
+
+void
+ka11_condstep(KA11 *cpu)
 {
 	if((cpu->state == STATE_RUNNING) ||
 	   (cpu->state == STATE_WAITING && cpu->traps)){
@@ -621,7 +659,7 @@ run(KA11 *cpu)
 	while(cpu->state != STATE_HALTED){
 		svc(cpu, cpu->bus);
 
-		condstep(cpu);
+		ka11_condstep(cpu);
 	}
 
 	printstate(cpu);

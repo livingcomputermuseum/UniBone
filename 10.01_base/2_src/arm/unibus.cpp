@@ -94,14 +94,14 @@ char *unibus_c::control2text(uint8_t control) {
 	return buffer;
 }
 
-/* pulse INIT cycle for 50 milliseconds ... source?
+/* pulse INIT cycle for some milliseconds
  */
-void unibus_c::init(void) {
+void unibus_c::init(unsigned pulsewidth_ms) {
 	timeout_c timeout;
 	mailbox->initializationsignal.id = INITIALIZATIONSIGNAL_INIT;
 	mailbox->initializationsignal.val = 1;
 	mailbox_execute(ARM2PRU_INITALIZATIONSIGNAL_SET);
-	timeout.wait_ms(50);
+	timeout.wait_ms(pulsewidth_ms);
 	mailbox->initializationsignal.id = INITIALIZATIONSIGNAL_INIT;
 	mailbox->initializationsignal.val = 0;
 	mailbox_execute(ARM2PRU_INITALIZATIONSIGNAL_SET);

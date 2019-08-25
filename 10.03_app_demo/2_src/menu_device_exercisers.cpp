@@ -121,7 +121,7 @@ void application_c::menu_device_exercisers(void) {
 			if (!strcasecmp(s_opcode, "q")) {
 				ready = true;
 			} else if (!strcasecmp(s_opcode, "init")) {
-				unibus->init();
+				unibus->init(50);
 			} else if (!strcasecmp(s_opcode, "pwr")) {
 				unibus->powercycle();
 			} else if (!strcasecmp(s_opcode, "dbg") && n_fields == 2) {

@@ -140,7 +140,7 @@ void application_c::menu_devices(bool with_CPU) {
 
 	// without PDP-11 CPU no INIT after power ON was generated.
 	// Devices may trash the bus lines.
-	unibus->init();
+	unibus->init(50);
 
 	unibusadapter->enabled.set(true);
 
@@ -262,7 +262,7 @@ void application_c::menu_devices(bool with_CPU) {
 			if (!strcasecmp(s_opcode, "q")) {
 				ready = true;
 			} else if (!strcasecmp(s_opcode, "init")) {
-				unibus->init();
+				unibus->init(50);
 			} else if (!strcasecmp(s_opcode, "pwr")) {
 				unibus->powercycle();
 			} else if (!strcasecmp(s_opcode, "dbg") && n_fields == 2) {

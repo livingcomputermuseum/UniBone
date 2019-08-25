@@ -85,7 +85,7 @@ public:
 	static char *control2text(uint8_t control);
 	static char *data2text(unsigned val);
 
-	void init(void);
+	void init(unsigned pulsewidth_ms);
 	static void set_arbitration_mode(enum arbitration_mode_enum arbitration_mode);
 
 	void powercycle(void);

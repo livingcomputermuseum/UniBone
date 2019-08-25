@@ -69,6 +69,9 @@ public:
 
 	void on_power_changed(void) override;
 	void on_init_changed(void) override;
+	void on_interrupt(uint16_t vector) ;
+	
 };
+
 
 #endif

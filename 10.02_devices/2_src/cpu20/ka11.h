@@ -1,4 +1,4 @@
-// 11/20 cpu - TODO
+// Interface of 11/20 PCU emulator to UniBone
 typedef struct KA11 KA11;
 struct KA11
 {
@@ -16,9 +16,14 @@ struct KA11
 		int (*bg)(void *dev);
 		void *dev;
 	} br[4];
+	word trapvec;	// for unibone
 
 	word sw;
 };
-//void run(KA11 *cpu);
-void reset(KA11 *cpu);
-void condstep(KA11 *cpu);
+
+void ka11_reset(KA11 *cpu);
+void ka11_setintr(KA11 *cpu, unsigned vec);
+void ka11_pwrdown(KA11 *cpu);
+void ka11_pwrup(KA11 *cpu);
+void ka11_condstep(KA11 *cpu);
+
