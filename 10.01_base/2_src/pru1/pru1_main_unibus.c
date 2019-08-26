@@ -58,7 +58,7 @@
 #include "pru1_buslatches.h"
 #include "pru1_statemachine_arbitration.h"
 #include "pru1_statemachine_dma.h"
-#include "pru1_statemachine_intr.h"
+#include "pru1_statemachine_intr_master.h"
 #include "pru1_statemachine_slave.h"
 
 // supress warnigns about using void * as function pointers
@@ -149,10 +149,10 @@ void main(void) {
 					uint8_t idx = PRIORITY_ARBITRATION_INTR_BIT2IDX(grant_mask);
 					// now transfer INTR vector for interupt of GRANted level.
 					// vector and ARM context have been setup by ARM before ARM2PRU_INTR already
-					sm_intr.vector = mailbox.intr.vector[idx];
-					sm_intr.level_index = idx; // to be returned to ARM on complete
+					sm_intr_master.vector = mailbox.intr.vector[idx];
+					sm_intr_master.level_index = idx; // to be returned to ARM on complete
 
-					sm_data_master_state = (statemachine_state_func) &sm_intr_start;
+					sm_data_master_state = (statemachine_state_func) &sm_intr_master_start;
 				}
 			}
 		} else {
@@ -224,7 +224,7 @@ void main(void) {
 				// by ARM, if access to "active" register triggers INTR.
 				sm_arb.request_mask |= mailbox.intr.priority_arbitration_bit;
 				// sm_arb_worker() evaluates this,  extern Arbitrator raises Grant,
-				// vector of GRANted level is transfered with statemachine sm_intr
+				// vector of GRANted level is transfered with statemachine sm_intr_master
 
 				// Atomically change state in a device's associates interrupt register.
 				// The Interupt Register is set immediately. No wait for INTR GRANT, 

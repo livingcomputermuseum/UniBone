@@ -1,6 +1,6 @@
-/* pru1_statemachine_intr.h: state machine to transfer an interrupt vector
+/* pru1_statemachine_intr_master.h: device transmits an interrupt vector after arb
 
- Copyright (c) 2018, Joerg Hoppe
+ Copyright (c) 2018-2019, Joerg Hoppe
  j_hoppe@t-online.de, www.retrocmp.com
 
  Permission is hereby granted, free of charge, to any person obtaining a
@@ -24,18 +24,18 @@
  29-jun-2019	JH		rework: state returns ptr to next state func
  12-nov-2018  JH      entered beta phase
  */
-#ifndef  _PRU1_STATEMACHINE_INTR_H_
-#define  _PRU1_STATEMACHINE_INTR_H_
+#ifndef  _PRU1_STATEMACHINE_INTR_MASTER_H_
+#define  _PRU1_STATEMACHINE_INTR_MASTER_H_
 
 #include "pru1_utils.h"	// statemachine_state_func
 
 typedef struct {
 	uint16_t vector; // interrupt vector to transfer
 	uint8_t level_index; // 0..3 = BR..BR7. to be returned to ARM on complete
-} statemachine_intr_t;
+} statemachine_intr_master_t;
 
-extern statemachine_intr_t sm_intr;
+extern statemachine_intr_master_t sm_intr_master;
 
-statemachine_state_func sm_intr_start(void);
+statemachine_state_func sm_intr_master_start(void);
 
 #endif
