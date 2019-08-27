@@ -553,6 +553,7 @@ step(KA11 *cpu)
 	case 2:	TR(RTI);
 		BA = SP; POP; IN(PC);
 		BA = SP; POP; IN(PSW);
+		levelchange(cpu->psw) ;
 		SVC;
 	case 3:	TR(BPT); TRAP(014);
 	case 4:	TR(IOT); TRAP(020);
