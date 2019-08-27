@@ -1,4 +1,4 @@
-/* pru1_statemachine_slave.h: state machine for execution of slave DATO* or DATI* cycles
+/* pru1_statemachine_intr_slave.h: CPU receives interrupt vector
 
  Copyright (c) 2018-2019, Joerg Hoppe
  j_hoppe@t-online.de, www.retrocmp.com
@@ -21,15 +21,20 @@
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
- 29-jun-2019	JH		rework: state returns ptr to next state func
- 12-nov-2018  JH      entered beta phase
+ 26-aug-2019	JH	start
  */
-#ifndef  _PRU1_STATEMACHINE_DATA_SLAVE_H_
-#define  _PRU1_STATEMACHINE_DATA_SLAVE_H_
+#ifndef  _PRU1_STATEMACHINE_INTR_SLAVE_H_
+#define  _PRU1_STATEMACHINE_INTR_SLAVE_H_
 
-#include <stdint.h>
 #include "pru1_utils.h"	// statemachine_state_func
 
-statemachine_state_func sm_data_slave_start(void);
+typedef struct {
+	uint16_t vector; // interrupt vector to transfer
+	uint8_t level_index; // 0..3 = BR..BR7. to be returned to ARM on complete
+} statemachine_intr_slave_t;
+
+extern statemachine_intr_slave_t sm_intr_slave;
+
+statemachine_state_func sm_intr_slave_start(void);
 
 #endif

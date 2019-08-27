@@ -1,6 +1,6 @@
-/* pru1_statemachine_slave.h: state machine for execution of slave DATO* or DATI* cycles
+/* unibuscpu.hpp: base class for all CPU implementations
 
- Copyright (c) 2018-2019, Joerg Hoppe
+ Copyright (c) 2019, Joerg Hoppe
  j_hoppe@t-online.de, www.retrocmp.com
 
  Permission is hereby granted, free of charge, to any person obtaining a
@@ -21,15 +21,32 @@
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
- 29-jun-2019	JH		rework: state returns ptr to next state func
- 12-nov-2018  JH      entered beta phase
+27-aug-2019	JH      start
  */
-#ifndef  _PRU1_STATEMACHINE_DATA_SLAVE_H_
-#define  _PRU1_STATEMACHINE_DATA_SLAVE_H_
 
-#include <stdint.h>
-#include "pru1_utils.h"	// statemachine_state_func
+#ifndef _UNIBUSCPU_HPP_
+#define _UNIBUSCPU_HPP_
 
-statemachine_state_func sm_data_slave_start(void);
+
+#include "unibusdevice.hpp"
+
+// a CPU is just a device with INTR facilities
+class unibuscpu_c: public unibusdevice_c {
+	public:
+			unibuscpu_c(): unibusdevice_c() {
+				power_event = power_event_none ;
+				} ;
+
+	enum power_event_enum   {power_event_none, power_event_up, power_event_down} ;
+	
+	enum power_event_enum power_event ;
+		
+	// called by PRU on INTR, returns new priority level
+	virtual void on_interrupt(uint16_t vector) = 0 ;
+
+	
+	virtual void on_power_changed(void) ;
+	virtual void on_init_changed(void) ;
+};
 
 #endif

@@ -1,6 +1,6 @@
-/* pru1_statemachine_slave.h: state machine for execution of slave DATO* or DATI* cycles
+/* unibuscpu.cpp: base class for all CPU implementations
 
- Copyright (c) 2018-2019, Joerg Hoppe
+ Copyright (c) 2019, Joerg Hoppe
  j_hoppe@t-online.de, www.retrocmp.com
 
  Permission is hereby granted, free of charge, to any person obtaining a
@@ -21,15 +21,34 @@
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
- 29-jun-2019	JH		rework: state returns ptr to next state func
- 12-nov-2018  JH      entered beta phase
+27-aug-2019	JH      start
  */
-#ifndef  _PRU1_STATEMACHINE_DATA_SLAVE_H_
-#define  _PRU1_STATEMACHINE_DATA_SLAVE_H_
 
-#include <stdint.h>
-#include "pru1_utils.h"	// statemachine_state_func
+#include "unibuscpu.hpp"
 
-statemachine_state_func sm_data_slave_start(void);
+void unibuscpu_c::on_power_changed(void) {
+// called within a bus_cycle, and initiates other cycles?!
+//assert(dbg==0) ;
+	if (power_down) { // power-on defaults
+		INFO("CPU: ACLO failed");
+		power_event = power_event_down;
+//			ka11_pwrdown(&the_cpu->ka11);
+		// ACLO failed. 
+		// CPU traps to vector 24 and has 2ms time to execute code
+	} else {
+		INFO("CPU: DCLO restored");
+		power_event = power_event_up;
+//			ka11_pwrup(&the_cpu->ka11);
+		// DCLO restored
+		// CPU loads PC and PSW from vector 24 
+		// if HALTed: do nothing, user is expected to setup PC and PSW ?
+	}
 
-#endif
+}
+
+// UNIBUS INIT: clear all registers
+void unibuscpu_c::on_init_changed(void) {
+// a CPU does not react to INIT ... else its own RESET would reset it.
+}
+
+

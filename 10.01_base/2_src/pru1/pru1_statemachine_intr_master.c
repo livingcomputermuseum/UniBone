@@ -29,7 +29,6 @@
  Precondition: BBSY already asserted (arbitration got)
 
  */
-#define _PRU1_STATEMACHINE_INTR_C_
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -86,7 +85,7 @@ static statemachine_state_func sm_intr_master_state_2() {
 	// Complete and signal this INTR transaction only after ARM has processed the previous event.
 	// INTR may come faster than ARM Linux can process,
 	// especially if Arbitrator grants INTRs of multiple levels almost simultaneaously in parallel.
-	if (mailbox.events.event_intr)
+	if (mailbox.events.event_intr_master)
 		return (statemachine_state_func) &sm_intr_master_state_2; // wait
 
 	// remove vector
@@ -106,7 +105,7 @@ static statemachine_state_func sm_intr_master_state_2() {
 	// signal to ARM which INTR was completed
 	// change mailbox only after ARM has ack'ed mailbox.events.event_intr
 	mailbox.events.event_intr_level_index = sm_intr_master.level_index;
-	mailbox.events.event_intr = 1;
+	mailbox.events.event_intr_master = 1;
 	// ARM is clearing this, before requesting new interrupt of same level
 	// so no concurrent ARP+PRU access
 	PRU2ARM_INTERRUPT

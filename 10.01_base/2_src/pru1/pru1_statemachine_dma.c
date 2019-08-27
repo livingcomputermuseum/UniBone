@@ -50,8 +50,6 @@
 
  ! Uses single global timeout, don't run in parallel with other statemachines using timeout  !
  */
-#define _PRU1_STATEMACHINE_DMA_C_
-
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>

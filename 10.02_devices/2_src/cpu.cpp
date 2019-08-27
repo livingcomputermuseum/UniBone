@@ -41,8 +41,10 @@
  */
 static cpu_c *the_cpu = NULL;
 
+int dbg = 0;
+
 cpu_c::cpu_c() :
-		unibusdevice_c()  // super class constructor
+		unibuscpu_c()  // super class constructor
 {
 	// static config
 	name.value = "CPU20";
@@ -81,7 +83,7 @@ bool cpu_c::on_param_changed(parameter_c *param) {
 			init.value = false;
 		}
 	}
-	return device_c::on_param_changed(param); // more actions (for enable)
+	return unibusdevice_c::on_param_changed(param); // more actions (for enable)
 }
 
 // background worker.
@@ -93,6 +95,8 @@ void cpu_c::worker(unsigned instance) {
 	unsigned dr = 0760102;
 	unsigned opcode = 0;
 	(void) opcode;
+
+	power_event = power_event_none;
 	while (!workers_terminate) {
 		// run full speed!
 		timeout.wait_us(1);
@@ -104,6 +108,17 @@ void cpu_c::worker(unsigned instance) {
 		ka11_condstep(&ka11);
 		if (runmode.value != (ka11.state != 0))
 			runmode.value = ka11.state != 0;
+
+		// serialize asynchronous power events
+		if (runmode.value) {
+			// don't call power traps if HALTed. Also not on CONT.
+			if (power_event == power_event_down)
+				ka11_pwrdown(&the_cpu->ka11);
+				// stop stop some time after power down
+			else if (power_event == power_event_up)
+				ka11_pwrup(&the_cpu->ka11);
+			power_event = power_event_none; // processed
+		}
 
 		if (init.value) {
 			// user wants CPU reset
@@ -146,29 +161,14 @@ void cpu_c::on_after_register_access(unibusdevice_register_t *device_reg,
 	UNUSED(unibus_control);
 }
 
-// TODO
-void cpu_c::on_power_changed(void) {
-	if (power_down) { // power-on defaults
-		INFO("CPU: ACLO failed");
-		ka11_pwrdown(&the_cpu->ka11);
-		// ACLO failed. 
-		// CPU traps to vector 24 and has 2ms time to execute code
-	} else {
-		INFO("CPU: DCLO restored");
-		ka11_pwrup(&the_cpu->ka11);
-		// DCLO restored
-		// CPU loads PC and PSW from vector 24 
-	}
-}
 
-// UNIBUS INIT: clear all registers
-void cpu_c::on_init_changed(void) {
-// a CPU does not react to INIT ... else its own RESET would reset it.
 
-}
-
-// TODO
 // CPU received interrupt vector from UNIBUS
+// PRU triggers this via unibusadapter, 
+// mailbox->arbitrator.cpu_priority_level is CPU_PRIORITY_LEVEL_FETCHING
+// CPU fetches PSW and calls unibone_prioritylevelchange(), which
+// sets mailbox->arbitrator.cpu_priority_level and 
+// PRU is allowed now to grant BGs again.
 void cpu_c::on_interrupt(uint16_t vector) {
 	// CPU sequence:
 	// push PSW to stack
@@ -184,35 +184,43 @@ extern "C" {
 int unibone_dato(unsigned addr, unsigned data) {
 	uint16_t wordbuffer = (uint16_t) data;
 
+	dbg = 1;
 	unibusadapter->cpu_DATA_transfer(the_cpu->data_transfer_request, UNIBUS_CONTROL_DATO, addr,
 			&wordbuffer);
+	dbg = 0;
 	return the_cpu->data_transfer_request.success;
 }
 
 int unibone_datob(unsigned addr, unsigned data) {
 	uint16_t wordbuffer = (uint16_t) data;
 	// TODO DATOB als 1 byte-DMA !
+	dbg = 1;
 	unibusadapter->cpu_DATA_transfer(the_cpu->data_transfer_request, UNIBUS_CONTROL_DATOB, addr,
 			&wordbuffer);
+	dbg = 0;
 	return the_cpu->data_transfer_request.success;
 }
 
 int unibone_dati(unsigned addr, unsigned *data) {
 	uint16_t wordbuffer;
+	dbg = 1;
 	unibusadapter->cpu_DATA_transfer(the_cpu->data_transfer_request, UNIBUS_CONTROL_DATI, addr,
 			&wordbuffer);
 	*data = wordbuffer;
+	dbg = 0;
 	// printf("DATI; ba=%o, data=%o\n", addr, *data) ;
 
 	return the_cpu->data_transfer_request.success;
 }
 
 // CPU has changed the arbitration level, just forward
+// if this is called as result of INTR fector PC and PSW fetch,
+// mailbox->arbitrator.cpu_priority_level was CPU_PRIORITY_LEVEL_FETCHING
+// In that case, PRU is allowed now to grant BGs again.
 void unibone_prioritylevelchange(uint8_t level) {
 	mailbox->arbitrator.cpu_priority_level = level;
 }
 
-// TODO
 // CPU executes RESET opcode -> pulses INIT line
 void unibone_bus_init(unsigned pulsewidth_ms) {
 	unibus->init(pulsewidth_ms);

@@ -58,11 +58,12 @@
 #include "pru1_buslatches.h"
 #include "pru1_statemachine_arbitration.h"
 #include "pru1_statemachine_dma.h"
+#include "pru1_statemachine_data_slave.h"
 #include "pru1_statemachine_intr_master.h"
-#include "pru1_statemachine_slave.h"
+#include "pru1_statemachine_intr_slave.h"
 
 // supress warnigns about using void * as function pointers
-//	sm_slave_state = (statemachine_state_func)&sm_slave_start;
+//	sm_slave_state = (statemachine_state_func)&sm_data_slave_start;
 // while (sm_slave_state = sm_slave_state()) << usage
 #pragma diag_push
 #pragma diag_remark=515
@@ -93,7 +94,10 @@ void main(void) {
 	statemachine_arb_worker_func sm_arb_worker = &sm_arb_worker_client;
 	statemachine_state_func sm_data_slave_state = NULL;
 	statemachine_state_func sm_data_master_state = NULL;
+	statemachine_state_func  sm_intr_slave_state = NULL ;
 	// these are function pointers: could be 16bit on PRU?
+
+	bool emulate_cpu = false;
 
 	/* Clear SYSCFG[STANDBY_INIT] to enable OCP master port */
 	CT_CFG.SYSCFG_bit.STANDBY_INIT = 0;
@@ -118,15 +122,26 @@ void main(void) {
 		uint8_t arm2pru_req_cached;
 
 		if (sm_data_master_state == NULL) {
-			// State 1 "SLAVE" 
+			// State 1 "SLAVE"
+
+			// DATA or INTR for CPU?
+			
 			// fast: a complete slave data cycle
 			if (!sm_data_slave_state)
-				sm_data_slave_state = (statemachine_state_func) &sm_slave_start;
+				sm_data_slave_state = (statemachine_state_func) &sm_data_slave_start;
 			while ((sm_data_slave_state = sm_data_slave_state())
 					&& !mailbox.events.event_deviceregister)
 				// throws signals to ARM,
 				// Acess to internal registers may may issue AMR2PRU opcode, so exit loop then
 				;// execute complete slave cycle, then check NPR/INTR
+
+			if (emulate_cpu) {
+				// same code loop as for DATA cycle
+				if (!sm_intr_slave_state)
+					sm_intr_slave_state = (statemachine_state_func) &sm_intr_slave_start;
+				while ((sm_intr_slave_state = sm_intr_slave_state())
+						&& !mailbox.events.event_intr_slave) ;
+			}
 
 			// signal INT or PWR FAIL to ARM
 			do_event_initializationsignals();
@@ -160,10 +175,10 @@ void main(void) {
 			// we have been GRANTed bus mastership and are doing DMA or INTR
 			// SACK held here -> no further arbitration
 			// INTR is only 1 cycle, DMA has SACK set all the time, arbitration
-			// prohibited then.		
+			// prohibited then.
 
 			sm_data_master_state = sm_data_master_state(); // execute only ONE state ,
-			// else DMA blocks will block prcoessing of other state machines
+			// else DMA blocks will block processing of other state machines
 			// throws signals to ARM, causes may issue mailbox.arm2pru_req
 		}
 
@@ -193,7 +208,7 @@ void main(void) {
 				if (mailbox.arbitrator.cpu_BBSY) {
 					// ARM CPU emulation did a single word DATA transfer with cpu_DATA_transfer()
 					if (mailbox.arbitrator.device_BBSY) {
-						// ARM started cpu DATA transfer, but arbitration logic 
+						// ARM started cpu DATA transfer, but arbitration logic
 						// GRANTed a device request in the mean time. Tell ARM.
 						mailbox.arm2pru_req = PRU2ARM_DMA_CPU_TRANSFER_BLOCKED; // error
 						mailbox.arbitrator.cpu_BBSY = false;
@@ -227,7 +242,7 @@ void main(void) {
 				// vector of GRANted level is transfered with statemachine sm_intr_master
 
 				// Atomically change state in a device's associates interrupt register.
-				// The Interupt Register is set immediately. No wait for INTR GRANT, 
+				// The Interupt Register is set immediately. No wait for INTR GRANT,
 				// INTR level may be blocked.
 				if (mailbox.intr.iopage_register_handle)
 					deviceregisters.registers[mailbox.intr.iopage_register_handle].value =
@@ -259,7 +274,16 @@ void main(void) {
 				}
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
-			case ARM2PRU_HALT:
+		case ARM2PRU_CPU_ENABLE:
+				// bool flag much faster to access then shared mailbox member.
+				emulate_cpu = mailbox.cpu_enable ;
+				if (emulate_cpu)				
+					sm_arb_worker = &sm_arb_worker_master;
+				else
+					sm_arb_worker = &sm_arb_worker_client;
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				break ;
+		case ARM2PRU_HALT:
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				__halt(); // LA: trigger on timeout of REG_WRITE
 				break;

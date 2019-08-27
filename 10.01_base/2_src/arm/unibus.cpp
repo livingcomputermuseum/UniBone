@@ -116,7 +116,7 @@ void unibus_c::init(unsigned pulsewidth_ms) {
  */
 void unibus_c::powercycle(void) {
 	timeout_c timeout;
-	const unsigned delay_ms = 100; // time between phases
+	const unsigned delay_ms = 200; // time between phases
 	mailbox->initializationsignal.id = INITIALIZATIONSIGNAL_ACLO;
 	mailbox->initializationsignal.val = 1;
 	mailbox_execute(ARM2PRU_INITALIZATIONSIGNAL_SET);

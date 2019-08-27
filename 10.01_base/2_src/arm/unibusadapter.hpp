@@ -49,6 +49,9 @@ public:
 	void clear();
 };
 
+class unibuscpu_c ;
+
+
 // is a device_c. need a thread (but no params)
 class unibusadapter_c: public device_c {
 private:
@@ -60,6 +63,8 @@ private:
 	dma_request_c 	*cpu_data_transfer_request ; // needs no link to CPU
 
 	pthread_mutex_t requests_mutex;
+
+	unibuscpu_c	*the_cpu ; // only one unibuscpu_c may be registered
 
 	void worker_init_event(void);
 	void worker_power_event(bool power_down);

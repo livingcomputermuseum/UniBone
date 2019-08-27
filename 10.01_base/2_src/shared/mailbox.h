@@ -44,12 +44,13 @@
 #define ARM2PRU_ARB_MODE_NONE		11               // DMA without NPR/NPG/SACK arbitration
 #define ARM2PRU_ARB_MODE_CLIENT		12               // DMA with arbitration by external Arbitrator
 #define ARM2PRU_ARB_MODE_MASTER		13               // DMA as Arbitrator
-#define ARM2PRU_DMA		14               // DMA with selcted arbitration
+#define ARM2PRU_DMA		14               // DMA with selected arbitration
 #define PRU2ARM_DMA_CPU_TRANSFER_BLOCKED 15 // possible result of ARM2PRU_DMA
 #define ARM2PRU_INTR		16               // INTR with arbitration by external Arbitrator
 #define ARM2PRU_INTR_CANCEL		17               // clear INTR which has been requested
-#define ARM2PRU_DDR_FILL_PATTERN	18	// fill DDR with test pattern
-#define ARM2PRU_DDR_SLAVE_MEMORY	19	// use DDR as UNIBUS slave memory
+#define ARM2PRU_CPU_ENABLE		18	// siwtch CPU master side functions ON/OFF
+#define ARM2PRU_DDR_FILL_PATTERN	19	// fill DDR with test pattern
+#define ARM2PRU_DDR_SLAVE_MEMORY	20	// use DDR as UNIBUS slave memory
 
 
 // signal IDs for ARM2PRU_INITALIZATIONSIGNAL_* 
@@ -75,6 +76,10 @@
 #define PRIORITY_ARBITRATION_BIT_NP	0x10
 #define PRIORITY_ARBITRATION_INTR_MASK	0x0f	// BR4|BR5|BR6|BR7
 #define PRIORITY_ARBITRATION_BIT_MASK	0x1f
+
+// CPU pririty level invalid between INTR receive and fetch of next PSW
+#define CPU_PRIORITY_LEVEL_FETCHING	0xff
+
 
 // data for a requested DMA operation
 #define	PRU_MAX_DMA_WORDCOUNT	512
@@ -175,7 +180,7 @@ typedef struct {
 	// differemt events can be raised asynchronically and concurrent,
 	// but a single event type is sequentially raised by PRU and cleared by ARM.
 
-	/* Access to device register ***/
+	/*** Access to device register ***/
 	uint8_t event_deviceregister; // trigger flag
 	// info about register access
 	uint8_t unibus_control; // DATI,DATO,DATOB
@@ -197,24 +202,28 @@ typedef struct {
 	uint8_t event_dma; // trigger flag
 	uint8_t event_dma_cpu_transfer ; // 1: ARM must process DMa as compelted cpu DATA transfer
 
-	/*** Event priority arbitration data transfer complete
+	/*** Event priority arbitration INTR transfer complete
 	 After ARM2PRU_INTR, one of BR4/5/6/7 NP was requested,
 	 granted, and the data transfer was handled as bus master.
 	 */
 	// ---dword---
-	uint8_t event_intr; // trigger flag: 1 = one of BR4,5,6,7 vector on UNIBUS
+	uint8_t event_intr_master; // trigger flag: 1 = one of BR4,5,6,7 vector on UNIBUS
 	uint8_t event_intr_level_index; // 0..3 -> BR4..BR7
-	uint8_t _dummy2, _dummy3;
+	/*** INTR transmitted by devices as master was received by CPU as slave ***/
+	uint8_t event_intr_slave; // trigger flag: 1 = one of BR4,5,6,7 vector on UNIBUS
+	uint8_t _dummy1 ;
 	// ---dword---
+	uint16_t event_intr_vector ; // received vector
 
 	/*** INIT or Power cycle seen on UNIBUS ***/
 	uint8_t event_init; // trigger flag
 	uint8_t event_power; // trigger flag
+	// ---dword---
 	uint8_t initialization_signals_prev; // on event: a signal changed from this ...
 	// ---dword---
 	uint8_t initialization_signals_cur; // ... to this
 
-	// uint8_t dummy[2]; // make record multiple of dword !!!
+	uint8_t _dummy2[2]; // make record multiple of dword !!!
 } mailbox_events_t;
 
 typedef struct {
@@ -242,6 +251,7 @@ typedef struct {
 		mailbox_buslatch_test_t buslatch_test;
 		mailbox_buslatch_exerciser_t buslatch_exerciser;
 		mailbox_initializationsignal_t initializationsignal ;
+		uint32_t	cpu_enable;
 	};
 } mailbox_t;
 

@@ -68,6 +68,8 @@ using namespace std;
 #include "iopageregister.h"
 #include "priorityrequest.hpp"
 #include "unibusadapter.hpp"
+#include "unibuscpu.hpp"
+
 unibusadapter_c *unibusadapter; // another Singleton
 // is registered in device_c.list<devices> ... order of static constructor calls ???
 
@@ -85,11 +87,13 @@ unibusadapter_c::unibusadapter_c() :
 		devices[i] = NULL;
 	line_INIT = false;
 	line_DCLO = false;
-	line_ACLO = false ;
+	line_ACLO = false;
 
 	requests_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 	requests_init();
+
+	the_cpu = NULL;
 }
 
 bool unibusadapter_c::on_param_changed(parameter_c *param) {
@@ -214,6 +218,15 @@ bool unibusadapter_c::register_device(unibusdevice_c& device) {
 		register_handle++;
 	}
 
+	// if its a CPU, switch PRU to "with_CPU"
+	unibuscpu_c *cpu = dynamic_cast<unibuscpu_c*>(&device);
+	if (cpu) {
+		assert(the_cpu == NULL); // only one allowed!
+		the_cpu = cpu;
+		// TODO: PRU code debuggen
+		//mailbox->cpu_enable = 1 ;
+		//mailbox_execute(ARM2PRU_CPU_ENABLE) ;
+	}
 	return true;
 }
 
@@ -226,6 +239,14 @@ void unibusadapter_c::unregister_device(unibusdevice_c& device) {
 	assert(device.handle > 0); // must have been installed
 
 	INFO("UnibusAdapter: UnRegistering device %s.", device.name.value.c_str());
+
+	// if its a CPU, disable PRU to "with_CPU"
+	unibuscpu_c *cpu = dynamic_cast<unibuscpu_c*>(&device);
+	if (cpu) {
+		mailbox->cpu_enable = 0;
+		mailbox_execute(ARM2PRU_CPU_ENABLE);
+		the_cpu = NULL;
+	}
 
 	// remove "from backplane"
 	devices[device.handle] = NULL;
@@ -302,8 +323,8 @@ void unibusadapter_c::requests_cancel_scheduled(void) {
 				prl->slot_request[slot] = NULL;
 				// signal to blocking DMA() or INTR()
 				pthread_mutex_lock(&req->complete_mutex);
-                                	req->complete = true;
-					pthread_cond_signal(&req->complete_cond);
+				req->complete = true;
+				pthread_cond_signal(&req->complete_cond);
 				pthread_mutex_unlock(&req->complete_mutex);
 			}
 	}
@@ -492,8 +513,8 @@ void unibusadapter_c::request_active_complete(unsigned level_index) {
 
 	// signal to DMA() or INTR()
 	pthread_mutex_lock(&tmprq->complete_mutex);
-		tmprq->complete = true;
-		pthread_cond_signal(&tmprq->complete_cond);
+	tmprq->complete = true;
+	pthread_cond_signal(&tmprq->complete_cond);
 	pthread_mutex_unlock(&tmprq->complete_mutex);
 
 }
@@ -525,7 +546,7 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 
 	// 	dma_request.level-index, priority_slot in constructor
 	dma_request.complete = false;
-        dma_request.success = false;
+	dma_request.success = false;
 	dma_request.executing_on_PRU = false;
 	dma_request.unibus_control = unibus_control;
 	dma_request.unibus_start_addr = unibus_addr;
@@ -551,12 +572,13 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 	// DEBUG("device DMA start: %s @ %06o, len=%d", unibus->control2text(unibus_control), unibus_addr, wordcount);
 	if (blocking) {
 		pthread_mutex_lock(&dma_request.complete_mutex);
-		 // DMA() is blocking: Wait for request to finish.
-		 //	pthread_mutex_lock(&dma_request.mutex);
-		 while (!dma_request.complete) {
-		 int res = pthread_cond_wait(&dma_request.complete_cond, &dma_request.complete_mutex);
-		 assert(!res) ;
-		 }
+		// DMA() is blocking: Wait for request to finish.
+		//	pthread_mutex_lock(&dma_request.mutex);
+		while (!dma_request.complete) {
+			int res = pthread_cond_wait(&dma_request.complete_cond,
+					&dma_request.complete_mutex);
+			assert(!res);
+		}
 		pthread_mutex_unlock(&dma_request.complete_mutex);
 	}
 }
@@ -681,17 +703,18 @@ void unibusadapter_c::cancel_INTR(intr_request_c& intr_request) {
 	// both empty, or both filled
 	assert((prl->slot_request_mask == 0) == (prl->active == NULL));
 
-        pthread_mutex_lock(&intr_request.complete_mutex);
-		pthread_cond_signal(&intr_request.complete_cond);
+	pthread_mutex_lock(&intr_request.complete_mutex);
+	pthread_cond_signal(&intr_request.complete_cond);
 	pthread_mutex_unlock(&intr_request.complete_mutex);
 
 	pthread_mutex_unlock(&requests_mutex); // lock schedule table operations
 
 }
 
+
 // do DATO/DATI as master CPU.
 // no NPR/NPG/SACK request, but waiting for BUS idle
-// result: success, else BUS TIMOUT
+// result: success, else BUS TIMEOUT
 void unibusadapter_c::cpu_DATA_transfer(dma_request_c& dma_request, uint8_t unibus_control,
 		uint32_t unibus_addr, uint16_t *buffer) {
 	timeout_c timeout;
@@ -721,17 +744,15 @@ void unibusadapter_c::cpu_DATA_transfer(dma_request_c& dma_request, uint8_t unib
 		// then ARM2PRU_DMA is answered with an error
 		// infinite time may have passed after that check above
 	} while (!success);
-	// wait for PRU complete event
-	//pthread_mutex_lock(&cpu_data_transfer_request->complete_mutex);
-	//pthread_mutex_unlock(&cpu_data_transfer_request->complete_mutex);
-    pthread_mutex_lock(&cpu_data_transfer_request->complete_mutex);
-		 // DMA() is blocking: Wait for request to finish.
-		 //	pthread_mutex_lock(&dma_request.mutex);
-		 while (!cpu_data_transfer_request->complete) {
-		 int res = pthread_cond_wait(&cpu_data_transfer_request->complete_cond, &cpu_data_transfer_request->complete_mutex);
-		 assert(!res) ;
-		 }
-		pthread_mutex_unlock(&cpu_data_transfer_request->complete_mutex);
+	// wait for PRU complete event, no clear why that double lock() is working anyhow!
+	pthread_mutex_lock(&cpu_data_transfer_request->complete_mutex);
+	// DMA() is blocking: Wait for request to finish.
+	while (!cpu_data_transfer_request->complete) {
+		int res = pthread_cond_wait(&cpu_data_transfer_request->complete_cond,
+				&cpu_data_transfer_request->complete_mutex);
+		assert(!res);
+	}
+	pthread_mutex_unlock(&cpu_data_transfer_request->complete_mutex);
 
 	// Copy incoming data from mailbox DMA buffer
 	if (unibus_control == UNIBUS_CONTROL_DATI)
@@ -1048,7 +1069,8 @@ void unibusadapter_c::worker(unsigned instance) {
 						"EVENT_INITIALIZATIONSIGNALS: (sigprev=0x%x,) cur=0x%x, init_raise=%d, init_fall=%d, dclo_raise/fall=%d%/d, aclo_raise/fall=%d/%d",
 						mailbox->events.initialization_signals_prev,
 						mailbox->events.initialization_signals_cur, init_raising_edge,
-						init_falling_edge, dclo_raising_edge, dclo_falling_edge, aclo_raising_edge, aclo_falling_edge);
+						init_falling_edge, dclo_raising_edge, dclo_falling_edge,
+						aclo_raising_edge, aclo_falling_edge);
 
 			}
 			if (dclo_raising_edge)
@@ -1073,15 +1095,28 @@ void unibusadapter_c::worker(unsigned instance) {
 				pthread_mutex_unlock(&requests_mutex);
 				mailbox->events.event_dma = 0; // PRU may re-raise and change mailbox now
 			}
-			if (mailbox->events.event_intr) {
-				// INTRs are granted unpredictable by Arbitrator 
+			if (mailbox->events.event_intr_master) {
+				// Device INTR was transmitted. INTRs are granted unpredictable by Arbitrator 
 				any_event = true;
 				// INTR of which level? the .active rquest of the"
 				pthread_mutex_lock(&requests_mutex);
 				worker_intr_complete_event(mailbox->events.event_intr_level_index);
 				pthread_mutex_unlock(&requests_mutex);
-				mailbox->events.event_intr = 0; // PRU may re-raise and change mailbox now
+				mailbox->events.event_intr_master = 0; // PRU may re-raise and change mailbox now
 			}
+			if (mailbox->events.event_intr_slave) {
+				// If CPU emulation enabled: a device INTR was detected on bus, 
+				assert(the_cpu); // if INTR events are enabled, cpu must be instantiated
+				// see register_device()
+				the_cpu->on_interrupt(mailbox->events.event_intr_vector);
+				// clear SSYN, INTR cycle completes
+				mailbox->events.event_intr_slave = 0;
+				// mailbox->arbitrator.cpu_priority_level now CPU_PRIORITY_LEVEL_FETCHING
+				// BG grants blocked
+
+				// PRU may re-raise and change mailbox now
+			}
+
 			if (init_raising_edge) // INIT deasserted -> asserted.	DATI/DATO cycle only possible before that.
 				worker_init_event();
 		}

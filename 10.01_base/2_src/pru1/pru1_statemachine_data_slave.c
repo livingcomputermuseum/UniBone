@@ -1,6 +1,6 @@
-/* pru1_statemachine_slave.c: state machine for execution of slave DATO* or DATI* cycles
+/* pru1_statemachine_data_slave.c: state machine for execution of slave DATO* or DATI* cycles
 
- Copyright (c) 2018, Joerg Hoppe
+ Copyright (c) 2018-2019, Joerg Hoppe
  j_hoppe@t-online.de, www.retrocmp.com
 
  Permission is hereby granted, free of charge, to any person obtaining a
@@ -34,8 +34,6 @@
  - address is evaluated, ggf mem access
  */
 
-#define _PRU1_STATEMACHINE_SLAVE_C_
-
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -46,16 +44,16 @@
 #include "iopageregister.h"
 
 #include "pru1_buslatches.h"
-#include "pru1_statemachine_slave.h"
+#include "pru1_statemachine_data_slave.h"
 
 // forwards ;
-//statemachine_state_func sm_slave_start(void);
-static statemachine_state_func sm_slave_state_10(void);
-static statemachine_state_func sm_slave_state_20(void);
-//static statemachine_state_func sm_slave_state_99(void);
+//statemachine_state_func sm_data_slave_start(void);
+static statemachine_state_func sm_data_slave_state_10(void);
+static statemachine_state_func sm_data_slave_state_20(void);
+//static statemachine_state_func sm_data_slave_state_99(void);
 
 // check for MSYN active
-statemachine_state_func sm_slave_start() {
+statemachine_state_func sm_data_slave_start() {
 	uint8_t latch2val, latch3val, latch4val;
 	// uint8_t iopage;
 	uint32_t addr;
@@ -111,11 +109,11 @@ statemachine_state_func sm_slave_start() {
 			buslatches_setbyte(6, data >> 8);
 			// set SSYN = latch[4], bit 5
 			buslatches_setbits(4, BIT(5), BIT(5));
-			return (statemachine_state_func) &sm_slave_state_20;
+			return (statemachine_state_func) &sm_data_slave_state_20;
 			// perhaps PRU2ARM_INTERRUPT now active
 		} else
 			// no address match: wait for MSYN to go inactive
-			// return (statemachine_state_func) &sm_slave_state_99;
+			// return (statemachine_state_func) &sm_data_slave_state_99;
 			return NULL ;
 	case UNIBUS_CONTROL_DATO:
 		// fetch data in any case
@@ -128,11 +126,11 @@ statemachine_state_func sm_slave_start() {
 			// SSYN = latch[4], bit 5
 			buslatches_setbits(4, BIT(5), BIT(5));
 			// wait for MSYN to go inactive, then SSYN inactive
-			return (statemachine_state_func) &sm_slave_state_10;
+			return (statemachine_state_func) &sm_data_slave_state_10;
 			// perhaps PRU2ARM_INTERRUPT now active
 		} else
 			// no address match: wait for MSYN to go inactive
-			// return (statemachine_state_func) &sm_slave_state_99;
+			// return (statemachine_state_func) &sm_data_slave_state_99;
 			return NULL ;
 	case UNIBUS_CONTROL_DATOB:
 		// A00 = 1, odd address: get upper byte
@@ -149,11 +147,11 @@ statemachine_state_func sm_slave_start() {
 			// SSYN = latch[4], bit 5
 			buslatches_setbits(4, BIT(5), BIT(5));
 			// wait for MSYN to go inactive, then SSYN inactive
-			return (statemachine_state_func) &sm_slave_state_10;
+			return (statemachine_state_func) &sm_data_slave_state_10;
 			// perhaps PRU2ARM_INTERRUPT now active
 		} else
 			// no address match: wait for MSYN to go inactive
-			// return (statemachine_state_func) &sm_slave_state_99;
+			// return (statemachine_state_func) &sm_data_slave_state_99;
 			return NULL ;
 	}
 	return NULL; // not reached
@@ -161,14 +159,14 @@ statemachine_state_func sm_slave_start() {
 
 // End DATO: wait for MSYN to go inactive, then SSYN inactive
 // also wait for EVENT ACK
-static statemachine_state_func sm_slave_state_10() {
+static statemachine_state_func sm_data_slave_state_10() {
 	// MSYN = latch[4], bit 4
 	if (buslatches_getbyte(4) & BIT(4))
-		return (statemachine_state_func) &sm_slave_state_10; // wait, MSYN still active
+		return (statemachine_state_func) &sm_data_slave_state_10; // wait, MSYN still active
 	if (mailbox.events.event_deviceregister)
 		// unibusadapter.worker() did not yet run on_after_register_access() 
 		// => wait, long SSYN delay until ARM acknowledges event
-		return (statemachine_state_func) &sm_slave_state_10;
+		return (statemachine_state_func) &sm_data_slave_state_10;
 	// if ARM was triggered by event and changed the device state,
 	// now an Interrupt arbitration may be pending.
 
@@ -180,14 +178,14 @@ static statemachine_state_func sm_slave_state_10() {
 
 // End DATI: wait for MSYN to go inactive, then SSYN and DATA inactive
 // also wait for EVENT ACK
-static statemachine_state_func sm_slave_state_20() {
+static statemachine_state_func sm_data_slave_state_20() {
 	// MSYN = latch[4], bit 4
 	if (buslatches_getbyte(4) & BIT(4))
-		return (statemachine_state_func) &sm_slave_state_20; // wait, MSYN still active
+		return (statemachine_state_func) &sm_data_slave_state_20; // wait, MSYN still active
 	if (mailbox.events.event_deviceregister)
 		// unibusadapter.worker() did not yet run on_after_register_access() 
 		// => wait, long SSYN delay until ARM acknowledges event
-		return (statemachine_state_func) &sm_slave_state_20;
+		return (statemachine_state_func) &sm_data_slave_state_20;
 	// if ARM was triggered by event and changed the device state,
 	// now an Interrupt arbitration may be pending.
 
@@ -204,10 +202,10 @@ static statemachine_state_func sm_slave_state_20() {
 
 // end of inactive cycle: wait for MSYN to go inactive
 // Not necessary, start() state simply checks addr again if MSYN still set.
-static statemachine_state_func sm_slave_state_99() {
+static statemachine_state_func sm_data_slave_state_99() {
 	// MSYN = latch[4], bit 4
 	if (buslatches_getbyte(4) & BIT(4)) {
-		return (statemachine_state_func) &sm_slave_state_99; // wait, MSYN still active
+		return (statemachine_state_func) &sm_data_slave_state_99; // wait, MSYN still active
 	}
 //	PRU_DEBUG_PIN(1) ;
 

@@ -238,7 +238,10 @@ PRU_DEBUG_PIN_PULSE_100NS ;
 			uint8_t requested_intr_level = requests_2_highests_intr[intr_request_mask];
 
 			// compare against cpu run level 4..7
-			if (requested_intr_level > mailbox.arbitrator.cpu_priority_level) {
+			// but do not GRANT anything if emulated CPU did not fetch new PSW yet,
+			// then cpu_priority_level is invalid
+			if (requested_intr_level > mailbox.arbitrator.cpu_priority_level
+				&& requested_intr_level != CPU_PRIORITY_LEVEL_FETCHING) {
 				// GRANT request,  set GRANT line:
 				// BG4 is signal bit maskl 0x01, etc ...
 				sm_arb.arbitrator_grant_mask = BIT(requested_intr_level - 4);
