@@ -90,8 +90,8 @@ void unibusdevice_c::set_default_bus_params(uint32_t default_base_addr, unsigned
 	this->default_intr_level = this->intr_level.new_value = default_intr_level;
 	base_addr.set(default_base_addr) ;
 	priority_slot.set(default_priority_slot) ;
-	this->on_param_changed(&this->intr_vector) ;
-	this->on_param_changed(&this->intr_level) ;
+	intr_vector.set(default_intr_vector) ;
+	intr_level.set(default_intr_level) ;
 }
 
 void unibusdevice_c::install(void) {
