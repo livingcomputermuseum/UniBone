@@ -132,6 +132,8 @@ void unibus_c::powercycle(void) {
 	mailbox->initializationsignal.id = INITIALIZATIONSIGNAL_DCLO;
 	mailbox->initializationsignal.val = 0;
 	mailbox_execute(ARM2PRU_INITALIZATIONSIGNAL_SET);
+	// wait for CPU to come up	
+	timeout.wait_ms(delay_ms);
 }
 
 void unibus_c::set_arbitration_mode(arbitration_mode_enum arbitration_mode) {
