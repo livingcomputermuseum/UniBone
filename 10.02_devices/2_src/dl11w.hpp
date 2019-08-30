@@ -155,7 +155,7 @@ public:
 	false, "Linux serial port: \"ttyS1\" or \"ttyS2\"");
 
 	parameter_unsigned_c baudrate = parameter_unsigned_c(this, "baudrate", "b", /*readonly*/
-	false, "", "%d", "Baudrate: 110, 300, ... 38400", 38400, 10);
+	false, "", "%d", "Baudrate: 110, 300, ... 38400", 16, 10);
 	// 40kbaud -> 25us bit polling period needed
 
 	parameter_string_c mode = parameter_string_c(this, "mode", "m", /*readonly*/false,
@@ -166,6 +166,8 @@ public:
 
 	parameter_bool_c break_enable = parameter_bool_c(this, "break", "b", /*readonly*/false,
 			"Enable BREAK transmission (M7856 SW4-1)");
+
+	// 		
 
 	// background worker function
 	void worker(unsigned instance) override;
