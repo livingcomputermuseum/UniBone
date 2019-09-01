@@ -130,7 +130,7 @@ void main(void) {
 			if (!sm_data_slave_state)
 				sm_data_slave_state = (statemachine_state_func) &sm_data_slave_start;
 			while ((sm_data_slave_state = sm_data_slave_state())
-					&& !mailbox.events.event_deviceregister)
+					&& EVENT_IS_ACKED(mailbox,deviceregister))
 				// throws signals to ARM,
 				// Acess to internal registers may may issue AMR2PRU opcode, so exit loop then
 				;// execute complete slave cycle, then check NPR/INTR
@@ -140,7 +140,7 @@ void main(void) {
 				if (!sm_intr_slave_state)
 					sm_intr_slave_state = (statemachine_state_func) &sm_intr_slave_start;
 				while ((sm_intr_slave_state = sm_intr_slave_state())
-						&& !mailbox.events.event_intr_slave) ;
+						&&  EVENT_IS_ACKED(mailbox,intr_slave))	;
 			}
 
 			// signal INT or PWR FAIL to ARM
@@ -149,7 +149,7 @@ void main(void) {
 			// Priority Arbitration
 			// Delay INTR or DMA while BUS halted via SSYN.
 			// ARM may start DMA within deviceregister event!
-			if (!mailbox.events.event_deviceregister) {
+			if (EVENT_IS_ACKED(mailbox,deviceregister)) {
 				// execute one of the arbitration workers
 				uint8_t grant_mask = sm_arb_worker();
 				// sm_arb_worker()s include State 2 "BBSYWAIT".

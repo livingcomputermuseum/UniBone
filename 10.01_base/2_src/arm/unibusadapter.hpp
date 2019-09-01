@@ -114,6 +114,10 @@ public:
 
 	void print_shared_register_map(void);
 
+		void debug_init(void) ;
+	void debug_snapshot(void) ;
+	uint32_t dbg_dma_event_count ; // count dba evets on ARM side
+
 };
 
 extern unibusadapter_c *unibusadapter; // another Singleton

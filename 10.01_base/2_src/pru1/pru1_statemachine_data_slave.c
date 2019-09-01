@@ -163,7 +163,7 @@ static statemachine_state_func sm_data_slave_state_10() {
 	// MSYN = latch[4], bit 4
 	if (buslatches_getbyte(4) & BIT(4))
 		return (statemachine_state_func) &sm_data_slave_state_10; // wait, MSYN still active
-	if (mailbox.events.event_deviceregister)
+	if (! EVENT_IS_ACKED(mailbox,deviceregister))
 		// unibusadapter.worker() did not yet run on_after_register_access() 
 		// => wait, long SSYN delay until ARM acknowledges event
 		return (statemachine_state_func) &sm_data_slave_state_10;
@@ -182,7 +182,7 @@ static statemachine_state_func sm_data_slave_state_20() {
 	// MSYN = latch[4], bit 4
 	if (buslatches_getbyte(4) & BIT(4))
 		return (statemachine_state_func) &sm_data_slave_state_20; // wait, MSYN still active
-	if (mailbox.events.event_deviceregister)
+	if (! EVENT_IS_ACKED(mailbox,deviceregister))
 		// unibusadapter.worker() did not yet run on_after_register_access() 
 		// => wait, long SSYN delay until ARM acknowledges event
 		return (statemachine_state_func) &sm_data_slave_state_20;

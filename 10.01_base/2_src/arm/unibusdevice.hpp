@@ -81,7 +81,7 @@ typedef struct unibusdevice_register_struct {
 
 class unibusdevice_c: public device_c {
 public:
-	static unibusdevice_c *find_by_request_slot(uint8_t priority_slot) ;
+	static unibusdevice_c *find_by_request_slot(uint8_t priority_slot);
 
 private:
 	// setup address tables, also in shared memory
@@ -164,9 +164,8 @@ public:
 
 	void log_register_event(const char *change_info, unibusdevice_register_t *changed_reg);
 
-	char *get_unibus_resource_info(void) ;
+	char *get_unibus_resource_info(void);
 
 };
-
 
 #endif
