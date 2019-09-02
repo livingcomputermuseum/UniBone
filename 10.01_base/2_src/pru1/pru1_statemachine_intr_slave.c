@@ -64,7 +64,7 @@ statemachine_state_func sm_intr_slave_start() {
 	mailbox.arbitrator.cpu_priority_level = CPU_PRIORITY_LEVEL_FETCHING ;
 
 	// signal ARM, wait for event to be processed
-	mailbox.events.intr_vector = (uint16_t) latch6val << 8 | latch5val ;
+	mailbox.events.intr_slave.vector = (uint16_t) latch6val << 8 | latch5val ;
 	PRU2ARM_INTERRUPT ;
 	// wait until ARM acked
 	return (statemachine_state_func) &sm_intr_slave_state_1;

@@ -75,6 +75,16 @@ unibusadapter_c *unibusadapter; // another Singleton
 
 bool unibusadapter_debug_flag = 0;
 
+// encode signal bit for PRU from BR/NPR level. 
+// index is one of PRIORITY_LEVEL_INDEX_*
+
+static uint8_t priority_level_idx_to_arbitration_bit[PRIORITY_LEVEL_COUNT] = {
+PRIORITY_ARBITRATION_BIT_B4,
+PRIORITY_ARBITRATION_BIT_B5,
+PRIORITY_ARBITRATION_BIT_B6,
+PRIORITY_ARBITRATION_BIT_B7,
+PRIORITY_ARBITRATION_BIT_NP };
+
 unibusadapter_c::unibusadapter_c() :
 		device_c() {
 	unsigned i;
@@ -106,6 +116,10 @@ void unibusadapter_c::on_power_changed(void) {
 }
 
 void unibusadapter_c::on_init_changed(void) {
+	requests_init();
+	// clear all pending BR and NPR lines on PRU
+	mailbox->intr.priority_arbitration_bit = PRIORITY_ARBITRATION_BIT_MASK;
+	mailbox_execute(ARM2PRU_INTR_CANCEL);
 }
 
 // register_device ... "plug" the device into UNIBUs backplane
@@ -392,6 +406,7 @@ void unibusadapter_c::request_execute_active_on_PRU(unsigned level_index) {
 	// Must run under  pthread_mutex_lock(&requests_mutex);
 	// DEBUG("request_execute_active_on_PRU(level_idx=%u)", level_index);
 	if (level_index == PRIORITY_LEVEL_INDEX_NPR) {
+
 		dma_request_c *dmareq = dynamic_cast<dma_request_c *>(prl->active);
 		assert(dmareq);
 
@@ -443,6 +458,7 @@ void unibusadapter_c::request_execute_active_on_PRU(unsigned level_index) {
 		// Not DMA? must be INTR
 		intr_request_c *intrreq = dynamic_cast<intr_request_c *>(prl->active);
 		assert(intrreq);
+
 		// Handle interrupt request to PRU. Setup mailbox:
 		mailbox->intr.level_index = intrreq->level_index;
 		mailbox->intr.vector[intrreq->level_index] = intrreq->vector;
@@ -452,25 +468,11 @@ void unibusadapter_c::request_execute_active_on_PRU(unsigned level_index) {
 		else
 			mailbox->intr.iopage_register_handle = 0; // none
 		mailbox->intr.iopage_register_value = intrreq->interrupt_register_value;
-		// decode index 0..3 = BR4..BR7 => PRU signal register bit
-		switch (intrreq->level_index) {
-		case PRIORITY_LEVEL_INDEX_BR4:
-			mailbox->intr.priority_arbitration_bit = PRIORITY_ARBITRATION_BIT_B4;
-			break;
-		case PRIORITY_LEVEL_INDEX_BR5:
-			mailbox->intr.priority_arbitration_bit = PRIORITY_ARBITRATION_BIT_B5;
-			break;
-		case PRIORITY_LEVEL_INDEX_BR6:
-			mailbox->intr.priority_arbitration_bit = PRIORITY_ARBITRATION_BIT_B6;
-			break;
-		case PRIORITY_LEVEL_INDEX_BR7:
-			mailbox->intr.priority_arbitration_bit = PRIORITY_ARBITRATION_BIT_B7;
-			break;
 
-		default:
-			ERROR("Request_INTR(): Illegal priority %u, aborting", intrreq->level_index);
-			return;
-		}
+		// decode index 0..3 = BR4..BR7 => PRU signal register bit
+		assert(intrreq->level_index <= PRIORITY_LEVEL_INDEX_BR7);
+		mailbox->intr.priority_arbitration_bit =
+				priority_level_idx_to_arbitration_bit[intrreq->level_index];
 
 		// start on PRU
 		// PRU have got arbitration for an INTR of different level in the mean time:
@@ -494,7 +496,7 @@ void unibusadapter_c::request_active_complete(unsigned level_index) {
 	// Must run under  pthread_mutex_lock(&requests_mutex);
 
 	priority_request_level_c *prl = &request_levels[level_index];
-	if (!prl->active) // PRU compelted after INIT cleared the tables
+	if (!prl->active) // PRU completed after INIT cleared the tables
 		return;
 	// DEBUG("request_active_complete") ; 
 
@@ -538,6 +540,11 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 	// setup device request
 	assert(wordcount > 0);
 	assert((unibus_addr + 2*wordcount) <= 2*UNIBUS_WORDCOUNT);
+	// ignore calls if INIT cndition
+	if (line_INIT) {
+		dma_request.complete = true;
+		return;
+	}
 
 	pthread_mutex_lock(&requests_mutex); // lock schedule table operations
 
@@ -602,13 +609,18 @@ void unibusadapter_c::INTR(intr_request_c& intr_request,
 	assert(intr_request.level_index <= 3);
 	assert((intr_request.vector & 3) == 0); // multiple of 2 words
 
+	// ignore calls if INIT cndition
+	if (line_INIT) {
+		intr_request.complete = true;
+		return;
+	}
+
 	priority_request_level_c *prl = &request_levels[intr_request.level_index];
 	pthread_mutex_lock(&requests_mutex); // lock schedule table operations
 
 	_DEBUG("INTR() req: dev %s, slot/level/vector= %d/%d/%03o",
 			intr_request.device->name.value.c_str(), (unsigned) intr_request.slot,
 			intr_request.level_index + 4, intr_request.vector);
-
 	// Is an INTR with same slot and level already executed on PRU
 	// or waiting in the schedule table?
 	// If yes: do not re-raise, will be completed at some time later.
@@ -702,6 +714,9 @@ void unibusadapter_c::cancel_INTR(intr_request_c& intr_request) {
 	pthread_mutex_lock(&requests_mutex); // lock schedule table operations
 	if (&intr_request == prl->active) {
 		// already on PRU
+		assert(level_index <= PRIORITY_LEVEL_INDEX_BR7);
+		mailbox->intr.priority_arbitration_bit =
+				priority_level_idx_to_arbitration_bit[level_index];
 		mailbox_execute(ARM2PRU_INTR_CANCEL);
 		request_active_complete(level_index);
 
@@ -785,9 +800,11 @@ void unibusadapter_c::worker_init_event() {
 			device->on_init_changed();
 		}
 
-	// Clear bus request queues
+	// Clear bus request queues, 
 	pthread_mutex_lock(&requests_mutex);
 	requests_cancel_scheduled();
+	// reset all scheduled tables, also requests on PRU
+	requests_init();
 	pthread_mutex_unlock(&requests_mutex);
 }
 
@@ -802,9 +819,11 @@ void unibusadapter_c::worker_power_event(bool power_down) {
 			device->on_power_changed();
 		}
 
-	// Clear bus request queues
+	// Clear bus request queues,
 	pthread_mutex_lock(&requests_mutex);
 	requests_cancel_scheduled();
+	// reset all scheduled tables, also requests on PRU
+	requests_init();
 	pthread_mutex_unlock(&requests_mutex);
 }
 
@@ -813,16 +832,16 @@ void unibusadapter_c::worker_power_event(bool power_down) {
 void unibusadapter_c::worker_deviceregister_event() {
 	unsigned device_handle;
 	unibusdevice_c *device;
-	device_handle = mailbox->events.deviceregister_device_handle;
+	device_handle = mailbox->events.deviceregister.device_handle;
 	assert(device_handle);
 	device = devices[device_handle];
-	unsigned evt_idx = mailbox->events.device_register_idx;
-	uint32_t evt_addr = mailbox->events.deviceregister_addr;
+	unsigned evt_idx = mailbox->events.deviceregister.register_idx;
+	uint32_t evt_addr = mailbox->events.deviceregister.addr;
 	// normally evt_data == device_reg->shared_register->value
 	// but shared value gets desorted if INIT in same event clears the registers before DATO
-	uint16_t evt_data = mailbox->events.deviceregister_data;
+	uint16_t evt_data = mailbox->events.deviceregister.data;
 	unibusdevice_register_t *device_reg = &(device->registers[evt_idx]);
-	uint8_t unibus_control = mailbox->events.deviceregister_unibus_control;
+	uint8_t unibus_control = mailbox->events.deviceregister.unibus_control;
 
 	/* call device event callback
 
@@ -889,8 +908,6 @@ void unibusadapter_c::worker_deviceregister_event() {
 // Called for device DMA() chunk,
 // or cpu_DATA_transfer()
 void unibusadapter_c::worker_dma_chunk_complete_event(bool cpu_DATA_transfer) {
-	dbg_dma_event_count++;
-
 	if (cpu_DATA_transfer) {
 		// cpu_DATA_transfer() started independent of request_levels table,
 		// prl->active == NULL
@@ -963,6 +980,7 @@ void unibusadapter_c::worker_dma_chunk_complete_event(bool cpu_DATA_transfer) {
 			// check and execute DMA on other priority_slot
 			if (request_activate_lowest_slot(PRIORITY_LEVEL_INDEX_NPR))
 				request_execute_active_on_PRU(PRIORITY_LEVEL_INDEX_NPR);
+
 		}
 	}
 }
@@ -1111,7 +1129,7 @@ void unibusadapter_c::worker(unsigned instance) {
 			if (!EVENT_IS_ACKED(*mailbox, dma)) {
 				any_event = true;
 				pthread_mutex_lock(&requests_mutex);
-				worker_dma_chunk_complete_event(mailbox->events.dma_cpu_transfer);
+				worker_dma_chunk_complete_event(mailbox->events.dma.cpu_transfer);
 				pthread_mutex_unlock(&requests_mutex);
 				// rpu may have set again event_dma again, if this is called before EVENT signal??
 				// call this only on singal, not on timeout!
@@ -1119,20 +1137,25 @@ void unibusadapter_c::worker(unsigned instance) {
 				// this may clear reraised PRU event flag!
 				EVENT_ACK(*mailbox, dma); // PRU may re-raise and change mailbox now
 			}
-			if (!EVENT_IS_ACKED(*mailbox, intr_master)) {
-				// Device INTR was transmitted. INTRs are granted unpredictable by Arbitrator 
-				any_event = true;
-				// INTR of which level? the .active rquest of the"
-				pthread_mutex_lock(&requests_mutex);
-				worker_intr_complete_event(mailbox->events.intr_level_index);
-				pthread_mutex_unlock(&requests_mutex);
-				EVENT_ACK(*mailbox, intr_master); // PRU may re-raise and change mailbox now
+
+			// 4 events for each BG4,5,6,7
+			for (unsigned level_index = 0; level_index < 4; level_index++) {
+				if (!EVENT_IS_ACKED(*mailbox, intr_master[level_index])) {
+					// Device INTR was transmitted. INTRs are granted unpredictable by Arbitrator
+					any_event = true;
+					// INTR of which level? the .active rquest of the"
+					pthread_mutex_lock(&requests_mutex);
+					worker_intr_complete_event(level_index);
+					pthread_mutex_unlock(&requests_mutex);
+					EVENT_ACK(*mailbox, intr_master[level_index]); // PRU may re-raise and change mailbox now
+				}
 			}
+
 			if (!EVENT_IS_ACKED(*mailbox, intr_slave)) {
 				// If CPU emulation enabled: a device INTR was detected on bus, 
 				assert(the_cpu); // if INTR events are enabled, cpu must be instantiated
 				// see register_device()
-				the_cpu->on_interrupt(mailbox->events.intr_vector);
+				the_cpu->on_interrupt(mailbox->events.intr_slave.vector);
 				// clear SSYN, INTR cycle completes
 				EVENT_ACK(*mailbox, intr_slave);
 				// mailbox->arbitrator.cpu_priority_level now CPU_PRIORITY_LEVEL_FETCHING
@@ -1212,14 +1235,13 @@ mailbox_t mailbox_snapshot;
 // reset measurements and timeouts
 void unibusadapter_c::debug_init() {
 	// count events both on ARM and PRU, must be same!
-	dbg_dma_event_count = 0;
-	mailbox->events.dma_dbg_count = 0;
 }
 
 // look into data strucures
 void unibusadapter_c::debug_snapshot(void) {
 	// copy PRU mailbox state to space visible in Debugger (why necessary?)
 	memcpy(&mailbox_snapshot, (void *) mailbox, sizeof(mailbox_t));
+	//mailbox_snapshot = *(mailbox_t *)mailbox;
 	break_here();			// pos for breakpoint
 
 }

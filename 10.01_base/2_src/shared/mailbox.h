@@ -52,13 +52,11 @@
 #define ARM2PRU_DDR_FILL_PATTERN	19	// fill DDR with test pattern
 #define ARM2PRU_DDR_SLAVE_MEMORY	20	// use DDR as UNIBUS slave memory
 
-
 // signal IDs for ARM2PRU_INITALIZATIONSIGNAL_* 
 // states of initialization section lines. Bitmask = latch[7]
 #define INITIALIZATIONSIGNAL_INIT	(1 << 3)
 #define INITIALIZATIONSIGNAL_ACLO	(1 << 4)
 #define INITIALIZATIONSIGNAL_DCLO	(1 << 5)
-
 
 // possible states of DMA machine
 #define DMA_STATE_READY	0        	// idle
@@ -79,7 +77,6 @@
 
 // CPU pririty level invalid between INTR receive and fetch of next PSW
 #define CPU_PRIORITY_LEVEL_FETCHING	0xff
-
 
 // data for a requested DMA operation
 #define	PRU_MAX_DMA_WORDCOUNT	512
@@ -124,30 +121,28 @@ typedef struct {
 	uint16_t val; // value set/get.
 } mailbox_initializationsignal_t;
 
-
 // data for bus arbitrator 
 typedef struct {
 	// arbitrator.device_BBSY indicates a device wants or has acquired the UNIBUS
 	// cpu DATA transfer must be delayed until == 00
 	// set by arbitration logic
-	uint8_t device_BBSY ;
+	uint8_t device_BBSY;
 
 	// Command by ARM on DMA start: DATA transfer as CPU, else as device	
-	uint8_t	cpu_BBSY ; 
+	uint8_t cpu_BBSY;
 
-	uint8_t	cpu_priority_level ; // Priority level of CPU, visible in PSW. 7,6,5,4 <4.
+	uint8_t cpu_priority_level; // Priority level of CPU, visible in PSW. 7,6,5,4 <4.
 
-	uint8_t _dummy1 ;	// keep 32 bit borders
+	uint8_t _dummy1;	// keep 32 bit borders
 
-} mailbox_arbitrator_t ;
-
+} mailbox_arbitrator_t;
 
 // data for a requested DMA operation
 typedef struct {
 	// take care of 32 bit word borders for struct members
 	uint8_t cur_status; // 0 = idle, 1 = DMA running, 2 = timeout error
 	// 0x80: set on start to indicate CPU access
-	
+
 	uint8_t control; // cycle to perform: only DATO, DATI allowed
 	uint16_t wordcount; // # of remaining words transmit/receive, static
 	// ---dword---
@@ -176,78 +171,100 @@ typedef struct {
 } mailbox_intr_t;
 
 /* PRU->ARM event signaling is a signal/acknowledge protocoll.
-  There are no shared mutexes for PRU / ARM mailbox protection.
-  So protocol must be implmeneted with the "single writer -multiple reader" pattern,
-  where only a single writer modifes shared variables.
-  For each event source there are 2 channels (variables)
-  - signal: PRU arites, ARM reads
-  - acknowledge: ARM writes, PRU reads.
-  Both variables are rollaround-counters, which are simply updated on event.
-  PRU raises event with "signaled++", and checks for ARM ack with
-  	"if (signaled != acked) ..."
-  ARM checks for pending signals with 
-	"if (signaled != acked) ..."
-  and acknowledees an event with "acked++".
-*/
-#define EVENT_SIGNAL(mailbox,source) ((mailbox).events.source##_signaled++)
-#define EVENT_ACK(mailbox,source) ((mailbox).events.source##_acked++)
-#define EVENT_IS_ACKED(mailbox,source) ((mailbox).events.source##_signaled == (mailbox).events.source##_acked)
+ There are no shared mutexes for PRU / ARM mailbox protection.
+ So protocol must be implmeneted with the "single writer -multiple reader" pattern,
+ where only a single writer modifes shared variables.
+ For each event source there are 2 channels (variables)
+ - signal: PRU arites, ARM reads
+ - acknowledge: ARM writes, PRU reads.
+ Both variables are rollaround-counters, which are simply updated on event.
+ PRU raises event with "signaled++", and checks for ARM ack with
+ "if (signaled != acked) ..."
+ ARM checks for pending signals with
+ "if (signaled != acked) ..."
+ and acknowledees an event with "acked++".
+ */
+#define EVENT_SIGNAL(mailbox,source) ((mailbox).events.source.signaled++)
+#define EVENT_ACK(mailbox,source) ((mailbox).events.source.acked++)
+#define EVENT_IS_ACKED(mailbox,source) ((mailbox).events.source.signaled == (mailbox).events.source.acked)
+
+// Access to device register detected
+typedef struct {
+	uint8_t signaled; //  PRU->ARM
+	uint8_t acked; // ARM->PRU
+	// info about register access
+	uint8_t unibus_control; // DATI,DATO,DATOB
+	// handle of controller
+	uint8_t device_handle;
+	// ---dword---
+	uint16_t data; // deviceregister_data value for DATO event
+	uint8_t register_idx; // # of register in device space
+	uint8_t _dummy1;
+	// ---dword---
+	// UNIBUS address accessed
+	uint32_t addr; // accessed address: odd/even important for DATOB
+} mailbox_event_deviceregister_t;
+
+// DMA transfer complete
+typedef struct {
+	/* After ARM2PRU_DMA_*, NPR/NPG/SACK protocll was executed and
+	 Data trasnfered accoring to mailbox_dma_t.
+	 After that, mailbox_dma_t is updated and signal raised.
+	 */
+	uint8_t signaled; //  PRU->ARM
+	uint8_t acked; // ARM->PRU
+	uint8_t cpu_transfer; // 1: ARM must process DMA as completed cpu DATA transfer
+	uint8_t _dummy2;
+} mailbox_event_dma_t;
+
+// INTR raised by device
+typedef struct {
+	/* Event priority arbitration INTR transfer complete
+	 After ARM2PRU_INTR, one of BR4/5/6/7 NP was requested,
+	 granted, and the deviceregister.data transfer was handled as bus master.
+	 */
+	uint8_t signaled; // PRU->ARM, one of BR4,5,6,7 vector on UNIBUS
+	uint8_t acked; // ARM->PRU
+	//uint8_t level_index; // 0..3 -> BR4..BR7
+	uint8_t _dummy[2];
+} mailbox_event_intr_master_t;
+
+// INTR received by CPU
+typedef struct {
+	uint8_t signaled; // PRU->ARM, one of BR4,5,6,7 vector on UNIBUS
+	uint8_t acked; // ARM->PRU
+	uint16_t vector; // received vector
+} mailbox_event_intr_slave_t;
+
+// change of INIT signal
+typedef struct {
+	uint8_t signaled; // PRU->ARM
+	uint8_t acked; // ARM->PRU
+	uint8_t _dummy[2];
+} mailbox_event_init_t;
+
+// change of ACLO/DCLO signals
+typedef struct {
+	uint8_t signaled; // PRU->ARM
+	uint8_t acked; // ARM->PRU
+	uint8_t _dummy[2];
+} mailbox_event_power_t;
 
 typedef struct {
 	// different events can be raised asynchronically and concurrent,
 	// but a single event type is sequentially signaled by PRU and acked by ARM.
+	mailbox_event_deviceregister_t deviceregister;
+	mailbox_event_dma_t dma;
 
-	/*** Access to device register ***/
-	uint8_t deviceregister_signaled; //  PRU->ARM
-	uint8_t deviceregister_acked; // ARM->PRU
-	// info about register access
-	uint8_t deviceregister_unibus_control; // DATI,DATO,DATOB
-	// handle of controller
-	uint8_t deviceregister_device_handle;
-	// ---dword---
-	// # of register in device space
-	uint8_t device_register_idx;
-	uint8_t	_dummy1 ;
-	uint16_t deviceregister_data; // deviceregister_data value for DATO event
-	// ---dword---
-	// UNIBUS address accessed
-	uint32_t deviceregister_addr; // accessed address: odd/even important for DATOB
+	// one event for each BG4,5,6,7
+	mailbox_event_intr_master_t intr_master[4];
 
-	/*** DMA transfer complete
-	 After ARM2PRU_DMA_*, NPR/NPG/SACK protocll was executed and
-	 Data trasnfered accoring to mailbox_dma_t.
-	 After that, mailbox_dma_t is updated and signal raised.
-	 */
-	uint8_t dma_signaled; //  PRU->ARM
-	uint8_t dma_acked; // ARM->PRU
-	uint8_t dma_cpu_transfer ; // 1: ARM must process DMA as completed cpu DATA transfer
-	uint8_t	_dummy2 ;
-	// ---dword---
-	uint32_t dma_dbg_count ; //DBG
-	
-
-	/*** Event priority arbitration INTR transfer complete
-	 After ARM2PRU_INTR, one of BR4/5/6/7 NP was requested,
-	 granted, and the deviceregister_data transfer was handled as bus master.
-	 */
-	// ---dword---
-	uint8_t intr_master_signaled; // PRU->ARM, one of BR4,5,6,7 vector on UNIBUS
-	uint8_t intr_master_acked; // ARM->PRU
-	uint8_t intr_level_index; // 0..3 -> BR4..BR7
-	/*** INTR transmitted by devices as master was received by CPU as slave ***/
-	uint8_t intr_slave_signaled; // PRU->ARM, one of BR4,5,6,7 vector on UNIBUS
-	// ---dword---
-	uint8_t intr_slave_acked; // ARM->PRU
-	uint8_t _dummy3 ;
-	uint16_t intr_vector ; // received vector
-	// ---dword---
+	mailbox_event_intr_slave_t intr_slave;
 
 	/*** INIT or Power cycle seen on UNIBUS ***/
-	uint8_t init_signaled; // PRU->ARM
-	uint8_t init_acked; // ARM->PRU
-	uint8_t power_signaled; // PRU->ARM
-	uint8_t power_acked; // ARM->PRU
-	// ---dword---
+	mailbox_event_init_t init;
+	mailbox_event_power_t power;
+
 	uint8_t init_signals_prev; // on event: a signal changed from this ...
 	uint8_t init_signals_cur; // ... to this
 
@@ -264,7 +281,6 @@ typedef struct {
 
 	mailbox_arbitrator_t arbitrator;
 
-
 	// set by PRU, read by ARM on event
 	mailbox_events_t events;
 
@@ -278,8 +294,8 @@ typedef struct {
 		mailbox_buslatch_t buslatch;
 		mailbox_buslatch_test_t buslatch_test;
 		mailbox_buslatch_exerciser_t buslatch_exerciser;
-		mailbox_initializationsignal_t initializationsignal ;
-		uint32_t	cpu_enable;
+		mailbox_initializationsignal_t initializationsignal;
+		uint32_t cpu_enable;
 	};
 } mailbox_t;
 
@@ -311,17 +327,19 @@ extern volatile far mailbox_t mailbox;
 // iopageregister_t *reg
 #define DO_EVENT_DEVICEREGISTER(_reg,_unibus_control,_addr,_data)	do { \
 			/* register read changes device state: signal to ARM */ 	\
-			mailbox.events.deviceregister_unibus_control = _unibus_control ;				\
-			mailbox.events.deviceregister_device_handle = _reg->event_device_handle ;\
-			mailbox.events.device_register_idx = _reg->event_device_register_idx ; \
-			mailbox.events.deviceregister_addr = _addr ;									 \
-			mailbox.events.deviceregister_data = _data ;									\
+			mailbox.events.deviceregister.unibus_control = _unibus_control ;				\
+			mailbox.events.deviceregister.device_handle = _reg->event_device_handle ;\
+			mailbox.events.deviceregister.register_idx = _reg->event_device_register_idx ; \
+			mailbox.events.deviceregister.addr = _addr ;									 \
+			mailbox.events.deviceregister.data = _data ;									\
 			EVENT_SIGNAL(mailbox,deviceregister) ;						\
 			/* data for ARM valid now*/ 									\
 			PRU2ARM_INTERRUPT ; 											\
 			/* leave SSYN asserted until mailbox.event.signal ACKEd to 0 */ \
 		} while(0)
 
+
 #endif
+
 
 #endif // _MAILBOX_H_

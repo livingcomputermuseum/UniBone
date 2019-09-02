@@ -207,7 +207,5 @@ static statemachine_state_func sm_data_slave_state_99() {
 	if (buslatches_getbyte(4) & BIT(4)) {
 		return (statemachine_state_func) &sm_data_slave_state_99; // wait, MSYN still active
 	}
-//	PRU_DEBUG_PIN(1) ;
-
 	return NULL; // ready
 }

@@ -85,7 +85,7 @@ static statemachine_state_func sm_intr_master_state_2() {
 	// Complete and signal this INTR transaction only after ARM has processed the previous event.
 	// INTR may come faster than ARM Linux can process,
 	// especially if Arbitrator grants INTRs of multiple levels almost simultaneaously in parallel.
-	if (! EVENT_IS_ACKED(mailbox,intr_master))
+	if (! EVENT_IS_ACKED(mailbox,intr_master[sm_intr_master.level_index]))
 		return (statemachine_state_func) &sm_intr_master_state_2; // wait
 
 	// remove vector
@@ -104,8 +104,8 @@ static statemachine_state_func sm_intr_master_state_2() {
 
 	// signal to ARM which INTR was completed
 	// change mailbox only after ARM has ack'ed mailbox.events.event_intr
-	mailbox.events.intr_level_index = sm_intr_master.level_index;
-	EVENT_SIGNAL(mailbox,intr_master);
+	// mailbox.events.intr_master.level_index = sm_intr_master.level_index;
+	EVENT_SIGNAL(mailbox,intr_master[sm_intr_master.level_index]);
 	// ARM is clearing this, before requesting new interrupt of same level
 	// so no concurrent ARP+PRU access
 	PRU2ARM_INTERRUPT

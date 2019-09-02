@@ -79,7 +79,12 @@ void timeout_set(uint32_t *target_cycles_var, uint32_t delta_cycles) {
 	timeouts_active++; // now one more active
 }
 
-// must be called, if timeout not polled anymore for "timeout-reached()
+bool timeout_active(uint32_t *target_cycles_var) {
+	return (*target_cycles_var > 0) ;
+}
+
+
+// must be called, if timeout not polled anymore for "timeout_reached()
 void timeout_cleanup(uint32_t *target_cycles_var) {
 	if (*target_cycles_var > 0) {
 		*target_cycles_var = 0;
@@ -89,14 +94,14 @@ void timeout_cleanup(uint32_t *target_cycles_var) {
 
 //
 
-// test a timeout, wehter it reached its arg count nor or earlier
+// test a timeout, wether it reached its arg count nor or earlier
 bool timeout_reached(uint32_t *target_cycles_var) {
 	// fast path: assume timeout_reached() is called
 	// because timeout is active
 	if (PRU1_CTRL.CYCLE < *target_cycles_var)
 		return false;
 	else if (*target_cycles_var == 0)
-		return true; // already inactive
+		return true; // already "reached" if inactive
 	else {
 		// switched from "running" to "timeout reached"
 		*target_cycles_var = 0;

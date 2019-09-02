@@ -98,13 +98,14 @@ static int inputline_internal(char *line) {
 		printf("<<< %s\n", line + 7);
 		return 1;
 	} else if (!strncasecmp(line, ".input", 6)) {
-		char buffer[100] ;
+		char buffer[100];
 		printf("<<< Press ENTER to continue.\n");
 		// flush stuff on stdin. (Eclipse remote debugging)
-		while (os_kbhit()) ;
-		
-		fgets(buffer, sizeof(buffer), stdin) ;
-		return 1 ;
+		while (os_kbhit())
+			;
+
+		fgets(buffer, sizeof(buffer), stdin);
+		return 1;
 	} else if (!strncasecmp(line, ".end", 3)) {
 		// close input file
 		fclose(inputline_file);

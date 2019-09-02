@@ -161,8 +161,6 @@ void cpu_c::on_after_register_access(unibusdevice_register_t *device_reg,
 	UNUSED(unibus_control);
 }
 
-
-
 // CPU received interrupt vector from UNIBUS
 // PRU triggers this via unibusadapter, 
 // mailbox->arbitrator.cpu_priority_level is CPU_PRIORITY_LEVEL_FETCHING

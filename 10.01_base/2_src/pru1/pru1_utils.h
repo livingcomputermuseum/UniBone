@@ -93,13 +93,28 @@ typedef void * (*statemachine_state_func)(void);
  */
 
 // set PRU1_12 to 0 or 1
-#define PRU_DEBUG_PIN(val) ( (val) ? (__R30 |= (1 << 12) ) : (__R30 &= ~(1<< 12)) )
+#define PRU_DEBUG_PIN0(val) ( (val) ? (__R30 |= (1 << 12) ) : (__R30 &= ~(1<< 12)) )
+
+// set PRU1_13 to 0 or 1. BBB must have "eMMC trace cut"!
+// PinMUX: Temporarly change this
+// 		0x084 0x07 // Force constant level on eMMC CMD pin. P8.20 output gpio1_31, pulldown, mode=7
+//	to this
+// 		0x084 0x05 // PRU1_13 on P8.20: pr1_pru1_pru_r30_13, fast, output, pulldown, mode=5
+// in UniBone.dts
+
+#define PRU_DEBUG_PIN1(val) ( (val) ? (__R30 |= (1 << 13) ) : (__R30 &= ~(1<< 13)) )
 
 // 100ns pulse an PRU1_12
-#define PRU_DEBUG_PIN_PULSE_100NS	do {	\
+#define PRU_DEBUG_PIN0_PULSE(ns)	do {	\
 		__R30 |= (1 << 12) ;	\
-		__delay_cycles(18) ;	\
+		__delay_cycles(NANOSECS(ns)-2) ;	\
 		__R30 &= ~(1 << 12) ;	\
+} while(0)
+
+#define PRU_DEBUG_PIN1_PULSE(ns)	do {	\
+		__R30 |= (1 << 13) ;	\
+		__delay_cycles(NANOSECS(ns)-2) ;	\
+		__R30 &= ~(1 << 13) ;	\
 } while(0)
 
 #ifdef TRASH

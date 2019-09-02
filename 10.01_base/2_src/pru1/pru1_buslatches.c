@@ -394,16 +394,16 @@ void buslatches_test(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
 		uint8_t resvar;
 		// echo DATA0 read only
 		buslatches_test_get(2,resvar);
-		PRU_DEBUG_PIN(buslatches_getbyte(2) != a);
+		PRU_DEBUG_PIN0(buslatches_getbyte(2) != a);
 		// buslatches_debug_set(resvar & 1);
 		buslatches_test_get(3,resvar);
-		PRU_DEBUG_PIN(buslatches_getbyte(3) != b);
+		PRU_DEBUG_PIN0(buslatches_getbyte(3) != b);
 		//buslatches_debug_set(resvar & 1);
 		buslatches_test_get(5,resvar);
-		PRU_DEBUG_PIN(buslatches_getbyte(5) != c);
+		PRU_DEBUG_PIN0(buslatches_getbyte(5) != c);
 		//buslatches_debug_set(resvar & 1);
 		buslatches_test_get(6,resvar);
-		PRU_DEBUG_PIN(buslatches_getbyte(6) != d);
+		PRU_DEBUG_PIN0(buslatches_getbyte(6) != d);
 		//buslatches_debug_set(resvar & 1);
 	}
 #endif
@@ -421,16 +421,15 @@ void buslatches_test(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
 		buslatches_setbyte(5, c)
 		;
 		if (buslatches_getbyte(2) != a)
-		PRU_DEBUG_PIN_PULSE_100NS
-		;// show error flag. cleared by next reg_sel
+		PRU_DEBUG_PIN0_PULSE(100);// show error flag. cleared by next reg_sel
 		buslatches_setbyte(6, d)
 		;
 		if (buslatches_getbyte(3) != b)
-		PRU_DEBUG_PIN_PULSE_100NS;
+		PRU_DEBUG_PIN0_PULSE(100);
 		if (buslatches_getbyte(5) != c)
-		PRU_DEBUG_PIN_PULSE_100NS;
+		PRU_DEBUG_PIN0_PULSE(100);
 		if (buslatches_getbyte(6) != d)
-		PRU_DEBUG_PIN_PULSE_100NS;
+		PRU_DEBUG_PIN0_PULSE(100);
 		a++;
 		b++;
 		c++;

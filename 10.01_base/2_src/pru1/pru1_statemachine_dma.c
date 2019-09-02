@@ -332,7 +332,7 @@ static statemachine_state_func sm_dma_state_99() {
 		timeout_cleanup(TIMEOUT_DMA); 
 
 		// device or cpu cycle ended: now CPU may become UNIBUS master again
-		mailbox.events.dma_cpu_transfer = mailbox.arbitrator.cpu_BBSY ;
+		mailbox.events.dma.cpu_transfer = mailbox.arbitrator.cpu_BBSY ;
 		mailbox.arbitrator.device_BBSY = false;
 		mailbox.arbitrator.cpu_BBSY = false;
 
@@ -340,7 +340,6 @@ static statemachine_state_func sm_dma_state_99() {
 		mailbox.dma.cur_status = final_dma_state; // signal to ARM
 
 		// signal to ARM
-mailbox.events.dma_dbg_count++ ; //DBG
 		EVENT_SIGNAL(mailbox,dma) ;
 		// ARM is clearing this, before requesting new DMA.
 		// no concurrent ARM+PRU access

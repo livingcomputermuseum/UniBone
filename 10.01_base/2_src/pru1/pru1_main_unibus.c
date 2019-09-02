@@ -144,6 +144,7 @@ void main(void) {
 			}
 
 			// signal INT or PWR FAIL to ARM
+			// before arb_worker(), so BR/NPR requests are canceled on INIT
 			do_event_initializationsignals();
 
 			// Priority Arbitration
@@ -238,7 +239,7 @@ void main(void) {
 				// start one INTR cycle. May be raised in midst of slave cycle
 				// by ARM, if access to "active" register triggers INTR.
 				sm_arb.request_mask |= mailbox.intr.priority_arbitration_bit;
-				// sm_arb_worker() evaluates this,  extern Arbitrator raises Grant,
+				// sm_arb_worker() evaluates this, extern Arbitrator raises Grant,
 				// vector of GRANted level is transfered with statemachine sm_intr_master
 
 				// Atomically change state in a device's associates interrupt register.
@@ -251,10 +252,10 @@ void main(void) {
 				// end of INTR is signaled to ARM with signal
 				break;
 			case ARM2PRU_INTR_CANCEL:
-				// cancels an INTR request. If already Granted, the GRANT is forwarded,
+				// cancels one or more INTR requests. If already Granted, the GRANT is forwarded,
 				// and canceled by reaching a "SACK turnaround terminator" or "No SACK TIMEOUT" in the arbitrator.
 				sm_arb.request_mask &= ~mailbox.intr.priority_arbitration_bit;
-				// no completion event, could interfer with othe INTRs?
+				// no completion event, could interfer with other INTRs?
 				mailbox.arm2pru_req = ARM2PRU_NONE;  // done
 				break;
 			case ARM2PRU_INITALIZATIONSIGNAL_SET:

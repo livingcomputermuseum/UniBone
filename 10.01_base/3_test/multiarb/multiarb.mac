@@ -4,8 +4,8 @@
 	; Exercises several devices in parallel,
 	; each with INTR and DMA
 	; For a device XX we have
-	; XXENAB - flag to enable devcie
-	; XXBASE - base address of devcie
+	; XXENAB - flag to enable device
+	; XXBASE - base address of device
 	; XXVEC - the INTR vector
 	; XXISR - Interrupt Service
 	; XXIFLG - flag which is incremented in ISR
@@ -20,12 +20,14 @@
 	; RK - RK11/RK05 disk
 	; RL - RL11/RL02 disk
 	; RY - Serial RX211 Floppy,
+	; DU - MSCP disk drive on UDA controller
 
 	; enable tests
 kwenab	=	1
-rkenab	=	0
-rlenab	=	0
-ryenab	=	0
+rkenab	=	1
+rlenab	=	1
+ryenab	=	0	; not yet tested
+duenab	=	0	; not yet implemeneted
 
 	.enable AMA
 	.asect
@@ -64,6 +66,12 @@ ryenab	=	0
 	.word	340
 .endc
 
+.if ne duenab
+	. = duvect		; UDA MSCP controller
+	.word	duisr
+	.word	340
+.endc
+
 psw	= 177776
 monitr	= 165020		; Monitor addr for back jump
 
@@ -90,6 +98,9 @@ start:
 .if ne ryenab
 	call	ryinit
 .endc
+.if ne duenab
+	call	duinit
+.endc
 
 	mov	#shello,r1	; Print "Hello" message
 	call	puts
@@ -110,7 +121,7 @@ dokbd:
 	; process char in r0
 	cmpb	r0,#3
 	bne	1$
-	mov	#sbye,r1 	; ^C: print "Bye", back to monitor
+	mov	#sbye,r1	; ^C: print "Bye", back to monitor
 	call	puts
 	jmp	monitr
 1$:
@@ -163,6 +174,16 @@ dodev:
 	call	progrs
 4$:
 .endc
+.if ne ryenab
+	tst	duiflg
+	beq	5$
+	clr	duiflg
+	call	dugo
+	mov	#dulabl,r0	; progress printout
+	mov	#duecnt,r1
+	call	progrs
+5$:
+.endc
 
 	return
 
@@ -171,7 +192,9 @@ dodev:
 	; check if the counter with address in r1 is at
 	; 1024. if yes, print the char in r0
 progrs:
-	bic	#776000,(r1)	; mask counter to 0..1023
+;	 bic	 #777700,(r1)	 ; mask counter to 0..63
+	bic	#777400,(r1)	; mask counter to 0..255
+;	 bic	 #776000,(r1)	 ; mask counter to 0..1023
 	bne	9$
 	call	putc		; is at 0: print label character
 9$:
@@ -191,6 +214,9 @@ progrs:
 .endc
 .if ne ryenab
 	.include ma_ry.mac
+.endc
+.if ne duenab
+	.include ma_du.mac
 .endc
 	.include ma_strings.mac
 

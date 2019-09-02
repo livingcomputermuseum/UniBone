@@ -29,11 +29,12 @@
 #include <stdbool.h>
 
 // predefined timeouts
-#define TIMEOUT_COUNT	2
+#define TIMEOUT_COUNT	3
 
 // fixed pointers
 #define TIMEOUT_DMA	(&timeout_target_cycles[0])
 #define TIMEOUT_SACK 	(&timeout_target_cycles[1])
+//#define TIMEOUT_TEST 	(&timeout_target_cycles[2])
 
 // cycle end count for each active timeoput.
 extern uint32_t timeout_target_cycles[TIMEOUT_COUNT];
@@ -43,6 +44,7 @@ extern uint32_t timeout_target_cycles[TIMEOUT_COUNT];
 
 void timeout_init(void);
 void timeout_set(uint32_t *target_cycles_var, uint32_t delta_cycles);
+bool timeout_active(uint32_t *target_cycles_var) ;
 bool timeout_reached(uint32_t *target_cycles_var);
 void timeout_cleanup(uint32_t *target_cycles_var);
 
