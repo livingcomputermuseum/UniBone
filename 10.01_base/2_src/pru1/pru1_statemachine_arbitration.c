@@ -88,6 +88,7 @@
 #include "pru1_timeouts.h"
 
 #include "pru1_buslatches.h"
+#include "pru1_timeouts.h"
 #include "pru1_statemachine_arbitration.h"
 
 statemachine_arbitration_t sm_arb;
@@ -143,11 +144,13 @@ uint8_t sm_arb_worker_client() {
 	// Always update UNIBUS BR/NPR lines, are ORed with requests from other devices.
 	buslatches_setbits(1, PRIORITY_ARBITRATION_BIT_MASK, sm_arb.request_mask)
 	;
+
 	// read GRANT IN lines from CPU (Arbitrator). Only one at a time may be active
 	// Arbitrator asserts SACK is inactive
 	// latch[0]: BG signals are inverted, "get" is non-inverting:  bit = active signal.
 	// "set" is inverting!
 	grant_mask = buslatches_getbyte(0) & PRIORITY_ARBITRATION_BIT_MASK; // read GRANT IN
+
 	// forward un-requested GRANT IN to GRANT OUT for other cards on neighbor slots
 	buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK & ~sm_arb.request_mask, ~grant_mask)
 	;
@@ -221,10 +224,7 @@ uint8_t sm_arb_worker_master() {
 		timeout_cleanup(TIMEOUT_SACK);
 	} else if (latch1val & PRIORITY_ARBITRATION_BIT_NP) {
 		// device NPR
-PRU_DEBUG_PIN_PULSE_100NS ;
 		if (sm_arb.arbitrator_grant_mask == 0) {
-PRU_DEBUG_PIN_PULSE_100NS ;
-			
 			// no 2nd device's request may modify GRANT before 1st device acks with SACK
 			sm_arb.arbitrator_grant_mask = PRIORITY_ARBITRATION_BIT_NP;
 			timeout_set(TIMEOUT_SACK, MILLISECS(ARB_MASTER_SACK_TIMOUT_MS));
@@ -238,7 +238,10 @@ PRU_DEBUG_PIN_PULSE_100NS ;
 			uint8_t requested_intr_level = requests_2_highests_intr[intr_request_mask];
 
 			// compare against cpu run level 4..7
-			if (requested_intr_level > mailbox.arbitrator.cpu_priority_level) {
+			// but do not GRANT anything if emulated CPU did not fetch new PSW yet,
+			// then cpu_priority_level is invalid
+			if (requested_intr_level > mailbox.arbitrator.cpu_priority_level
+				&& requested_intr_level != CPU_PRIORITY_LEVEL_FETCHING) {
 				// GRANT request,  set GRANT line:
 				// BG4 is signal bit maskl 0x01, etc ...
 				sm_arb.arbitrator_grant_mask = BIT(requested_intr_level - 4);

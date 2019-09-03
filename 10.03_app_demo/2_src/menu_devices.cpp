@@ -140,7 +140,7 @@ void application_c::menu_devices(bool with_CPU) {
 
 	// without PDP-11 CPU no INIT after power ON was generated.
 	// Devices may trash the bus lines.
-	unibus->init();
+	unibus->init(50);
 
 	unibusadapter->enabled.set(true);
 
@@ -262,17 +262,20 @@ void application_c::menu_devices(bool with_CPU) {
 			if (!strcasecmp(s_opcode, "q")) {
 				ready = true;
 			} else if (!strcasecmp(s_opcode, "init")) {
-				unibus->init();
+				unibus->init(50);
 			} else if (!strcasecmp(s_opcode, "pwr")) {
 				unibus->powercycle();
 			} else if (!strcasecmp(s_opcode, "dbg") && n_fields == 2) {
 				if (!strcasecmp(s_param[0], "c")) {
 					logger->clear();
+					unibusadapter->debug_init(); // special diagnostics
 					printf("Debug log cleared.\n");
-				} else if (!strcasecmp(s_param[0], "s"))
+				} else if (!strcasecmp(s_param[0], "s")) {
+					unibusadapter->debug_snapshot(); // special diagnostics
 					logger->dump();
-				else if (!strcasecmp(s_param[0], "f"))
+				} else if (!strcasecmp(s_param[0], "f")) {
 					logger->dump(logger->default_filepath);
+				}
 			} else if (!strcasecmp(s_opcode, "m") && n_fields == 2
 					&& !strcasecmp(s_param[0], "i")) {
 				// install (emulate) max UNIBUS memory
@@ -420,7 +423,7 @@ void application_c::menu_devices(bool with_CPU) {
 			} else if (!strcasecmp(s_opcode, "d") && n_fields == 3) {
 				uint32_t addr;
 				uint16_t wordbuffer;
-				unibusdevice_register_t *reg = NULL ;
+				unibusdevice_register_t *reg = NULL;
 				if (unibuscontroller)
 					reg = unibuscontroller->register_by_name(s_param[0]);
 				if (reg) // register name given
@@ -446,7 +449,7 @@ void application_c::menu_devices(bool with_CPU) {
 			} else if (!strcasecmp(s_opcode, "e") && n_fields <= 2) {
 				bool timeout = false;
 				uint32_t addr;
-				unibusdevice_register_t *reg = NULL ;
+				unibusdevice_register_t *reg = NULL;
 				if (n_fields == 2) { // single reg number or address given
 					uint16_t wordbuffer; // exam single word
 					if (unibuscontroller)

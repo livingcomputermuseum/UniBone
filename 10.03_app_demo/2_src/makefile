@@ -111,8 +111,9 @@ OBJECTS = $(OBJDIR)/application.o	\
     $(OBJDIR)/storagecontroller.o	\
     $(OBJDIR)/demo_io.o	\
     $(OBJDIR)/testcontroller.o	\
-    $(OBJDIR)/unibusdevice.o	\
     $(OBJDIR)/device.o	\
+    $(OBJDIR)/unibusdevice.o	\
+    $(OBJDIR)/unibuscpu.o	\
     $(OBJDIR)/parameter.o	\
 	$(OBJDIR)/panel.o	\
 	$(OBJDIR)/priorityrequest.o	\
@@ -260,6 +261,9 @@ $(OBJDIR)/testcontroller.o :  $(DEVICE_SRC_DIR)/testcontroller.cpp $(DEVICE_SRC_
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/unibusdevice.o :  $(BASE_SRC_DIR)/unibusdevice.cpp $(BASE_SRC_DIR)/unibusdevice.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/unibuscpu.o :  $(BASE_SRC_DIR)/unibuscpu.cpp $(BASE_SRC_DIR)/unibuscpu.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/device.o :  $(BASE_SRC_DIR)/device.cpp $(BASE_SRC_DIR)/device.hpp

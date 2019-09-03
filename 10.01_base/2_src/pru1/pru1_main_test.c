@@ -53,11 +53,11 @@
 #include "pru1_buslatches.h"
 #include "pru1_statemachine_arbitration.h"
 #include "pru1_statemachine_dma.h"
-#include "pru1_statemachine_intr.h"
-#include "pru1_statemachine_slave.h"
+#include "pru1_statemachine_intr_master.h"
+#include "pru1_statemachine_data_slave.h"
 
 // Supress warnings about using void * as function pointers
-//		sm_slave_state = (statemachine_state_func)&sm_slave_start;
+//		sm_slave_state = (statemachine_state_func)&sm_data_slave_start;
 // while (sm_slave_state = sm_slave_state()) << usage
 #pragma diag_push
 #pragma diag_remark=515
@@ -203,7 +203,7 @@ void main(void) {
 			// writing into mailbox.arm2pru_req
 			while (mailbox.arm2pru_req == ARM2PRU_DDR_SLAVE_MEMORY) {
 				statemachine_state_func sm_slave_state =
-						(statemachine_state_func) &sm_slave_start;
+						(statemachine_state_func) &sm_data_slave_start;
 				// do all states of an access, start when MSYN found.
 				while (sm_slave_state = sm_slave_state())
 					;

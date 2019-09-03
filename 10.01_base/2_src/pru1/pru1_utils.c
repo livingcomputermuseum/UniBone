@@ -27,6 +27,7 @@
 #define _PRU1_UTILS_C_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "mailbox.h"
 #include "pru1_buslatches.h"
@@ -39,24 +40,27 @@
 // Assume this events come so slow, no one gets raised until
 // prev event processed.
 void do_event_initializationsignals() {
-	uint8_t mb_cur = mailbox.events.initialization_signals_cur; // as saved
+	uint8_t mb_cur = mailbox.events.init_signals_cur; // as saved
 	uint8_t bus_cur = buslatches_getbyte(7) & 0x38; // now sampled
 	
-	if (bus_cur & INITIALIZATIONSIGNAL_INIT)
-		sm_arb.request_mask = 0 ; // INIT clears all PRIORITY request signals
+	if (bus_cur & INITIALIZATIONSIGNAL_INIT) {
+	sm_arb.request_mask = 0 ; // INIT clears all PRIORITY request signals
 		// SACK cleared later on end of INTR/DMA transaction
+	}
 		
 	if (bus_cur != mb_cur) {
 		// save old state, so ARM can detect what changed
-		mailbox.events.initialization_signals_prev = mb_cur;
-		mailbox.events.initialization_signals_cur = bus_cur;
+		mailbox.events.init_signals_prev = mb_cur;
+		mailbox.events.init_signals_cur = bus_cur;
 		// trigger the correct event: power and/or INIT
-		if ((mb_cur ^ bus_cur) & (INITIALIZATIONSIGNAL_DCLO | INITIALIZATIONSIGNAL_ACLO))
+		if ((mb_cur ^ bus_cur) & (INITIALIZATIONSIGNAL_DCLO | INITIALIZATIONSIGNAL_ACLO)) {
 			// AC_LO or DC_LO changed
-			mailbox.events.event_power = 1;
-		if ((mb_cur ^ bus_cur) & INITIALIZATIONSIGNAL_INIT)
+			EVENT_SIGNAL(mailbox,power) ;
+		}
+		if ((mb_cur ^ bus_cur) & INITIALIZATIONSIGNAL_INIT) {
 			// INIT changed
-			mailbox.events.event_init = 1;
+			EVENT_SIGNAL(mailbox,init);
+		}
 		PRU2ARM_INTERRUPT
 		;
 	}

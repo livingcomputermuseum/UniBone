@@ -14,13 +14,17 @@
 
 	; select one type of console at assembly time
 	dladr = 177560	; base addr of DEC DL11 console
-	; dladr = 176500	 ; DL11 #0
+	; dladr = 176500	; DL11 #0
 	; dladr = 176510	; DL11 #1
 	; dladr = 176520	; DL11 #2
 
 
 	.=0
-	jmp	@#start 	  ; early emulation started code execution from 0
+	jmp	@#start 	; early emulation started code execution from 0
+
+	.=24			; If not HALTed: start on power-up
+	.word	start		; PC
+	.word	340		; PSW with priority level 7
 
 	.=1000
 

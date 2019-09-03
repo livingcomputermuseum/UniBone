@@ -1,4 +1,4 @@
-/* pru1_timeouts.h:  timeout conditions
+/* unibuscpu.cpp: base class for all CPU implementations
 
  Copyright (c) 2019, Joerg Hoppe
  j_hoppe@t-online.de, www.retrocmp.com
@@ -20,32 +20,35 @@
  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
- 3-jul-2019	JH	begin edit
+
+27-aug-2019	JH      start
  */
-#ifndef _PRU1_TIMEOUTS_H_
-#define _PRU1_TIMEOUTS_H_
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "unibuscpu.hpp"
 
-// predefined timeouts
-#define TIMEOUT_COUNT	3
+void unibuscpu_c::on_power_changed(void) {
+// called within a bus_cycle, and initiates other cycles?!
+//assert(dbg==0) ;
+	if (power_down) { // power-on defaults
+		INFO("CPU: ACLO failed");
+		power_event = power_event_down;
+//			ka11_pwrdown(&the_cpu->ka11);
+		// ACLO failed. 
+		// CPU traps to vector 24 and has 2ms time to execute code
+	} else {
+		INFO("CPU: DCLO restored");
+		power_event = power_event_up;
+//			ka11_pwrup(&the_cpu->ka11);
+		// DCLO restored
+		// CPU loads PC and PSW from vector 24 
+		// if HALTed: do nothing, user is expected to setup PC and PSW ?
+	}
 
-// fixed pointers
-#define TIMEOUT_DMA	(&timeout_target_cycles[0])
-#define TIMEOUT_SACK 	(&timeout_target_cycles[1])
-//#define TIMEOUT_TEST 	(&timeout_target_cycles[2])
+}
 
-// cycle end count for each active timeoput.
-extern uint32_t timeout_target_cycles[TIMEOUT_COUNT];
+// UNIBUS INIT: clear all registers
+void unibuscpu_c::on_init_changed(void) {
+// a CPU does not react to INIT ... else its own RESET would reset it.
+}
 
-// call all functions mit timeout_func(TIMEOUT_*,..)
-// This allows the compiler to optimize the timeout_target_cycles[idx] expr
 
-void timeout_init(void);
-void timeout_set(uint32_t *target_cycles_var, uint32_t delta_cycles);
-bool timeout_active(uint32_t *target_cycles_var) ;
-bool timeout_reached(uint32_t *target_cycles_var);
-void timeout_cleanup(uint32_t *target_cycles_var);
-
-#endif

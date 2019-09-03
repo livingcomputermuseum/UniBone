@@ -29,14 +29,15 @@
 using namespace std;
 
 #include "utils.hpp"
-#include "unibusadapter.hpp"
-#include "unibusdevice.hpp"
+//#include "unibusadapter.hpp"
+//#include "unibusdevice.hpp"
+#include "unibuscpu.hpp"
 extern "C" {
 #include "cpu20/11.h"
 #include "cpu20/ka11.h"
 }
 
-class cpu_c: public unibusdevice_c {
+class cpu_c: public unibuscpu_c {
 private:
 
 	//unibusdevice_register_t *switch_reg;
@@ -67,8 +68,9 @@ public:
 	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control)
 			override;
 
-	void on_power_changed(void) override;
-	void on_init_changed(void) override;
+	void on_interrupt(uint16_t vector) ;
+	
 };
+
 
 #endif

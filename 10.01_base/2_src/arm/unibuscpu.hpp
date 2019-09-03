@@ -1,4 +1,4 @@
-/* pru1_timeouts.h:  timeout conditions
+/* unibuscpu.hpp: base class for all CPU implementations
 
  Copyright (c) 2019, Joerg Hoppe
  j_hoppe@t-online.de, www.retrocmp.com
@@ -20,32 +20,33 @@
  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
- 3-jul-2019	JH	begin edit
+
+27-aug-2019	JH      start
  */
-#ifndef _PRU1_TIMEOUTS_H_
-#define _PRU1_TIMEOUTS_H_
 
-#include <stdint.h>
-#include <stdbool.h>
+#ifndef _UNIBUSCPU_HPP_
+#define _UNIBUSCPU_HPP_
 
-// predefined timeouts
-#define TIMEOUT_COUNT	3
 
-// fixed pointers
-#define TIMEOUT_DMA	(&timeout_target_cycles[0])
-#define TIMEOUT_SACK 	(&timeout_target_cycles[1])
-//#define TIMEOUT_TEST 	(&timeout_target_cycles[2])
+#include "unibusdevice.hpp"
 
-// cycle end count for each active timeoput.
-extern uint32_t timeout_target_cycles[TIMEOUT_COUNT];
+// a CPU is just a device with INTR facilities
+class unibuscpu_c: public unibusdevice_c {
+	public:
+			unibuscpu_c(): unibusdevice_c() {
+				power_event = power_event_none ;
+				} ;
 
-// call all functions mit timeout_func(TIMEOUT_*,..)
-// This allows the compiler to optimize the timeout_target_cycles[idx] expr
+	enum power_event_enum   {power_event_none, power_event_up, power_event_down} ;
+	
+	enum power_event_enum power_event ;
+		
+	// called by PRU on INTR, returns new priority level
+	virtual void on_interrupt(uint16_t vector) = 0 ;
 
-void timeout_init(void);
-void timeout_set(uint32_t *target_cycles_var, uint32_t delta_cycles);
-bool timeout_active(uint32_t *target_cycles_var) ;
-bool timeout_reached(uint32_t *target_cycles_var);
-void timeout_cleanup(uint32_t *target_cycles_var);
+	
+	virtual void on_power_changed(void) ;
+	virtual void on_init_changed(void) ;
+};
 
 #endif

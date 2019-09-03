@@ -155,7 +155,7 @@ void application_c::menu_masterslave(enum unibus_c::arbitration_mode_enum arbitr
 			else
 				printf("%s\n", fileErrorText("Error opening command file \"%s\"!", s_param[0]));
 		} else if (!strcasecmp(s_opcode, "init")) {
-			unibus->init();
+			unibus->init(50);
 		} else if (!strcasecmp(s_opcode, "i")) {
 			iopageregisters_print_tables();
 		} else if (!strcasecmp(s_opcode, "pwr")) {

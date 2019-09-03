@@ -501,7 +501,7 @@ bool ltc_c::on_param_changed(parameter_c *param) {
 		return (frequency.new_value == 50 || frequency.new_value == 60);
 	} else if (param == &priority_slot) {
 		intr_request.set_priority_slot(priority_slot.new_value);
-	}  else if (param == &intr_level) {
+	} else if (param == &intr_level) {
 		intr_request.set_level(intr_level.new_value);
 	} else if (param == &intr_vector) {
 		intr_request.set_vector(intr_vector.new_value);
@@ -549,7 +549,9 @@ void ltc_c::on_after_register_access(unibusdevice_register_t *device_reg,
 	case 0: // LKS
 		if (unibus_control == UNIBUS_CONTROL_DATO) { // bus write
 			intr_enable = !!(reg_lks->active_dato_flipflops & LKS_INT_ENB);
-			intr_monitor = !!(reg_lks->active_dato_flipflops & LKS_INT_MON);
+			// schematic: INTERRUPT MONITOR can only be cleared
+			if ((reg_lks->active_dato_flipflops & LKS_INT_MON) == 0)
+				intr_monitor = 0 ;
 			set_lks_dati_value_and_INTR();
 		}
 		break;

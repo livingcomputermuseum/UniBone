@@ -1,6 +1,6 @@
-/* pru1_timeouts.h:  timeout conditions
+/* pru1_statemachine_slave.h: state machine for execution of slave DATO* or DATI* cycles
 
- Copyright (c) 2019, Joerg Hoppe
+ Copyright (c) 2018-2019, Joerg Hoppe
  j_hoppe@t-online.de, www.retrocmp.com
 
  Permission is hereby granted, free of charge, to any person obtaining a
@@ -20,32 +20,16 @@
  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
- 3-jul-2019	JH	begin edit
+
+ 29-jun-2019	JH		rework: state returns ptr to next state func
+ 12-nov-2018  JH      entered beta phase
  */
-#ifndef _PRU1_TIMEOUTS_H_
-#define _PRU1_TIMEOUTS_H_
+#ifndef  _PRU1_STATEMACHINE_DATA_SLAVE_H_
+#define  _PRU1_STATEMACHINE_DATA_SLAVE_H_
 
 #include <stdint.h>
-#include <stdbool.h>
+#include "pru1_utils.h"	// statemachine_state_func
 
-// predefined timeouts
-#define TIMEOUT_COUNT	3
-
-// fixed pointers
-#define TIMEOUT_DMA	(&timeout_target_cycles[0])
-#define TIMEOUT_SACK 	(&timeout_target_cycles[1])
-//#define TIMEOUT_TEST 	(&timeout_target_cycles[2])
-
-// cycle end count for each active timeoput.
-extern uint32_t timeout_target_cycles[TIMEOUT_COUNT];
-
-// call all functions mit timeout_func(TIMEOUT_*,..)
-// This allows the compiler to optimize the timeout_target_cycles[idx] expr
-
-void timeout_init(void);
-void timeout_set(uint32_t *target_cycles_var, uint32_t delta_cycles);
-bool timeout_active(uint32_t *target_cycles_var) ;
-bool timeout_reached(uint32_t *target_cycles_var);
-void timeout_cleanup(uint32_t *target_cycles_var);
+statemachine_state_func sm_data_slave_start(void);
 
 #endif

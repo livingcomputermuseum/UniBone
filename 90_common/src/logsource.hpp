@@ -76,6 +76,8 @@ public:
 	logger->log(this, LL_INFO, __FILE__, __LINE__, __VA_ARGS__)
 #define DEBUG(...)	\
 	logger->log(this, LL_DEBUG, __FILE__, __LINE__, __VA_ARGS__)
+// disables a DEBUG	
+#define _DEBUG(...)	
 
 
 #endif // _LOGSOURCE_HPP_

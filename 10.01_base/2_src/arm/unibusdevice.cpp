@@ -81,17 +81,18 @@ bool unibusdevice_c::on_param_changed(parameter_c *param) {
 }
 
 // define default values for device BASE address and INTR
-void unibusdevice_c::set_default_bus_params(uint32_t default_base_addr, unsigned default_priority_slot,
-		unsigned default_intr_vector, unsigned default_intr_level) {
+void unibusdevice_c::set_default_bus_params(uint32_t default_base_addr,
+		unsigned default_priority_slot, unsigned default_intr_vector,
+		unsigned default_intr_level) {
 	assert(default_priority_slot <= PRIORITY_SLOT_COUNT); // bitmask!
 	this->default_base_addr = default_base_addr;
 	this->default_priority_slot = default_priority_slot;
 	this->default_intr_vector = this->intr_vector.new_value = default_intr_vector;
 	this->default_intr_level = this->intr_level.new_value = default_intr_level;
-	base_addr.set(default_base_addr) ;
-	priority_slot.set(default_priority_slot) ;
-	this->on_param_changed(&this->intr_vector) ;
-	this->on_param_changed(&this->intr_level) ;
+	base_addr.set(default_base_addr);
+	priority_slot.set(default_priority_slot);
+	intr_vector.set(default_intr_vector);
+	intr_level.set(default_intr_level);
 }
 
 void unibusdevice_c::install(void) {
@@ -251,7 +252,8 @@ char *unibusdevice_c::get_unibus_resource_info(void) {
 	else if (register_count == 1)
 		sprintf(tmpbuff, "addr %06o", base_addr.value);
 	else
-		sprintf(tmpbuff, "addr %06o-%06o (%d regs)", base_addr.value, base_addr.value+2*(register_count-1), register_count) ;
+		sprintf(tmpbuff, "addr %06o-%06o (%d regs)", base_addr.value,
+				base_addr.value + 2 * (register_count - 1), register_count);
 	strcat(buffer, tmpbuff);
 
 	// get priority slot range from DMA request and intr_requests

@@ -37,9 +37,7 @@ typedef struct {
 	uint16_t cur_wordsleft; // # of words left to transfer
 } statemachine_dma_t;
 
-#ifndef  _PRU1_STATEMACHINE_DMA_C_
 extern statemachine_dma_t sm_dma;
-#endif
 
 statemachine_state_func sm_dma_start(void);
 

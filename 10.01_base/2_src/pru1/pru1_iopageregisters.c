@@ -30,7 +30,7 @@
 #include <stdint.h>
 
 #include "pru1_utils.h"
-#include "pru1_buslatches.h" // PRU_DEBUG_PIN
+#include "pru1_buslatches.h" // PRU_DEBUG_PIN0
 #include "mailbox.h"
 #include "iopageregister.h"
 #include "ddrmem.h"

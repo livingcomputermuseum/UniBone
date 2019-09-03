@@ -46,7 +46,7 @@ typedef struct {
 	// When arbitrator GRANts a request, we set SACK, GRAMT is cleared and we wait
 	// for BBSY clear. 
 	// 0: not waitong for BBSY.
-	// != saves GRANTed reqiest and idnicates BBSY wait state
+	// != saves GRANTed request and indicates BBSY wait state
 	uint8_t bbsy_wait_grant_mask;
 
 	/*** master ****/
