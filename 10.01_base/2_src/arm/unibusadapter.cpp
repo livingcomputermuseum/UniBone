@@ -618,7 +618,8 @@ void unibusadapter_c::INTR(intr_request_c& intr_request,
 	priority_request_level_c *prl = &request_levels[intr_request.level_index];
 	pthread_mutex_lock(&requests_mutex); // lock schedule table operations
 
-	_DEBUG("INTR() req: dev %s, slot/level/vector= %d/%d/%03o",
+//if (intr_request.device->log_level == LL_DEBUG)
+	DEBUG("INTR() req: dev %s, slot/level/vector= %d/%d/%03o",
 			intr_request.device->name.value.c_str(), (unsigned) intr_request.slot,
 			intr_request.level_index + 4, intr_request.vector);
 	// Is an INTR with same slot and level already executed on PRU
@@ -643,12 +644,12 @@ void unibusadapter_c::INTR(intr_request_c& intr_request,
 		// scheduled and request_active_complete() not called
 		pthread_mutex_unlock(&requests_mutex);
 		if (interrupt_register) {
-			_DEBUG("INTR() delayed with IR");
+			DEBUG("INTR() delayed with IR");
 			// if device re-raises a blocked INTR, CSR must complete immediately
 			intr_request.device->set_register_dati_value(interrupt_register,
 					interrupt_register_value, __func__);
 		} else {
-			_DEBUG("INTR() delayed without IR");
+			DEBUG("INTR() delayed without IR");
 		}
 
 		return; // do not schedule a 2nd time
@@ -663,14 +664,14 @@ void unibusadapter_c::INTR(intr_request_c& intr_request,
 	// The associated device interrupt register (if any) should be updated
 	// atomically with raising the INTR signal line by PRU.
 	if (interrupt_register && request_is_blocking_active(intr_request.level_index)) {
-		_DEBUG("INTR() delayed, IR now");
+		DEBUG("INTR() delayed, IR now");
 		//	one or more another requests are handled by PRU: INTR signal delayed by Arbitrator,
 		// write intr register asynchronically here.
 		intr_request.device->set_register_dati_value(interrupt_register,
 				interrupt_register_value, __func__);
 		intr_request.interrupt_register = NULL; // don't do a 2nd  time
 	} else { // forward to PRU
-		_DEBUG("INTR() IR forward to PRU");
+		DEBUG("INTR() IR forward to PRU");
 		// 	intr_request.level_index, priority_slot, vector in constructor
 		intr_request.interrupt_register = interrupt_register;
 		intr_request.interrupt_register_value = interrupt_register_value;

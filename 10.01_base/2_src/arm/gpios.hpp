@@ -28,6 +28,9 @@
 #define _GPIOS_H_
 
 #include <stdint.h>
+#include <vector>
+#include <string>
+
 #include "logsource.hpp"
 
 // device for a set of 32 gpio pins
@@ -203,18 +206,18 @@ public:
 	};
 
 	id_enum id;
-	string name;
+	std::string name;
 	unsigned bitwidth;
 	unibus_signal_info_c() {
 	}
 	;
-	unibus_signal_info_c(id_enum id, string name, unsigned bitwidth);
+	unibus_signal_info_c(id_enum id, std::string name, unsigned bitwidth);
 };
 
 class unibus_signals_c {
 public:
 	unibus_signals_c();
-	vector<unibus_signal_info_c> signals;
+	std::vector<unibus_signal_info_c> signals;
 	unsigned max_name_len();
 	unsigned size();
 

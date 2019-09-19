@@ -202,6 +202,13 @@ void gpios_c::init() {
 	for (n = 0; n < 4; n++)
 		GPIO_SETVAL(led[n], 1)
 		; // inverted drivers
+
+	// shared with LEDs
+	ARM_DEBUG_PIN0(0) ;
+	ARM_DEBUG_PIN1(0) ;
+	ARM_DEBUG_PIN2(0) ;
+	ARM_DEBUG_PIN3(0) ;
+		
 }
 
 /*
