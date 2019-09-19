@@ -551,8 +551,7 @@ void ltc_c::on_init_changed(void) {
 		reset_unibus_registers();
 		intr_enable = 0;
 		line_clock_monitor = 1;
-		intr_request.edge_detect_reset();
-	/7 but edge_detect not used
+		intr_request.edge_detect_reset(); // but edge_detect() not used
 	// initial condition is "not signaled"
 	// INFO("ltc_c::on_init()");
 }
