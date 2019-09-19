@@ -33,7 +33,8 @@
 class inputline_c {
 private:
 	FILE *file = NULL;
-	int internal(char *line);
+	bool skip_lines ;
+	bool internal_command(char *line);
 
 public:
 	inputline_c() {

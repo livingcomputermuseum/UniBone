@@ -72,6 +72,7 @@ void inputline_c::init() {
 	if (file)
 		fclose(file);
 	file = NULL;
+	skip_lines = false ;
 }
 
 bool inputline_c::openfile(char *filename) {
@@ -79,14 +80,40 @@ bool inputline_c::openfile(char *filename) {
 	return (file != NULL);
 }
 
-// check, if line contains an internal "inputlien" command
+// replace $1..9 with variable[1..9]
+// void inputline_c::expand_variables(char *line) {
+//string s(line) ;
+//strfind($1)
+	//w rite back
+//	strcpy(line, s.c_str()) ;
+
+// }
+
+
+// check, if line contains an internal "inputline" command
 // (line stripped from spaces)
 // .wait <millisecs>
 // .print <text>
 // result: true = internal command processed
 //	false = unkwown
-int inputline_c::internal(char *line) {
-	if (!strncasecmp(line, ".wait", 5)) {
+bool inputline_c::internal_command(char *line) {
+	// endif termiantes skipped line range
+	if (!strncasecmp(line, ".endif", 6)) {
+		skip_lines = false ;
+		return true ;	
+	}
+	if (skip_lines) 
+		return true ; // not part of output
+
+	// .ifeq <string1> <string2>
+	// 	...
+	// .endif
+	if (!strncasecmp(line, ".ifeq", 5)) {
+		char	str1[256], str2[256] ;
+		sscanf(line + 5, "%s %s", str1, str2);
+		skip_lines = strcasecmp(str1,str2) ;
+		//	skip line range until .endif if strings are different
+	} else if (!strncasecmp(line, ".wait", 5)) {
 		struct timespec ts;
 		unsigned millis;
 		sscanf(line + 5, "%d", &millis);
@@ -96,10 +123,10 @@ int inputline_c::internal(char *line) {
 		printf("<<< Input: waiting for %d milli seconds >>>\n", millis);
 		nanosleep(&ts, NULL);
 		printf("<<<\n");
-		return 1;
+		return true;
 	} else if (!strncasecmp(line, ".print", 6)) {
 		printf("<<< %s\n", line + 7);
-		return 1;
+		return true;
 	} else if (!strncasecmp(line, ".input", 6)) {
 		char buffer[100];
 		printf("<<< Press ENTER to continue.\n");
@@ -108,14 +135,14 @@ int inputline_c::internal(char *line) {
 			;
 
 		fgets(buffer, sizeof(buffer), stdin);
-		return 1;
+		return true;
 	} else if (!strncasecmp(line, ".end", 3)) {
 		// close input file
 		fclose(file);
 		file = NULL;
-		return 1;
+		return true;
 	}
-	return 0;
+	return false;
 }
 
 char *inputline_c::readline(char *buffer, int buffer_size, const char *prompt) {
@@ -152,7 +179,7 @@ char *inputline_c::readline(char *buffer, int buffer_size, const char *prompt) {
 				// if empty line: repeat
 				if (*buffer == 0)
 					continue;
-				if (!internal(buffer)) {
+				if (!internal_command(buffer)) {
 					printf("%s\n", buffer);
 					ready = 1;
 				}
