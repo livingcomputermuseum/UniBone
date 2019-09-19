@@ -31,7 +31,6 @@
 #include <unistd.h>
 #include <limits.h>	// PATH_MAX
 
-#include "inputline.h"
 #include "mcout.h"
 #include "application.hpp" // own
 
@@ -150,7 +149,7 @@ void application_c::menu_masterslave(enum unibus_c::arbitration_mode_enum arbitr
 		if (!strcasecmp(s_opcode, "q")) {
 			ready = true;
 		} else if (!strcasecmp(s_opcode, "<")) {
-			if (inputline_fopen(s_param[0]))
+			if (inputline.openfile(s_param[0]))
 				printf("Now executing command from file \"%s\"\n", s_param[0]);
 			else
 				printf("%s\n", fileErrorText("Error opening command file \"%s\"!", s_param[0]));

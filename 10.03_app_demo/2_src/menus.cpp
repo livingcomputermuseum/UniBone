@@ -30,7 +30,7 @@
 #include <ctype.h>
 #include <assert.h>
 
-#include "inputline.h"
+#include "inputline.hpp"
 #include "stringgrid.hpp"
 
 #include "unibus.h"
@@ -138,7 +138,7 @@ char *application_c::getchoice(void) {
 
 	do {
 		printf("\n");
-		inputline(s_choice, (int) sizeof(s_choice), ">>>");
+		inputline.readline(s_choice, (int) sizeof(s_choice), ">>>");
 		//char *s;
 		// do {
 		// s_choice[0] = '\0'; //  empty buffer.

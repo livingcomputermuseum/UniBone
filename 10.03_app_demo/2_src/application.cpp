@@ -58,8 +58,8 @@ using namespace std;
 #include "logger.hpp"
 
 #include "getopt2.hpp"
-#include "inputline.h"
 #include "kbhit.h"
+#include "inputline.hpp"
 #include "pru.hpp"
 #include "mailbox.h"
 #include "gpios.hpp"
@@ -71,6 +71,10 @@ using namespace std;
 
 #include "logger.hpp"
 #include "application.hpp"   // own
+
+// Singleton
+application_c *app;
+
 
 application_c::application_c() {
 	log_label = "APP";
@@ -287,10 +291,10 @@ int application_c::run(int argc, char *argv[]) {
 		FATAL("%s must be run as root to use prussdrv\n", argv[0]);
 	}
 
-	inputline_init();
+	inputline.init();
 	if (!opt_cmdfilename.empty()) {
 		// read commands from file
-		if (!inputline_fopen((char*) opt_cmdfilename.c_str())) {
+		if (!inputline.openfile((char*) opt_cmdfilename.c_str())) {
 			printf("%s\n",
 					fileErrorText("Could not open command file \"%s\"",
 							opt_cmdfilename.c_str()));
@@ -316,8 +320,6 @@ int application_c::run(int argc, char *argv[]) {
 	return 0;
 }
 
-// Singleton
-application_c *app;
 
 /* construct all singletons in proper order
  */

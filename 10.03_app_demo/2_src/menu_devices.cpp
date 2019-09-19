@@ -29,7 +29,7 @@
 #include <stdbool.h>
 #include <linux/limits.h>
 
-#include "inputline.h"
+#include "inputline.hpp"
 #include "mcout.h"
 
 #include "application.hpp" // own
@@ -503,7 +503,7 @@ void application_c::menu_devices(bool with_CPU) {
 					}
 					if (!str_decode_escapes(buff, sizeof(buff), s)) {
 						printf("Error in escape sequences.\n");
-						inputline_init();
+						inputline.init();
 						continue;
 					}
 					timeout.wait_ms(wait_ms);
@@ -521,7 +521,7 @@ void application_c::menu_devices(bool with_CPU) {
 					char buff[256];
 					if (!str_decode_escapes(buff, sizeof(buff), s_param[2])) {
 						printf("Error in escape sequences.\n");
-						inputline_init();
+						inputline.init();
 						continue;
 					}
 					// while waiting echo to stdout, for diag
@@ -536,7 +536,7 @@ void application_c::menu_devices(bool with_CPU) {
 						printf(
 								"\nPDP-11 did not xmt \"%s\" over DL11 within %u ms, aborting script\n",
 								s_param[2], ms);
-						inputline_init();
+						inputline.init();
 					}
 				} else {
 					printf("Unknown DL11 command \"%s\"!\n", s_choice);

@@ -28,7 +28,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "inputline.h"
+#include "inputline.hpp"
 #include "mcout.h"
 #include "stringgrid.hpp"
 

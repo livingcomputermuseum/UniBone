@@ -287,7 +287,7 @@ $(OBJDIR)/stringgrid.o :  $(COMMON_SRC_DIR)/stringgrid.cpp $(COMMON_SRC_DIR)/str
 $(OBJDIR)/mcout.o :  $(COMMON_SRC_DIR)/mcout.c $(COMMON_SRC_DIR)/mcout.h
 	$(CC) $(CCFLAGS) -xc++ $< -o $@
 
-$(OBJDIR)/inputline.o :  $(COMMON_SRC_DIR)/inputline.c $(COMMON_SRC_DIR)/inputline.h
+$(OBJDIR)/inputline.o :  $(COMMON_SRC_DIR)/inputline.cpp $(COMMON_SRC_DIR)/inputline.hpp
 	$(CC) $(CCFLAGS) -xc++ $< -o $@
 
 $(OBJDIR)/kbhit.o :  $(COMMON_SRC_DIR)/kbhit.c $(COMMON_SRC_DIR)/kbhit.h

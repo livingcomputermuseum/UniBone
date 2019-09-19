@@ -37,6 +37,7 @@
 
 #include "logsource.hpp"
 #include "getopt2.hpp"
+#include "inputline.hpp"
 #include "pru.hpp"
 #include "parameter.hpp"
 #include "unibus.h"
@@ -62,6 +63,7 @@ public:
 	unsigned opt_linewidth = 80;
 	string opt_cmdfilename;
 	getopt_c getopt_parser;
+	inputline_c	inputline ;
 	void help(void);
 	void commandline_error(void);
 	void commandline_option_error(char *errtext, ...);
@@ -109,6 +111,9 @@ public:
 	int run(int argc, char *argv[]);
 
 };
+
+extern application_c *app;	// Singleton
+
 
 #endif
 
