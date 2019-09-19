@@ -2,6 +2,10 @@
 # Read in with command line option  "demo --cmdfile ..."
 # mounts 3 "Unixv6" RK05 images
 d			# device test menu
+
+# en dl11		# use emulated serial console
+# en kw11
+
 pwr
 .wait 3000		# wait for PDP-11 to reset
 m i			# install max UNIBUS memory

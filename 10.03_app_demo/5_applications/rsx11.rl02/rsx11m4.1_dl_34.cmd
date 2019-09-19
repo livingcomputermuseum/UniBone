@@ -1,6 +1,10 @@
 # inputfile for demo to select a rl1 device in the "device test" menu.
 # Read in with command line option  "demo --cmdfile ..."
 d			# device test menu
+
+# en dl11		# use emulated serial console
+# en kw11
+
 pwr
 .wait 3000		# wait for PDP-11 to reset
 m i			# install max UNIBUS memory
