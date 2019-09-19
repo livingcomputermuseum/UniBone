@@ -79,7 +79,7 @@
 #define CPU_PRIORITY_LEVEL_FETCHING	0xff
 
 // data for a requested DMA operation
-#define	PRU_MAX_DMA_WORDCOUNT	512
+#define	PRU_MAX_DMA_WORDCOUNT	(8*512)
 
 #include "ddrmem.h"
 
