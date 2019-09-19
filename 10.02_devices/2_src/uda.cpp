@@ -20,6 +20,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include "gpios.hpp"	// debug pin
 #include "unibus.h"
 #include "unibusadapter.hpp"
 #include "unibusdevice.hpp"

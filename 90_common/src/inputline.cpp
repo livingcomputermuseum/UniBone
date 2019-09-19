@@ -1,6 +1,6 @@
-/* inputline.c: Advanced routines for user text input
+/* inputline.cpp: Advanced routines for user text input
 
- Copyright (c) 2012-2016, Joerg Hoppe
+ Copyright (c) 2012-2019, Joerg Hoppe
  j_hoppe@t-online.de, www.retrocmp.com
 
  Permission is hereby granted, free of charge, to any person obtaining a
@@ -20,7 +20,7 @@
  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-
+ 05-Sep-2019	JH	C++, scripting
  23-Feb-2012  JH      created
 
 
@@ -36,7 +36,7 @@
 #include <time.h>
 
 #include "kbhit.h"
-#include "inputline.h"
+#include "inputline.hpp"
 
 /*
  * get input from user
@@ -66,14 +66,17 @@
 
  */
 
-static FILE *inputline_file = NULL;
-
 // reset input source and internal states
-void inputline_init() {
+void inputline_c::init() {
 	// close file, if open
-	if (inputline_file)
-		fclose(inputline_file);
-	inputline_file = NULL;
+	if (file)
+		fclose(file);
+	file = NULL;
+}
+
+bool inputline_c::openfile(char *filename) {
+	file = fopen(filename, "r");
+	return (file != NULL);
 }
 
 // check, if line contains an internal "inputlien" command
@@ -82,7 +85,7 @@ void inputline_init() {
 // .print <text>
 // result: true = internal command processed
 //	false = unkwown
-static int inputline_internal(char *line) {
+int inputline_c::internal(char *line) {
 	if (!strncasecmp(line, ".wait", 5)) {
 		struct timespec ts;
 		unsigned millis;
@@ -108,23 +111,23 @@ static int inputline_internal(char *line) {
 		return 1;
 	} else if (!strncasecmp(line, ".end", 3)) {
 		// close input file
-		fclose(inputline_file);
-		inputline_file = NULL;
+		fclose(file);
+		file = NULL;
 		return 1;
 	}
 	return 0;
 }
 
-char *inputline(char *buffer, int buffer_size, const char *prompt) {
+char *inputline_c::readline(char *buffer, int buffer_size, const char *prompt) {
 	char *s;
-	if (inputline_file != NULL) {
+	if (file != NULL) {
 		// read from file
 		int ready = 0;
-		while (!ready && inputline_file != NULL) {
+		while (!ready && file != NULL) {
 			/*** read line from text file ***/
-			if (fgets(buffer, buffer_size, inputline_file) == NULL) {
-				fclose(inputline_file);
-				inputline_file = NULL; // file empty, or unreadable
+			if (fgets(buffer, buffer_size, file) == NULL) {
+				fclose(file);
+				file = NULL; // file empty, or unreadable
 				ready = 1;
 			} else {
 				// remove terminating "\n"
@@ -149,14 +152,14 @@ char *inputline(char *buffer, int buffer_size, const char *prompt) {
 				// if empty line: repeat
 				if (*buffer == 0)
 					continue;
-				if (!inputline_internal(buffer)) {
+				if (!internal(buffer)) {
 					printf("%s\n", buffer);
 					ready = 1;
 				}
 			}
 		}
 	}
-	if (inputline_file == NULL) {
+	if (file == NULL) {
 		/*** read interactive ***/
 		if (prompt && *prompt)
 			printf("%s", prompt);
@@ -167,10 +170,5 @@ char *inputline(char *buffer, int buffer_size, const char *prompt) {
 				*s = '\0';
 	}
 	return buffer;
-}
-
-bool inputline_fopen(char *filename) {
-	inputline_file = fopen(filename, "r");
-	return (inputline_file != NULL);
 }
 

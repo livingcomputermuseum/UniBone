@@ -37,8 +37,7 @@
  .         |              +---> ringbuffer       "PATTERN"                 .
  .         |              |                                                .
  .         |    loopback  |                                                .
- .        rcv  <----------|---< byte_loopback()                            .
- .      decoder           |                                                .
+ .        rcv <-----------|---< char_loopback()                            .
  .       buffer           |                                                .
  .         |              |                                                .
  .         +-----<--------|---< rs232.Poll()---< RxD "RS232"               .
@@ -66,7 +65,7 @@ rs232adapter_c::rs232adapter_c() {
 	stream_rcv = NULL;
 	stream_xmt = NULL;
 	rcv_termios_error_encoding = false;
-	rcv_decoder.clear();
+	rcvbuffer.clear();
 	pattern_stream_data[0] = 0;
 	pattern[0] = 0;
 	pattern_found = false;
@@ -79,56 +78,92 @@ rs232adapter_c::rs232adapter_c() {
 //	and 0xff 0xff for \ff
 // If IGNPAR=0, PARMRK=1: error on <char> received as \377 \0 <char>
 // \377 received as \377 \377
-bool rs232adapter_c::byte_rcv_poll(unsigned char *rcvchar) {
+// result: true if data received
+bool rs232adapter_c::rs232byte_rcv_poll(rs232byte_t *rcvbyte) {
 
-	pthread_mutex_lock(&mutex);
 	bool result = false;
 	// mixing input streams, with RS232 priority
 
+//	if (baudrate != 0 && !rcv_baudrate_delay.reached())
+//		return result; // limit character rate
+
+	pthread_mutex_lock(&mutex);
+
 	// loopback or part of previous 0xff,0xff sequence ?
-	int c = rcv_decoder.get();
-	if (c != EOF) {
-		*rcvchar = c;
-		result = true;
+	result = !rcvbuffer.empty();
+	if (result) {
+		*rcvbyte = rcvbuffer.front();
+		rcvbuffer.pop_front();
 	}
 	if (!result && rs232) {
-		// rs2323 must be programmed to generate 0xff 0xff sequences
-		result = rs232->PollComport(rcvchar, 1);
+		// rs232 must be programmed to generate 0xff 0xff sequences
+		/* How to receive framing and parity errors:  see termios(3)
+		 If IGNPAR=0, PARMRK=1: error on <char> received as \377 \0 <char> 
+		 \377 received as \377 \377
+		 */
+		uint8_t c_raw;
+		rcvbyte->format_error = false; // default: no error info
+		int n = rs232->PollComport(&c_raw, 1);
+		if (rcv_termios_error_encoding && c_raw == 0xff) {
+			n = rs232->PollComport(&c_raw, 1);
+			assert(n);	// next char after 0xff escape immediately available
+
+			if (c_raw == 0) { // error flags
+				rcvbyte->format_error = true;
+				n = rs232->PollComport(&c_raw, 1);
+				assert(n); // next char after 0xff 0 seq is data"
+				rcvbyte->c = c_raw;
+			} else if (c_raw == 0xff) { // enocoded 0xff
+				rcvbyte->c = 0xff;
+			} else {
+				WARNING("Received 0xff <stray> sequence");
+				rcvbyte->c = c_raw;
+			}
+		} else
+			// received non-escaped data byte
+			rcvbyte->c = c_raw;
+		result = (n > 0);
 	}
 
-	if (stream_rcv && !result) {
+	if (!result && stream_rcv) {
 		// deliver next char from stream delayed, with simulated baudrate
-		if (baudrate == 0 || rcv_baudrate_delay.reached()) {
-			int c = stream_rcv->get();
-			if (c != EOF) {
-				*rcvchar = c;
-				if (rcv_termios_error_encoding && c == 0xff) {
-					// mark 2nd 0xff for output on next call
-					rcv_decoder.clear();
-					rcv_decoder.put(0xff);
-				}
-				result = true;
-				if (baudrate != 0)
-					rcv_baudrate_delay.start_us(10 * MILLION / baudrate); // assume 10 bits per char
-			}
+//		if (baudrate == 0 || rcv_baudrate_delay.reached()) {
+		int c = stream_rcv->get();
+		if (c != EOF) {
+			rcvbyte->c = c;
+			rcvbyte->format_error = false;
+			result = true;
+			 if (baudrate != 0)
+				rcv_baudrate_delay.start_us(10 * MILLION / baudrate); // assume 10 bits per char
 		}
+//		}
 	}
+//	if (result && baudrate != 0)
+//		rcv_baudrate_delay.start_us(10 * MILLION / baudrate); // assume 10 bits per char
+//	rcv_baudrate_delay.start_us(MILLION); // 1 sec delay
+
 	pthread_mutex_unlock(&mutex);
+//	if (result)
+//		printf("< %c\n", *rcvbyte) ;
+
 	return result;
 }
 
-void rs232adapter_c::byte_xmt_send(unsigned char xmtchar) {
+void rs232adapter_c::rs232byte_xmt_send(rs232byte_t xmtbyte) {
+//	pthread_mutex_lock(&mutex);
+//		printf("%c >\n", xmtbyte) ;
+
 	if (rs232)
-		rs232->SendByte(xmtchar);
+		rs232->SendByte(xmtbyte.c);
 	if (stream_xmt)
-		stream_xmt->put(xmtchar);
+		stream_xmt->put(xmtbyte.c);
 	// pattern ring buffer
 	unsigned n = strlen(pattern);
 	if (n) {
 		// put new chars at end of string
 		unsigned m = strlen(pattern_stream_data);
 		assert(m < pattern_max_len);
-		pattern_stream_data[m] = xmtchar;
+		pattern_stream_data[m] = xmtbyte.c;
 		pattern_stream_data[m + 1] = 0;
 		// only keep the last chars in buffer.
 		while ((m = strlen(pattern_stream_data)) > n)
@@ -137,21 +172,22 @@ void rs232adapter_c::byte_xmt_send(unsigned char xmtchar) {
 		if (strstr(pattern_stream_data, pattern))
 			pattern_found = true; // user must clear
 	}
-//	pattern_buffer.
+	pthread_mutex_unlock(&mutex);
 }
 
-void rs232adapter_c::byte_loopback(unsigned char xmtchar) {
+void rs232adapter_c::rs232byte_loopback(rs232byte_t xmtbyte) {
+	pthread_mutex_lock(&mutex);
 	// not a queue, only single char (DL11 loopback)
-	rcv_decoder.clear();
-	rcv_decoder.put(xmtchar);
-	if (rcv_termios_error_encoding && xmtchar == 0xff)
-		rcv_decoder.put(0xff);
-	// fill intermediate buffer with seqeunce to receive
+	// fill intermediate buffer with sequwnce to receive
+	rcvbuffer.push_back(xmtbyte);
+	pthread_mutex_unlock(&mutex);
 }
 
 void rs232adapter_c::set_pattern(char *pattern) {
+	pthread_mutex_lock(&mutex);
 	strncpy(this->pattern, pattern, pattern_max_len);
 	pattern_found = false;
 	pattern_stream_data[0] = 0;
+	pthread_mutex_unlock(&mutex);
 }
 

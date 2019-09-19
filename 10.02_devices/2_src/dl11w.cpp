@@ -346,13 +346,12 @@ void slu_c::on_init_changed(void) {
 // background worker.
 void slu_c::worker_rcv(void) {
 	timeout_c timeout;
-	int n;
-	unsigned char buffer[BUFLEN + 1];
+	rs232byte_t rcv_byte;
 
 	// poll with frequency > baudrate, to see single bits
 	//unsigned poll_periods_us = 1000000 / baudrate.value;
 
-	/* Receiver not time critical? UARTS are buffering
+	/* Receiver not time critical? UARTs are buffering
 	 So if thread is swapped out and back a burst of characters appear.
 	 -> Wait after each character for transfer time before polling
 	 RS232 again.
@@ -361,7 +360,7 @@ void slu_c::worker_rcv(void) {
 	// poll a bit faster to be ahead of char stream. 
 	// don't oversample: PDP-11 must process char in that time
 
-	// worker_init_realtime_priority(rt_device);
+	worker_init_realtime_priority(rt_device);
 
 	while (!workers_terminate) {
 		timeout.wait_us(poll_periods_us);
@@ -371,33 +370,14 @@ void slu_c::worker_rcv(void) {
 		// rcv_active: can only be set by polling the UART input GPIO pin?
 		// at the moments, it is only sent on maintenance loopback xmt
 		/* read serial data, if any */
-		if (rs232adapter.byte_rcv_poll(buffer)) {
+		if (rs232adapter.rs232byte_rcv_poll(&rcv_byte)) {
 			pthread_mutex_lock(&on_after_rcv_register_access_mutex); // signal changes atomic against UNIBUS accesses
 			rcv_or_err = rcv_fr_err = rcv_p_err = 0;
 			if (rcv_done) // not yet cleared? overrun!
 				rcv_or_err = 1;
-			if (buffer[0] == 0xff) {
-				/* How to receive framing and parity errors:  see termios(3)
-				 If IGNPAR=0, PARMRK=1: error on <char> received as \377 \0 <char> 
-				 \377 received as \377 \377
-				 */
-				n = rs232adapter.byte_rcv_poll(buffer);
-				assert(n);	// next char after 0xff escape immediately available
-
-				if (buffer[0] == 0) { // error flags
-					rcv_fr_err = rcv_p_err = 1;
-					n = rs232adapter.byte_rcv_poll(buffer);
-					assert(n); // next char after 0xff 0 seq is data"
-					rcv_buffer = buffer[0];
-				} else if (buffer[0] == 0xff) { // enocoded 0xff
-					rcv_buffer = 0xff;
-				} else {
-					WARNING("Received 0xff <stray> seqeuence");
-					rcv_buffer = buffer[0];
-				}
-			} else
-				// received non escaped data byte
-				rcv_buffer = buffer[0];
+			rcv_buffer = rcv_byte.c;
+			if (rcv_byte.format_error)
+				rcv_fr_err = rcv_p_err = 1;
 			rcv_done = 1;
 			rcv_active = 0;
 			set_rbuf_dati_value();
@@ -413,7 +393,7 @@ void slu_c::worker_xmt(void) {
 	assert(!pthread_mutex_lock(&on_after_register_access_mutex));
 
 	// Transmitter not time critical
-	// worker_init_realtime_priority(rt_device);
+	worker_init_realtime_priority(rt_device);
 
 	while (!workers_terminate) {
 		// 1. wait for xmt signal
@@ -426,7 +406,10 @@ void slu_c::worker_xmt(void) {
 		}
 
 		// 2. transmit
-		rs232adapter.byte_xmt_send(xmt_buffer);
+		rs232byte_t xmt_byte;
+		xmt_byte.c = xmt_buffer;
+		xmt_byte.format_error = false;
+		rs232adapter.rs232byte_xmt_send(xmt_byte);
 		xmt_ready = 0;
 		set_xcsr_dati_value_and_INTR();
 		if (xmt_maint) { // loop back: simulate data byte coming in
@@ -442,7 +425,7 @@ void slu_c::worker_xmt(void) {
 		pthread_mutex_lock(&on_after_xmt_register_access_mutex);
 		if (xmt_maint)
 			// put sent byte into rcv buffer, receiver will poll it
-			rs232adapter.byte_loopback(xmt_buffer);
+			rs232adapter.rs232byte_loopback(xmt_byte);
 		xmt_ready = 1;
 		set_xcsr_dati_value_and_INTR();
 
@@ -478,9 +461,10 @@ ltc_c::ltc_c() :
 	reg_lks = &(this->registers[0]); // @  base addr
 	strcpy(reg_lks->name, "LKS"); // Line Clock Status Register
 	reg_lks->active_on_dati = false; // status polled by CPU, not active
+	// reg_lks->active_on_dati = true; // debugging
 	reg_lks->active_on_dato = true;
-	reg_lks->reset_value = 0;
-	reg_lks->writable_bits = LKS_INT_ENB; // interrupt enable
+	reg_lks->reset_value = LKS_INT_MON;
+	reg_lks->writable_bits = LKS_INT_ENB | LKS_INT_MON; // interrupt enable
 
 	// init parameters
 	frequency.value = 50;
@@ -488,7 +472,7 @@ ltc_c::ltc_c() :
 
 	// init controller state	
 	intr_enable = 0;
-	intr_monitor = 0;
+	line_clock_monitor = 0;
 }
 
 ltc_c::~ltc_c() {
@@ -510,37 +494,23 @@ bool ltc_c::on_param_changed(parameter_c *param) {
 	return unibusdevice_c::on_param_changed(param); // more actions (for enable)
 }
 
-// calc static INTR condition level. 
-// Change of that condition calculated by intr_request_c.is_condition_raised() 
-// on raising edge.
-bool ltc_c::get_intr_signal_level() {
-	return intr_monitor && intr_enable;
-}
-
 // set status register, and optionally generate INTR
 // intr_raise: if inactive->active transition of interrupt condition detected.
-void ltc_c::set_lks_dati_value_and_INTR(void) {
-	uint16_t val = (intr_monitor ? LKS_INT_MON : 0) | (intr_enable ? LKS_INT_ENB : 0);
-	switch (intr_request.edge_detect(get_intr_signal_level())) {
-	case intr_request_c::INTERRUPT_EDGE_RAISING:
+void ltc_c::set_lks_dati_value_and_INTR(bool do_intr) {
+	uint16_t val = (line_clock_monitor ? LKS_INT_MON : 0) | (intr_enable ? LKS_INT_ENB : 0);
+	if (do_intr)
 		// set register atomically with INTR, if INTR not blocked
 		unibusadapter->INTR(intr_request, reg_lks, val);
-		break;
-	case intr_request_c::INTERRUPT_EDGE_FALLING:
-		// BR6 is tied to monitor and enable, so raised INTRs may get canceled
-		unibusadapter->cancel_INTR(intr_request);
+	else
+		// set unrelated to INTR condition
 		set_register_dati_value(reg_lks, val, __func__);
-		break;
-	default:
-		set_register_dati_value(reg_lks, val, __func__);
-	}
 }
 
 // process DATI/DATO access to one of my "active" registers
 void ltc_c::on_after_register_access(unibusdevice_register_t *device_reg,
 		uint8_t unibus_control) {
 	pthread_mutex_lock(&on_after_register_access_mutex);
-
+// not necessary, not harmful?
 	if (unibus_control == UNIBUS_CONTROL_DATO) // bus write
 		set_register_dati_value(device_reg, device_reg->active_dato_flipflops, __func__);
 
@@ -548,13 +518,19 @@ void ltc_c::on_after_register_access(unibusdevice_register_t *device_reg,
 
 	case 0: // LKS
 		if (unibus_control == UNIBUS_CONTROL_DATO) { // bus write
+//DEBUG("LKS wrDATO, val = 0%6o", reg_lks->active_dato_flipflops) ;
 			intr_enable = !!(reg_lks->active_dato_flipflops & LKS_INT_ENB);
-			// schematic: INTERRUPT MONITOR can only be cleared
+			// schematic: LINE CLOCK MONITOR can only be cleared
 			if ((reg_lks->active_dato_flipflops & LKS_INT_MON) == 0)
-				intr_monitor = 0 ;
-			set_lks_dati_value_and_INTR();
-		}
-		break;
+				line_clock_monitor = 0;
+			if (!intr_enable || !line_clock_monitor) {
+				// BR6 is tied to monitor and enable, so raised INTRs may get canceled
+				unibusadapter->cancel_INTR(intr_request);
+			}
+			set_lks_dati_value_and_INTR(false); // INTR only by clock, not by LKs access
+		} else
+//DEBUG("LKS DATI, control=%d, val = 0%6o = 0%6o", (int)unibus_control, reg_lks->active_dati_flipflops, device_reg->shared_register->value ) ;
+			break;
 
 	default:
 		break;
@@ -574,11 +550,12 @@ void ltc_c::on_init_changed(void) {
 	if (init_asserted) {
 		reset_unibus_registers();
 		intr_enable = 0;
-		intr_monitor = 1;
-
+		line_clock_monitor = 1;
 		intr_request.edge_detect_reset();
-		// INFO("ltc_c::on_init()");
-	}
+	/7 but edge_detect not used
+	// initial condition is "not signaled"
+	// INFO("ltc_c::on_init()");
+}
 }
 
 /* background worker.
@@ -587,59 +564,60 @@ void ltc_c::on_init_changed(void) {
  lost edges are compensated
  */
 void ltc_c::worker(unsigned instance) {
-	UNUSED(instance); // only one
-	timeout_c global_time;
-	timeout_c timeout;
-	int64_t global_next_edge_ns;
+UNUSED(instance); // only one
+timeout_c global_time;
+timeout_c timeout;
+int64_t global_next_edge_ns;
 
-	INFO("KW11 time resolution is < %u us",
-			(unsigned )(global_time.get_resolution_ns() / 1000));
-	global_time.start_ns(0);
-	global_next_edge_ns = global_time.elapsed_ns();
-	uint64_t global_edge_count = 0;
-	while (!workers_terminate) {
+// set prio to RT, but less than unibus_adapter
+worker_init_realtime_priority(rt_device);
 
-		// signal egde period may change if 50/60 Hz is changed
-		uint64_t edge_period_ns = BILLION / (2 * frequency.value);
-		uint64_t wait_ns;
-		// overdue_ns: time which signal edge is too late
-		int64_t overdue_ns = (int64_t) global_time.elapsed_ns() - global_next_edge_ns;
-		// INFO does not work on 64 ints
-		// printf("elapsed [ms] =%u, overdue [us] =%u\n", (unsigned) global_time.elapsed_ms(), (unsigned) overdue_ns/1000) ;
-		// if overdue_ns positive, next signal edge should have occured
-		if (overdue_ns < 0) {
-			wait_ns = -overdue_ns; // wait until next edge time reached
-		} else {
-			// time for next signal edge reached
-			if (ltc_enable.value) {
-				global_edge_count++;
-				clock_signal = !clock_signal; // square wave
-				if (clock_signal) {
-					intr_monitor = 1;
-					pthread_mutex_lock(&on_after_register_access_mutex);
-					set_lks_dati_value_and_INTR();
-					pthread_mutex_unlock(&on_after_register_access_mutex);
-				}
-			} else
-				// clock disconnected
-				clock_signal = 0;
+INFO("KW11 time resolution is < %u us", (unsigned )(global_time.get_resolution_ns() / 1000));
+global_time.start_ns(0);
+global_next_edge_ns = global_time.elapsed_ns();
+uint64_t global_edge_count = 0;
+while (!workers_terminate) {
+	// signal egde period may change if 50/60 Hz is changed
+	uint64_t edge_period_ns = BILLION / (2 * frequency.value);
+	uint64_t wait_ns;
+	// overdue_ns: time which signal edge is too late
+	int64_t overdue_ns = (int64_t) global_time.elapsed_ns() - global_next_edge_ns;
+	// INFO does not work on 64 ints
+	// printf("elapsed [ms] =%u, overdue [us] =%u\n", (unsigned) global_time.elapsed_ms(), (unsigned) overdue_ns/1000) ;
+	// if overdue_ns positive, next signal edge should have occured
+	if (overdue_ns < 0) {
+		wait_ns = -overdue_ns; // wait until next edge time reached
+	} else {
+		// time for next signal edge reached
+		if (ltc_enable.value) {
+			global_edge_count++;
+			clock_signal = !clock_signal; // square wave
+			if (clock_signal) {
+				line_clock_monitor = 1;
+				pthread_mutex_lock(&on_after_register_access_mutex);
+				set_lks_dati_value_and_INTR(intr_enable);
+				pthread_mutex_unlock(&on_after_register_access_mutex);
+			}
+		} else
+			// clock disconnected
+			clock_signal = 0;
 
-			// time of next signal edge
-			global_next_edge_ns += edge_period_ns;
-			// overdue_ns now time which next signal edge is too late
-			overdue_ns -= edge_period_ns;
+		// time of next signal edge
+		global_next_edge_ns += edge_period_ns;
+		// overdue_ns now time which next signal edge is too late
+		overdue_ns -= edge_period_ns;
 
-			if (overdue_ns < 0)
-				// next edge now in future: wait exact
-				wait_ns = -overdue_ns;
-			else
-				// next edge still in past:
-				// wait shorter than signal edge period to keep up slowly
-				wait_ns = edge_period_ns / 2;
-			//if ((global_edge_count % 100) == 0)
-			//	INFO("LTC: %u secs by edges", (unsigned)(global_edge_count/100) ) ;
-		}
-		timeout.wait_ns(wait_ns);
+		if (overdue_ns < 0)
+			// next edge now in future: wait exact
+			wait_ns = -overdue_ns;
+		else
+			// next edge still in past:
+			// wait shorter than signal edge period to keep up slowly
+			wait_ns = edge_period_ns / 2;
+		//if ((global_edge_count % 100) == 0)
+		//	INFO("LTC: %u secs by edges", (unsigned)(global_edge_count/100) ) ;
 	}
+	timeout.wait_ns(wait_ns);
+}
 }
 
