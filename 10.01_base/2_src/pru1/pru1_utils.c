@@ -44,7 +44,7 @@ void do_event_initializationsignals() {
 	uint8_t bus_cur = buslatches_getbyte(7) & 0x38; // now sampled
 	
 	if (bus_cur & INITIALIZATIONSIGNAL_INIT) {
-	sm_arb.request_mask = 0 ; // INIT clears all PRIORITY request signals
+	sm_arb.device_request_mask = 0 ; // INIT clears all PRIORITY request signals
 		// SACK cleared later on end of INTR/DMA transaction
 	}
 		

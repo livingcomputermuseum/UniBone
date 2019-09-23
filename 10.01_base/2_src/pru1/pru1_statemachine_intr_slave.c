@@ -47,11 +47,11 @@ statemachine_intr_slave_t sm_intr_slave;
 // forwards
 static statemachine_state_func sm_intr_slave_state_1(void);
 
-// Wait for BBSY deasserted, then assert, SACK already held asserted
+// WAIT for INTR. 
+// Master holds BBSY and SACK
 statemachine_state_func sm_intr_slave_start() {
-	// WAIT for INTR
 	if ((buslatches_getbyte(7) & BIT(0)) == 0)
-		return NULL ;	// still idle
+		return NULL ;	// INTR still deasserted
 	// device has put vector onto DATA lines, fetch after 150ns
 	__delay_cycles(NANOSECS(150));
 	uint8_t	latch5val = buslatches_getbyte(5) ;// DATA[0..7] = latch[5]
@@ -65,7 +65,11 @@ statemachine_state_func sm_intr_slave_start() {
 
 	// signal ARM, wait for event to be processed
 	mailbox.events.intr_slave.vector = (uint16_t) latch6val << 8 | latch5val ;
+
+	EVENT_SIGNAL(mailbox,intr_slave) ; 	// signal to ARM
+	
 	PRU2ARM_INTERRUPT ;
+	PRU_DEBUG_PIN0(1);
 	// wait until ARM acked
 	return (statemachine_state_func) &sm_intr_slave_state_1;
 }

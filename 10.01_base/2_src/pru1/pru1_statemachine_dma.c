@@ -333,7 +333,7 @@ static statemachine_state_func sm_dma_state_99() {
 
 		// device or cpu cycle ended: now CPU may become UNIBUS master again
 		mailbox.events.dma.cpu_transfer = mailbox.arbitrator.cpu_BBSY ;
-		mailbox.arbitrator.device_BBSY = false;
+		// device_BBSY monitored by sm_arbitration  (physical devices).
 		mailbox.arbitrator.cpu_BBSY = false;
 
 		// SACK already de-asserted at wordcount==1

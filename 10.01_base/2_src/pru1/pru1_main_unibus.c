@@ -79,7 +79,7 @@
  other GRANTS
  - monitoring INIT and AC_LO/DC_LO
  - watching fpr AMR2PRU commands
- 2. "BBSYWAIT": UNibone got PRIORITY GRAMT, has set SACK and released BR/NPR
+ 2. "BBSYWAIT": UniBone got PRIORITY GRAMT, has set SACK and released BR/NPR
  waits for current BUS master to relaeasy BBSY (ony DATI/DATO cycle max)
  - SACK active: no GRANT forward necessary, no arbitration necessary
  - INIT is monitored by DMA statemachine: no DC_LO/INIT monitoring necessary
@@ -219,7 +219,7 @@ void main(void) {
 				} else {
 					// Emulated device: raise request for emulated or physical Arbitrator.
 					// request DMA, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
-					sm_arb.request_mask |= PRIORITY_ARBITRATION_BIT_NP;
+					sm_arb.device_request_mask |= PRIORITY_ARBITRATION_BIT_NP;
 					// sm_arb_worker() evaluates this,extern Arbitrator raises Grant, excution starts in future loop
 					// end of DMA is signaled to ARM with signal
 
@@ -238,7 +238,7 @@ void main(void) {
 				// request INTR, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
 				// start one INTR cycle. May be raised in midst of slave cycle
 				// by ARM, if access to "active" register triggers INTR.
-				sm_arb.request_mask |= mailbox.intr.priority_arbitration_bit;
+				sm_arb.device_request_mask |= mailbox.intr.priority_arbitration_bit;
 				// sm_arb_worker() evaluates this, extern Arbitrator raises Grant,
 				// vector of GRANted level is transfered with statemachine sm_intr_master
 
@@ -254,7 +254,7 @@ void main(void) {
 			case ARM2PRU_INTR_CANCEL:
 				// cancels one or more INTR requests. If already Granted, the GRANT is forwarded,
 				// and canceled by reaching a "SACK turnaround terminator" or "No SACK TIMEOUT" in the arbitrator.
-				sm_arb.request_mask &= ~mailbox.intr.priority_arbitration_bit;
+				sm_arb.device_request_mask &= ~mailbox.intr.priority_arbitration_bit;
 				// no completion event, could interfer with other INTRs?
 				mailbox.arm2pru_req = ARM2PRU_NONE;  // done
 				break;

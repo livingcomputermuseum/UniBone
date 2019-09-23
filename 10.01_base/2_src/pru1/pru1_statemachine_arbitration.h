@@ -40,7 +40,7 @@ typedef struct {
 	// There are 5 request/grant signals (BR4,5,6,7 and NPR).
 	// These are encoded as bitmask fitting the buslatch[0] or[1]
 	// BR/NPR lines = set of _PRIORITY_ARBITRATION_BIT_*
-	uint8_t request_mask;
+	uint8_t device_request_mask;
 
 	// sm_arb has 2 states: State 1 "Wait for GRANT" and State 2 "wait for BBSY"
 	// When arbitrator GRANts a request, we set SACK, GRAMT is cleared and we wait
@@ -53,7 +53,7 @@ typedef struct {
 	// only used wif working as Arbitrator/Interupt Fielding Processor
 	uint8_t ifs_priority_level; // priority level of Interrupt Fielding processor (CPU)
 
-	uint8_t arbitrator_grant_mask; // GRANT line set by master
+	uint8_t arbitrator_grant_mask; // single GRANT line set by master
 
 } statemachine_arbitration_t;
 

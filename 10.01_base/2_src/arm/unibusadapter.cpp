@@ -237,9 +237,8 @@ bool unibusadapter_c::register_device(unibusdevice_c& device) {
 	if (cpu) {
 		assert(the_cpu == NULL); // only one allowed!
 		the_cpu = cpu;
-		// TODO: PRU code debuggen
-		//mailbox->cpu_enable = 1 ;
-		//mailbox_execute(ARM2PRU_CPU_ENABLE) ;
+		mailbox->cpu_enable = 1 ;
+		mailbox_execute(ARM2PRU_CPU_ENABLE) ;
 	}
 	return true;
 }
@@ -765,14 +764,21 @@ void unibusadapter_c::cpu_DATA_transfer(dma_request_c& dma_request, uint8_t unib
 
 	// do the transfer. Wait until concurrent device DMA/INTR complete
 	do {
-		while (mailbox->arbitrator.device_BBSY)
-			timeout.wait_us(100);
+		while (mailbox->arbitrator.device_BBSY) {
+			timeout.wait_us(10);
+			// This blocks the CPU thread.
+			// Device threads continue and are waiting for End of DMA/INTR
+			// PRU performs DMA/INTR) and master_arbitrator clears device_BBSY.
+			// PRU cpu logic responds as INTR_slave
+		}
 		mailbox->arbitrator.cpu_BBSY = true; // mark as "initiated by CPU, not by device"
 		success = mailbox_execute(ARM2PRU_DMA);
 		// a device may have acquired the bus concurrently, 
-		// then ARM2PRU_DMA is answered with an error
+		// then ARM2PRU_DMA is answered with error PRU2ARM_DMA_CPU_TRANSFER_BLOCKED.
 		// infinite time may have passed after that check above
 	} while (!success);
+
+	
 	// wait for PRU complete event, no clear why that double lock() is working anyhow!
 	pthread_mutex_lock(&cpu_data_transfer_request->complete_mutex);
 	// DMA() is blocking: Wait for request to finish.
@@ -1068,7 +1074,6 @@ void unibusadapter_c::worker(unsigned instance) {
 			bool dclo_falling_edge = false;
 			bool aclo_raising_edge = false;
 			bool aclo_falling_edge = false;
-			// DEBUG("mailbox->events: mask=0x%x", mailbox->events.eventmask);
 			if (!EVENT_IS_ACKED(*mailbox, init)) {
 				any_event = true;
 				// robust: any change in ACLO/DCL=INIT updates state of all 3.

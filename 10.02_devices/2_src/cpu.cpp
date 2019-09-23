@@ -106,8 +106,10 @@ void cpu_c::worker(unsigned instance) {
 		if (runmode.value != (ka11.state != 0))
 			ka11.state = runmode.value;
 		ka11_condstep(&ka11);
-		if (runmode.value != (ka11.state != 0))
+		if (runmode.value != (ka11.state != 0)) {
 			runmode.value = ka11.state != 0;
+			printf("CPU HALT at %06o.\n", ka11.r[7]) ;
+		}
 
 		// serialize asynchronous power events
 		if (runmode.value) {
