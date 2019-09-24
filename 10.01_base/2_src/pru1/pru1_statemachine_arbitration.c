@@ -244,8 +244,8 @@ uint8_t sm_arb_worker_master() {
 		sm_arb.arbitrator_grant_mask = 0;
 
 		// CPU looses now access to UNIBUS after current cycle
-		mailbox.arbitrator.device_BBSY = true; // DATA section used by device now
-		//NONO: BBSY ! No SACK for parts of DMA cycle .
+		mailbox.arbitrator.device_BBSY = true; 
+      	// DATA section to be used by device now, for DMA or INTR
 
 		timeout_cleanup(TIMEOUT_SACK);
 	} else if (latch1val & PRIORITY_ARBITRATION_BIT_NP) {

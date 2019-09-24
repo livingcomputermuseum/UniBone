@@ -110,6 +110,7 @@ static statemachine_state_func sm_intr_master_state_2() {
 	// so no concurrent ARP+PRU access
 	PRU2ARM_INTERRUPT
 	;
+	
 
 	return NULL; // ready
 	// master still drives SSYN

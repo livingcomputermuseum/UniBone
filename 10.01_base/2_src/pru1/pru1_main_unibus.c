@@ -94,7 +94,7 @@ void main(void) {
 	statemachine_arb_worker_func sm_arb_worker = &sm_arb_worker_client;
 	statemachine_state_func sm_data_slave_state = NULL;
 	statemachine_state_func sm_data_master_state = NULL;
-	statemachine_state_func  sm_intr_slave_state = NULL ;
+	statemachine_state_func sm_intr_slave_state = NULL;
 	// these are function pointers: could be 16bit on PRU?
 
 	bool emulate_cpu = false;
@@ -125,23 +125,15 @@ void main(void) {
 			// State 1 "SLAVE"
 
 			// DATA or INTR for CPU?
-			
+
 			// fast: a complete slave data cycle
 			if (!sm_data_slave_state)
 				sm_data_slave_state = (statemachine_state_func) &sm_data_slave_start;
 			while ((sm_data_slave_state = sm_data_slave_state())
-					&& EVENT_IS_ACKED(mailbox,deviceregister))
+					&& EVENT_IS_ACKED(mailbox, deviceregister))
 				// throws signals to ARM,
 				// Acess to internal registers may may issue AMR2PRU opcode, so exit loop then
 				;// execute complete slave cycle, then check NPR/INTR
-
-			if (emulate_cpu) {
-				// same code loop as for DATA cycle
-				if (!sm_intr_slave_state)
-					sm_intr_slave_state = (statemachine_state_func) &sm_intr_slave_start;
-				while ((sm_intr_slave_state = sm_intr_slave_state())
-						&&  EVENT_IS_ACKED(mailbox,intr_slave))	;
-			}
 
 			// signal INT or PWR FAIL to ARM
 			// before arb_worker(), so BR/NPR requests are canceled on INIT
@@ -150,7 +142,7 @@ void main(void) {
 			// Priority Arbitration
 			// Delay INTR or DMA while BUS halted via SSYN.
 			// ARM may start DMA within deviceregister event!
-			if (EVENT_IS_ACKED(mailbox,deviceregister)) {
+			if (EVENT_IS_ACKED(mailbox, deviceregister)) {
 				// execute one of the arbitration workers
 				uint8_t grant_mask = sm_arb_worker();
 				// sm_arb_worker()s include State 2 "BBSYWAIT".
@@ -181,6 +173,16 @@ void main(void) {
 			sm_data_master_state = sm_data_master_state(); // execute only ONE state ,
 			// else DMA blocks will block processing of other state machines
 			// throws signals to ARM, causes may issue mailbox.arm2pru_req
+		}
+
+		if (emulate_cpu) {
+			// Receive INTR from physical or emulated devices, and signal ARM.
+			// Same code loop as for DATA cycle
+			if (!sm_intr_slave_state)
+				sm_intr_slave_state = (statemachine_state_func) &sm_intr_slave_start;
+			while ((sm_intr_slave_state = sm_intr_slave_state())
+					&& EVENT_IS_ACKED(mailbox, intr_slave))
+				;
 		}
 
 		// process ARM commands in master and slave mode
@@ -275,16 +277,16 @@ void main(void) {
 				}
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
-		case ARM2PRU_CPU_ENABLE:
+			case ARM2PRU_CPU_ENABLE:
 				// bool flag much faster to access then shared mailbox member.
-				emulate_cpu = mailbox.cpu_enable ;
-				if (emulate_cpu)				
+				emulate_cpu = mailbox.cpu_enable;
+				if (emulate_cpu)
 					sm_arb_worker = &sm_arb_worker_master;
 				else
 					sm_arb_worker = &sm_arb_worker_client;
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
-				break ;
-		case ARM2PRU_HALT:
+				break;
+			case ARM2PRU_HALT:
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				__halt(); // LA: trigger on timeout of REG_WRITE
 				break;

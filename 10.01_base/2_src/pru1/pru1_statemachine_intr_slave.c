@@ -69,7 +69,6 @@ statemachine_state_func sm_intr_slave_start() {
 	EVENT_SIGNAL(mailbox,intr_slave) ; 	// signal to ARM
 	
 	PRU2ARM_INTERRUPT ;
-	PRU_DEBUG_PIN0(1);
 	// wait until ARM acked
 	return (statemachine_state_func) &sm_intr_slave_state_1;
 }

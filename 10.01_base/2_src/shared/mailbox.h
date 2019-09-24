@@ -124,7 +124,7 @@ typedef struct {
 // data for bus arbitrator 
 typedef struct {
 	// arbitrator.device_BBSY indicates a device wants or has acquired the UNIBUS.
-	// cpu DATA transfer must be delayed until device_BBSY == 0
+	// CPU DATA transfer must be delayed until device_BBSY == 0
 	// set when arbitration logic detects SACK!
 	uint8_t device_BBSY;
 
