@@ -84,6 +84,7 @@ typedef struct {
 	char printf_format[LOGMESSAGE_FORMAT_SIZE]; // max chunk of text which can be output
 	// list of args
 	LOGMESSAGE_ARGTYPE printf_args[LOGMESSAGE_ARGCOUNT];
+	// va_list	print_args ; better, but would need correct tracing of va_end() calls
 
 	logsource_c *logsource; // who generated this message?
 	unsigned level; // was generated with this severity. One of LL_*
@@ -147,6 +148,8 @@ public:
 
 	// single portal for all messages
 	// message is of verbosity "level", will be output depending on the settings of "logsource"
+	void vlog(logsource_c *logsource, unsigned msglevel, const char *srcfilename,
+			unsigned srcline, const char *fmt, va_list args);
 	void log(logsource_c *logsource, unsigned msglevel, const char *srcfilename,
 			unsigned srcline, const char *fmt, ...);
 
