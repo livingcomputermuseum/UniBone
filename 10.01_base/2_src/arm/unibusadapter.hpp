@@ -64,7 +64,7 @@ private:
 
 	pthread_mutex_t requests_mutex;
 
-	unibuscpu_c	*the_cpu ; // only one unibuscpu_c may be registered
+	unibuscpu_c	*registered_cpu ; // only one unibuscpu_c may be registered
 
 	void worker_init_event(void);
 	void worker_power_event(bool power_down);

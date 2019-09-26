@@ -216,7 +216,7 @@ $(OBJDIR)/cpu.o :  $(DEVICE_SRC_DIR)/cpu.cpp $(DEVICE_SRC_DIR)/cpu.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/ka11.o :  $(DEVICE_SRC_DIR)/cpu20/ka11.c $(DEVICE_SRC_DIR)/cpu20/ka11.h
-	$(CC) $(CCFLAGS) $< -o $@
+	$(CC) $(CCFLAGS) -x c++ -Wno-parentheses $< -o $@
 
 $(OBJDIR)/rl0102.o :  $(DEVICE_SRC_DIR)/rl0102.cpp $(DEVICE_SRC_DIR)/rl0102.hpp
 	$(CC) $(CCFLAGS) $< -o $@

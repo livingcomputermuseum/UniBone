@@ -27,8 +27,10 @@
  */
 
 #include <string.h>
+#include <stdarg.h>
 
 #include "mailbox.h"
+#include "gpios.hpp"	// ARM_DEBUG_PIN*
 
 #include "unibus.h"
 
@@ -36,12 +38,79 @@
 #include "unibusdevice.hpp"	// definition of class device_c
 #include "cpu.hpp"
 
-/* Adapter procs to Angelos CPU are not members of cpu_c calss
+int dbg = 0;
+
+/*** functions to be used by Angelos CPU emulator ***/
+
+/* Adapter procs to Angelos CPU are not members of cpu_c class
  and need one global reference.
  */
-static cpu_c *the_cpu = NULL;
+static cpu_c *unibone_cpu = NULL;
 
-int dbg = 0;
+// route "trace()" to unibone_cpu->logger
+void unibone_log(unsigned msglevel, const char *srcfilename, unsigned srcline, const char *fmt,
+		...) {
+	va_list arg_ptr;
+	va_start(arg_ptr, fmt);
+	//vprintf(fmt, arg_ptr) ;
+	//va_end(arg_ptr); va_start(arg_ptr, fmt);
+	logger->vlog(unibone_cpu, msglevel, srcfilename, srcline, fmt, arg_ptr);
+	va_end(arg_ptr);
+}
+
+		
+void unibone_logdump(void) {
+//	logger->dump(logger->default_filepath);
+	logger->dump(); // stdout
+}
+
+// Result: 1 = OK, 0 = bus timeout
+int unibone_dato(unsigned addr, unsigned data) {
+	uint16_t wordbuffer = (uint16_t) data;
+
+	dbg = 1;
+	unibusadapter->cpu_DATA_transfer(unibone_cpu->data_transfer_request, UNIBUS_CONTROL_DATO,
+			addr, &wordbuffer);
+	dbg = 0;
+	return unibone_cpu->data_transfer_request.success;
+}
+
+int unibone_datob(unsigned addr, unsigned data) {
+	uint16_t wordbuffer = (uint16_t) data;
+	// TODO DATOB als 1 byte-DMA !
+	dbg = 1;
+	unibusadapter->cpu_DATA_transfer(unibone_cpu->data_transfer_request, UNIBUS_CONTROL_DATOB,
+			addr, &wordbuffer);
+	dbg = 0;
+	return unibone_cpu->data_transfer_request.success;
+}
+
+int unibone_dati(unsigned addr, unsigned *data) {
+	uint16_t wordbuffer;
+	dbg = 1;
+	unibusadapter->cpu_DATA_transfer(unibone_cpu->data_transfer_request, UNIBUS_CONTROL_DATI,
+			addr, &wordbuffer);
+	*data = wordbuffer;
+	dbg = 0;
+	// printf("DATI; ba=%o, data=%o\n", addr, *data) ;
+//if (!unibone_cpu->data_transfer_request.success)
+//	ARM_DEBUG_PIN0(1) ;
+
+	return unibone_cpu->data_transfer_request.success;
+}
+
+// CPU has changed the arbitration level, just forward
+// if this is called as result of INTR fector PC and PSW fetch,
+// mailbox->arbitrator.cpu_priority_level was CPU_PRIORITY_LEVEL_FETCHING
+// In that case, PRU is allowed now to grant BGs again.
+void unibone_prioritylevelchange(uint8_t level) {
+	mailbox->arbitrator.cpu_priority_level = level;
+}
+
+// CPU executes RESET opcode -> pulses INIT line
+void unibone_bus_init(unsigned pulsewidth_ms) {
+	unibus->init(pulsewidth_ms);
+}
 
 cpu_c::cpu_c() :
 		unibuscpu_c()  // super class constructor
@@ -67,12 +136,13 @@ cpu_c::cpu_c() :
 	memset(&ka11, 0, sizeof(ka11));
 	ka11.bus = &bus;
 
-	assert(the_cpu == NULL); // only one possible
-	the_cpu = this; // Singleton
+	// link to global instance ptr
+	assert(unibone_cpu == NULL);// only one possible
+	unibone_cpu = this; // Singleton
 }
 
 cpu_c::~cpu_c() {
-	the_cpu = NULL;
+	unibone_cpu = NULL;
 }
 
 bool cpu_c::on_param_changed(parameter_c *param) {
@@ -90,42 +160,47 @@ bool cpu_c::on_param_changed(parameter_c *param) {
 void cpu_c::worker(unsigned instance) {
 	UNUSED(instance); // only one
 	timeout_c timeout;
-	bool nxm;
-	unsigned pc = 0;
-	unsigned dr = 0760102;
+	// bool nxm;
+	// unsigned pc = 0;
+	//unsigned dr = 0760102;
 	unsigned opcode = 0;
 	(void) opcode;
 
 	power_event = power_event_none;
+
+	// run with lowest priority, but without wait()
+	// => get all remainingn CPU power
+//	worker_init_realtime_priority(none_rt);
+//worker_init_realtime_priority(device_rt);
 	while (!workers_terminate) {
-		// run full speed!
+		// speed control is diffiuclt, force to use more ARM cycles
 		timeout.wait_us(1);
+		for (int i = 0; i < 10; i++) {
 
-		// timeout.wait_ms(10);
+			if (runmode.value != (ka11.state != 0))
+				ka11.state = runmode.value;
+			ka11_condstep(&ka11);
+			if (runmode.value != (ka11.state != 0)) {
+				runmode.value = ka11.state != 0;
+				printf("CPU HALT at %06o.\n", ka11.r[7]);
+			}
 
-		if (runmode.value != (ka11.state != 0))
-			ka11.state = runmode.value;
-		ka11_condstep(&ka11);
-		if (runmode.value != (ka11.state != 0)) {
-			runmode.value = ka11.state != 0;
-			printf("CPU HALT at %06o.\n", ka11.r[7]) ;
-		}
-
-		// serialize asynchronous power events
-		if (runmode.value) {
-			// don't call power traps if HALTed. Also not on CONT.
-			if (power_event == power_event_down)
-				ka11_pwrdown(&the_cpu->ka11);
+			// serialize asynchronous power events
+			if (runmode.value) {
+				// don't call power traps if HALTed. Also not on CONT.
+				if (power_event == power_event_down)
+					ka11_pwrdown(&unibone_cpu->ka11);
 				// stop stop some time after power down
-			else if (power_event == power_event_up)
-				ka11_pwrup(&the_cpu->ka11);
-			power_event = power_event_none; // processed
-		}
+				else if (power_event == power_event_up)
+					ka11_pwrup(&unibone_cpu->ka11);
+				power_event = power_event_none; // processed
+			}
 
-		if (init.value) {
-			// user wants CPU reset
-			ka11_reset(&ka11);
-			init.value = 0;
+			if (init.value) {
+				// user wants CPU reset
+				ka11_reset(&ka11);
+				init.value = 0;
+			}
 		}
 
 #if 0
@@ -175,55 +250,6 @@ void cpu_c::on_interrupt(uint16_t vector) {
 	// push PC to stack 
 	// PC := *vector
 	// PSW := *(vector+2)
-	ka11_setintr(&the_cpu->ka11, vector);
-}
-
-extern "C" {
-// functions to be used by Angelos CPU emulator
-// Result: 1 = OK, 0 = bus timeout
-int unibone_dato(unsigned addr, unsigned data) {
-	uint16_t wordbuffer = (uint16_t) data;
-
-	dbg = 1;
-	unibusadapter->cpu_DATA_transfer(the_cpu->data_transfer_request, UNIBUS_CONTROL_DATO, addr,
-			&wordbuffer);
-	dbg = 0;
-	return the_cpu->data_transfer_request.success;
-}
-
-int unibone_datob(unsigned addr, unsigned data) {
-	uint16_t wordbuffer = (uint16_t) data;
-	// TODO DATOB als 1 byte-DMA !
-	dbg = 1;
-	unibusadapter->cpu_DATA_transfer(the_cpu->data_transfer_request, UNIBUS_CONTROL_DATOB, addr,
-			&wordbuffer);
-	dbg = 0;
-	return the_cpu->data_transfer_request.success;
-}
-
-int unibone_dati(unsigned addr, unsigned *data) {
-	uint16_t wordbuffer;
-	dbg = 1;
-	unibusadapter->cpu_DATA_transfer(the_cpu->data_transfer_request, UNIBUS_CONTROL_DATI, addr,
-			&wordbuffer);
-	*data = wordbuffer;
-	dbg = 0;
-	// printf("DATI; ba=%o, data=%o\n", addr, *data) ;
-
-	return the_cpu->data_transfer_request.success;
-}
-
-// CPU has changed the arbitration level, just forward
-// if this is called as result of INTR fector PC and PSW fetch,
-// mailbox->arbitrator.cpu_priority_level was CPU_PRIORITY_LEVEL_FETCHING
-// In that case, PRU is allowed now to grant BGs again.
-void unibone_prioritylevelchange(uint8_t level) {
-	mailbox->arbitrator.cpu_priority_level = level;
-}
-
-// CPU executes RESET opcode -> pulses INIT line
-void unibone_bus_init(unsigned pulsewidth_ms) {
-	unibus->init(pulsewidth_ms);
-}
+	ka11_setintr(&unibone_cpu->ka11, vector);
 }
 

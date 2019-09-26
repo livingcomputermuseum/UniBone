@@ -177,12 +177,14 @@ void main(void) {
 
 		if (emulate_cpu) {
 			// Receive INTR from physical or emulated devices, and signal ARM.
-			// Same code loop as for DATA cycle
 			if (!sm_intr_slave_state)
 				sm_intr_slave_state = (statemachine_state_func) &sm_intr_slave_start;
+			sm_intr_slave_state = sm_intr_slave_state() ;
+/*			
 			while ((sm_intr_slave_state = sm_intr_slave_state())
 					&& EVENT_IS_ACKED(mailbox, intr_slave))
 				;
+*/				
 		}
 
 		// process ARM commands in master and slave mode

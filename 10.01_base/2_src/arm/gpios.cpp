@@ -63,6 +63,7 @@ gpios_c *gpios; // Singleton
 
 buslatches_t buslatches;
 
+
 gpios_c::gpios_c() {
 	log_label = "GPIOS";
 }

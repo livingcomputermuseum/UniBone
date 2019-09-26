@@ -1,6 +1,8 @@
 #include "11.h"
 #include "ka11.h"
 
+#include "gpios.hpp" // ARM_DEBUG_PIN*
+
 int unibone_dato(unsigned addr, unsigned data);
 int unibone_datob(unsigned addr, unsigned data);
 int unibone_dati(unsigned addr, unsigned *data);
@@ -12,7 +14,7 @@ int
 dati_bus(Bus *bus)
 {
 	unsigned int data;
-	if(!unibone_dati(bus->addr, &data))
+	if(!unibone_dati(bus->addr, &data)) 
 		return 1;
 	bus->data = data;
 	return 0;
@@ -129,9 +131,12 @@ ka11_reset(KA11 *cpu)
 int
 dati(KA11 *cpu, int b)
 {
-trace("dati %06o: ", cpu->ba);
-	if(!b && cpu->ba&1)
+trace("dati %06o:\n", cpu->ba);
+	if(!b && cpu->ba&1) {
+//ARM_DEBUG_PIN0(1) ;
+//unibone_logdump() ; // write trace() output to file
 		goto be;
+}		
 
 	/* internal registers */
 	if((cpu->ba&0177400) == 0177400){

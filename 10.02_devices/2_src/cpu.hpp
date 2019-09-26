@@ -32,10 +32,8 @@ using namespace std;
 //#include "unibusadapter.hpp"
 //#include "unibusdevice.hpp"
 #include "unibuscpu.hpp"
-extern "C" {
 #include "cpu20/11.h"
 #include "cpu20/ka11.h"
-}
 
 class cpu_c: public unibuscpu_c {
 private:
@@ -58,7 +56,7 @@ public:
 	parameter_bool_c init = parameter_bool_c(this, "init", "i",/*readonly*/
 	false, "1 = CPU initializing");
 
-	struct Bus bus; // UNIBU Sinterface of CPU
+	struct Bus bus; // UNIBUS interface of CPU
 	struct KA11 ka11; // Angelos CPU state
 
 	// background worker function
@@ -68,9 +66,8 @@ public:
 	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control)
 			override;
 
-	void on_interrupt(uint16_t vector) ;
-	
-};
+	void on_interrupt(uint16_t vector);
 
+};
 
 #endif

@@ -103,7 +103,7 @@ unibusadapter_c::unibusadapter_c() :
 
 	requests_init();
 
-	the_cpu = NULL;
+	registered_cpu = NULL;
 }
 
 bool unibusadapter_c::on_param_changed(parameter_c *param) {
@@ -235,8 +235,8 @@ bool unibusadapter_c::register_device(unibusdevice_c& device) {
 	// if its a CPU, switch PRU to "with_CPU"
 	unibuscpu_c *cpu = dynamic_cast<unibuscpu_c*>(&device);
 	if (cpu) {
-		assert(the_cpu == NULL); // only one allowed!
-		the_cpu = cpu;
+		assert(registered_cpu == NULL); // only one allowed!
+		registered_cpu = cpu;
 		mailbox->cpu_enable = 1 ;
 		mailbox_execute(ARM2PRU_CPU_ENABLE) ;
 	}
@@ -258,7 +258,7 @@ void unibusadapter_c::unregister_device(unibusdevice_c& device) {
 	if (cpu) {
 		mailbox->cpu_enable = 0;
 		mailbox_execute(ARM2PRU_CPU_ENABLE);
-		the_cpu = NULL;
+		registered_cpu = NULL;
 	}
 
 	// remove "from backplane"
@@ -1159,9 +1159,9 @@ void unibusadapter_c::worker(unsigned instance) {
 
 			if (!EVENT_IS_ACKED(*mailbox, intr_slave)) {
 				// If CPU emulation enabled: a device INTR was detected on bus, 
-				assert(the_cpu); // if INTR events are enabled, cpu must be instantiated
+				assert(registered_cpu); // if INTR events are enabled, cpu must be instantiated
 				// see register_device()
-				the_cpu->on_interrupt(mailbox->events.intr_slave.vector);
+				registered_cpu->on_interrupt(mailbox->events.intr_slave.vector);
 				// clear SSYN, INTR cycle completes
 				EVENT_ACK(*mailbox, intr_slave);
 				// mailbox->arbitrator.cpu_priority_level now CPU_PRIORITY_LEVEL_FETCHING

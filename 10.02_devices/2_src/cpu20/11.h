@@ -24,7 +24,12 @@ typedef uint32_t uint32;
 
 
 //#define trace printf
-#define trace(...)
+//#define trace(...)
+// route "trace()" to unibone_cpu->logger
+void unibone_log(unsigned msglevel, const char *srcfilename,	unsigned srcline, const char *fmt, ...) ;
+void unibone_logdump(void);
+#define LL_DEBUG 5 // see logger.hpp
+#define trace(...) unibone_log(LL_DEBUG, __FILE__, __LINE__, __VA_ARGS__)
 
 int hasinput(int fd);
 int dial(char *host, int port);

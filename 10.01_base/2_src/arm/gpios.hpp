@@ -92,6 +92,7 @@ typedef struct {
 #define ARM_DEBUG_PIN2(n)	GPIO_SETVAL(gpios->led[2], !!(n))
 #define ARM_DEBUG_PIN3(n)	GPIO_SETVAL(gpios->led[3], !!(n))
 
+
 class gpios_c: public logsource_c {
 private:
 	void bank_map_registers(unsigned bank_idx, unsigned unmapped_start_addr);
