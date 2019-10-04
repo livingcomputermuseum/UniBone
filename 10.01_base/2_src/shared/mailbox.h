@@ -43,14 +43,15 @@
 #define ARM2PRU_INITALIZATIONSIGNAL_SET		9 	// set an ACL=/DCLO/INIT signal
 #define ARM2PRU_ARB_MODE_NONE		11               // DMA without NPR/NPG/SACK arbitration
 #define ARM2PRU_ARB_MODE_CLIENT		12               // DMA with arbitration by external Arbitrator
-#define ARM2PRU_ARB_MODE_MASTER		13               // DMA as Arbitrator
 #define ARM2PRU_DMA		14               // DMA with selected arbitration
-#define PRU2ARM_DMA_CPU_TRANSFER_BLOCKED 15 // possible result of ARM2PRU_DMA
+//#define PRU2ARM_DMA_CPU_TRANSFER_BLOCKED 15 // possible result of ARM2PRU_DMA
 #define ARM2PRU_INTR		16               // INTR with arbitration by external Arbitrator
 #define ARM2PRU_INTR_CANCEL		17               // clear INTR which has been requested
 #define ARM2PRU_CPU_ENABLE		18	// siwtch CPU master side functions ON/OFF
 #define ARM2PRU_DDR_FILL_PATTERN	19	// fill DDR with test pattern
 #define ARM2PRU_DDR_SLAVE_MEMORY	20	// use DDR as UNIBUS slave memory
+#define ARM2PRU_ARB_GRANT_INTR_REQUESTS	21 // emulated CPU answers device requests
+
 
 // signal IDs for ARM2PRU_INITALIZATIONSIGNAL_* 
 // states of initialization section lines. Bitmask = latch[7]
@@ -123,17 +124,12 @@ typedef struct {
 
 // data for bus arbitrator 
 typedef struct {
-	// arbitrator.device_BBSY indicates a device wants or has acquired the UNIBUS.
-	// CPU DATA transfer must be delayed until device_BBSY == 0
-	// set when arbitration logic detects SACK!
-	uint8_t device_BBSY;
+	// ifs = Interrupt Fielding Processor
+	uint8_t ifs_priority_level; // Priority level of CPU, visible in PSW. 7,6,5,4 <4.
 
-	// Command by ARM on DMA start: DATA transfer as CPU, else as device	
-	uint8_t cpu_BBSY;
+	uint8_t	ifs_intr_arbitration_pending ; // produce GRANTS from requests
 
-	uint8_t cpu_priority_level; // Priority level of CPU, visible in PSW. 7,6,5,4 <4.
-
-	uint8_t _dummy1;	// keep 32 bit borders
+	uint8_t _dummy[2];	// keep 32 bit borders
 
 } mailbox_arbitrator_t;
 
@@ -141,10 +137,12 @@ typedef struct {
 typedef struct {
 	// take care of 32 bit word borders for struct members
 	uint8_t cur_status; // 0 = idle, 1 = DMA running, 2 = timeout error
-	// 0x80: set on start to indicate CPU access
 
 	uint8_t control; // cycle to perform: only DATO, DATI allowed
 	uint16_t wordcount; // # of remaining words transmit/receive, static
+	// ---dword---
+	uint8_t	cpu_access ; // 0 for device DMA, 1 for emulated CPU
+	uint8_t	dummy[3] ; 
 	// ---dword---
 	uint32_t cur_addr; // current address in transfer, if timeout: offending address.
 	// if complete: last address accessed.
@@ -213,8 +211,8 @@ typedef struct {
 	 */
 	uint8_t signaled; //  PRU->ARM
 	uint8_t acked; // ARM->PRU
-	uint8_t cpu_transfer; // 1: ARM must process DMA as completed cpu DATA transfer
-	uint8_t _dummy2;
+//int8_t cpu_transfer; // 1: ARM must process DMA as completed cpu DATA transfer
+	uint8_t _dummy2[2];
 } mailbox_event_dma_t;
 
 // INTR raised by device

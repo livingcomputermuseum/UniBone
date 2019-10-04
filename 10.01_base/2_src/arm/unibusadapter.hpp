@@ -69,7 +69,7 @@ private:
 	void worker_init_event(void);
 	void worker_power_event(bool power_down);
 	void worker_deviceregister_event(void);
-	void worker_dma_chunk_complete_event(bool cpu_DATA_transfer);
+	void worker_device_dma_chunk_complete_event(void);
 	void worker_intr_complete_event(uint8_t level_index);
 	void worker(unsigned instance) override; // background worker function
 
@@ -101,7 +101,7 @@ public:
 	priority_request_c *request_activate_lowest_slot(unsigned level_index);
 //	bool request_is_active(		unsigned level_index);
 	bool request_is_blocking_active(uint8_t level_index);
-	void request_active_complete(unsigned level_index);
+	void request_active_complete(unsigned level_index, bool signal_complete);
 	void request_execute_active_on_PRU(unsigned level_index);
 
 	void DMA(dma_request_c& dma_request, bool blocking, uint8_t unibus_control,

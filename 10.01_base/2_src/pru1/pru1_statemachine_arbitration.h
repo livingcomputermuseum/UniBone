@@ -28,13 +28,13 @@
 
 #include <stdint.h>
 
-// Arbitration master restes GRANT if devcie does not respond with
+// Arbitration master restes GRANT if device does not respond with
 // SACK within this period.
 #define ARB_MASTER_SACK_TIMOUT_MS	10
 
 // a priority-arbitration-worker returns a bit mask with the GRANT signal he recognized
 
-typedef uint8_t (*statemachine_arb_worker_func)();
+typedef uint8_t (*statemachine_arb_worker_func)(uint8_t grant_mask);
 
 typedef struct {
 	// There are 5 request/grant signals (BR4,5,6,7 and NPR).
@@ -50,10 +50,12 @@ typedef struct {
 	uint8_t bbsy_wait_grant_mask;
 
 	/*** master ****/
-	// only used wif working as Arbitrator/Interupt Fielding Processor
-	uint8_t ifs_priority_level; // priority level of Interrupt Fielding processor (CPU)
-
+	// CPU is requesting memory access via PRU2ARM_DMA/mailbox.dma
+	uint8_t cpu_request ; 
+	
 	uint8_t arbitrator_grant_mask; // single GRANT line set by master
+
+	// uint8_t	dummy[3] ;
 
 } statemachine_arbitration_t;
 
@@ -70,8 +72,8 @@ typedef struct {
 extern statemachine_arbitration_t sm_arb;
 
 void sm_arb_reset(void);
-uint8_t sm_arb_worker_none(void);
-uint8_t sm_arb_worker_client(void);
-uint8_t sm_arb_worker_master(void);
+uint8_t sm_arb_worker_none(uint8_t grant_mask);
+uint8_t sm_arb_worker_device(uint8_t grant_mask);
+uint8_t sm_arb_worker_cpu(void);
 
 #endif

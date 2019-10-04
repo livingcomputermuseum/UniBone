@@ -46,30 +46,28 @@ using namespace std;
 
 // octal, or '<char>'
 bool application_c::parse_word(char *txt, uint16_t *word) {
-	*word = 0 ;
+	*word = 0;
 	if (!txt || *txt == 0)
-		return false ;
-	
+		return false;
+
 	if (*txt == '\'') {
-		txt++ ;
+		txt++;
 		if (*txt)
-			*word = *txt ; // ASCII code of first char after ''
+			*word = *txt; // ASCII code of first char after ''
 	} else
 		*word = strtol(txt, NULL, 8); // octal literal
-	return true ;
+	return true;
 }
 
 // octal, trunc to 18 bit
 bool application_c::parse_addr18(char *txt, uint32_t *addr) {
-	*addr = strtol(txt, NULL, 8) ;
+	*addr = strtol(txt, NULL, 8);
 	if (*addr > 0777777) {
-		*addr = 0777777 ;
-		return false ;
+		*addr = 0777777;
+		return false;
 	}
-	return true ;
+	return true;
 }
-
-
 
 bool application_c::parse_level(char *txt, uint8_t *level) {
 	*level = strtol(txt, NULL, 8);
@@ -77,7 +75,7 @@ bool application_c::parse_level(char *txt, uint8_t *level) {
 		printf("Illegal interrupt level %u, must be 4..7.\n", *level);
 		return false;
 	}
-		return true;
+	return true;
 }
 
 bool application_c::parse_vector(char *txt, uint16_t max_vector, uint16_t *vector) {
@@ -90,23 +88,26 @@ bool application_c::parse_vector(char *txt, uint16_t max_vector, uint16_t *vecto
 		printf("Illegal interrupt vector %06o, must be multiple of 4.\n", *vector);
 		return false;
 	}
-		return true;
+	return true;
 }
 
 bool application_c::parse_slot(char *txt, uint8_t *priority_slot) {
 	*priority_slot = strtol(txt, NULL, 10);
-	if (*priority_slot <= 0 ||  *priority_slot > 31) {
+	if (*priority_slot <= 0 || *priority_slot > 31) {
 		printf("Illegal priority slot %u, must be 1..31.\n", *priority_slot);
 		return false;
 	}
-		return true;
+	return true;
 }
 
-
-void application_c::print_arbitration_info(
-		enum unibus_c::arbitration_mode_enum arbitration_mode, const char *indent) {
-	switch (arbitration_mode) {
-	case unibus_c::ARBITRATION_MODE_NONE:
+void application_c::print_arbitration_info(const char *indent) {
+	if (unibus->get_arbitrator_active()) {
+		printf("%s\"UniBone devcies are clients to PDP-11 CPU doing NPR/INTR Arbitrator\n",
+				indent);
+		printf("%s(CPU active, console processor inactive).\n", indent);
+		printf("%sCPU is physical or emulated.\n", indent);
+		printf("%sMemory access as Bus Master with NPR/NPG/SACK handshake.\n", indent);
+	} else {
 		printf(
 				"%s\"BR/BG and NPR/NPG Arbitration INACTIVE\": Expects no PDP-11 CPU doing NPR/INTR arbitration\n",
 				indent);
@@ -114,19 +115,6 @@ void application_c::print_arbitration_info(
 		printf("%sOnly UNIBUS data transfers can be tested.\n", indent);
 		printf("%sUnconditional memory access as Bus Master without NPR/NPG/SACK handshake.\n",
 				indent);
-		break;
-	case unibus_c::ARBITRATION_MODE_CLIENT:
-		printf("%s\"UniBone is client to PDP-11 CPU doing NPR/INTR Arbitrator\n", indent);
-		printf("%s(CPU active, console processor inactive).\n", indent);
-		printf("%sMemory access as Bus Master with NPR/NPG/SACK handshake.\n", indent);
-		break;
-	case unibus_c::ARBITRATION_MODE_MASTER:
-		printf("%s\"UniBone is active Arbitrator for NPR/INTR Arbitrator\n", indent);
-		printf("%s\"Expects no physical PDP-11 CPU doing NPR/INTR arbitration\n", indent);
-		printf("%s(CPU not plugged in, NO console processor active).\n", indent);
-		break;
-	default:
-		FATAL("Illegal arbitration mode");
 	}
 }
 
@@ -154,14 +142,14 @@ char *application_c::getchoice(void) {
 
 // scan UNIBUS address range and emulate missing memory
 // result: false, if nothing emulated
-bool application_c::emulate_memory(enum unibus_c::arbitration_mode_enum arbitration_mode) {
+bool application_c::emulate_memory() {
 	bool result = false;
 	unsigned first_invalid_addr;
 	printf("Disable memory emulation, size physical memory ...\n");
 	emulated_memory_start_addr = 0xffffffff;
 	emulated_memory_end_addr = 0; // start > end: disable
 	ddrmem->set_range(emulated_memory_start_addr, emulated_memory_end_addr);
-	first_invalid_addr = unibus->test_sizer(arbitration_mode);
+	first_invalid_addr = unibus->test_sizer();
 	if (first_invalid_addr >= 0760000)
 		printf("Found physical memory in full range 0..0757776, no emulation necessary!\n");
 	else {
@@ -325,7 +313,7 @@ void application_c::menu_main(void) {
 			} else if (!strcasecmp(opcode, "us")) {
 				menu_unibus_signals();
 			} else if (!strcasecmp(opcode, "tm")) {
-				menu_masterslave(unibus_c::ARBITRATION_MODE_NONE);
+				menu_masterslave(/*with_CPU*/false);
 			} else if (!strcasecmp(opcode, "ts")) {
 				menu_ddrmem_slave_only();
 			} else if (!strcasecmp(opcode, "ti")) {
@@ -337,7 +325,7 @@ void application_c::menu_main(void) {
 			} else if (!strcasecmp(opcode, "de")) {
 				menu_device_exercisers();
 			} else if (!strcasecmp(opcode, "m")) {
-				menu_masterslave(unibus_c::ARBITRATION_MODE_CLIENT);
+				menu_masterslave(/*with_CPU*/true);
 			} else if (!strcasecmp(opcode, "i")) {
 				menu_info();
 			}

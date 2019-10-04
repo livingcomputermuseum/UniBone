@@ -170,15 +170,6 @@ void application_c::parse_commandline(int argc, char **argv) {
 					"Lines are processed as if typed in.", "testseq",
 			"read commands from file \"testseq\" and execute line by line", "", "");
 
-	getopt_parser.define("arb", "arbitration_mode", "mode", "", "",
-			"Setup configuration of UNIBUS test system.\n"
-					"arb 0: no Bus Arbitrator. No PDP-11 CPU is doing NPR/INTR/SACK arbitration\n"
-					"   (HALTed, Not plugged in, or console processor active SACK)\n"
-					"   Bus master memory access without handshake to CPU.\n"
-					"arb 1:  UniBone is client to PDP-11 CPU Bus Arbitrator.\n"
-					"   Bus master memory access with NPR/G/SACK handshake to CPU.\n", "", "",
-			"", "");
-
 	// test options
 
 	getopt_parser.define("t", "test", "iarg1,iarg2", "soptarg", "8 15",
@@ -199,11 +190,6 @@ void application_c::parse_commandline(int argc, char **argv) {
 			logger->default_level = LL_DEBUG;
 		} else if (getopt_parser.isoption("cmdfile")) {
 			if (getopt_parser.arg_s("cmdfilename", opt_cmdfilename) < 0)
-				commandline_option_error(NULL);
-		} else if (getopt_parser.isoption("arbitration_mode")) {
-			unsigned mode;
-			WARNING("Option \"arbitration_mode\" was removed");
-			if (getopt_parser.arg_u("mode", &mode) < 0)
 				commandline_option_error(NULL);
 		} else if (getopt_parser.isoption("test")) {
 			int i1, i2;
@@ -251,12 +237,6 @@ void application_c::hardware_startup(enum pru_c::prucode_enum prucode_id) {
 	iopageregisters_init();
 }
 
-// if prucode_id is UNIBUS, define also wether Abritration ignored, doen by remote CPU or emulated 	
-void application_c::hardware_startup(enum pru_c::prucode_enum prucode_id,
-		enum unibus_c::arbitration_mode_enum arbitration_mode) {
-	hardware_startup(prucode_id);
-	unibus_c::set_arbitration_mode(arbitration_mode);
-}
 
 // disable all hardware related subsystems:
 void application_c::hardware_shutdown() {

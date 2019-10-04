@@ -122,12 +122,16 @@ bool timeout_c::reached() {
 	return (elapsed_ns() > duration_ns);
 }
 
+/***
+	Tests indicate that any nano_sleep() often causes delays of 60-80 µs
+***/
+
 // wait a number of nanoseconds, resolution in 0.1 millisecs
 void timeout_c::wait_ns(uint64_t duration_ns) {
 	struct timespec ts = { (long) (duration_ns / BILLION), (long) (duration_ns % BILLION) };
 	int res = nanosleep(&ts, NULL);
-	if (res)
-		DEBUG("nanosleep() return a %d", res);
+	assert(res == 0);
+//		DEBUG("nanosleep() return a %d", res);
 }
 
 // wait a number of milliseconds

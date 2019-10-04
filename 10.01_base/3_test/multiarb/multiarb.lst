@@ -24,8 +24,8 @@
       24                                
       25                                	; enable tests
       26 000001                         kwenab	=	1
-      27 000000                         rkenab	=	0
-      28 000000                         rlenab	=	0
+      27 000001                         rkenab	=	1
+      28 000001                         rlenab	=	1
       29 000000                         ryenab	=	0	; not yet tested
       30 000000                         duenab	=	0	; not yet implemeneted
       31                                
@@ -33,177 +33,185 @@
       33                                	.asect
       34                                
       35                                	; *************************************************
-      36                                	; Vectors
-      37                                
-      38 000060                         	. = corvec
-      39 000060 001170                  	.word	corisr		; RCV interrupt
-      40 000062 000340                  	.word	340
-      41 000064                         	. = coxvec
-      42 000064 001204                  	.word	coxisr		; XMT interrupt
-      43 000066 000340                  	.word	340
-      44                                
-      45 000001                         .if ne kwenab
-      46 000100                         	. = kwvect
-      47 000100 001430                  	.word	kwisr		; periodic interrupt
-      48 000102 000340                  	.word	340
-      49                                .endc
-      50                                
-      51 000000                         .if ne rlenab
-      52                                	. = rlvect		; RL11
-      53                                	.word	rlisr
-      54                                	.word	340
-      55                                .endc
-      56                                
-      57 000000                         .if ne rkenab
-      58                                	. = rkvect		; RK11
-      59                                	.word	rkisr
-      60                                	.word	340
-      61                                .endc
-      62                                
-      63 000000                         .if ne ryenab
-      64                                	. = ryvect		; RX211
-      65                                	.word	ryisr
-      66                                	.word	340
-      67                                .endc
-      68                                
-      69 000000                         .if ne duenab
-      70                                	. = duvect		; UDA MSCP controller
-      71                                	.word	duisr
-      72                                	.word	340
-      73                                .endc
-      74                                
-      75 177776                         psw	= 177776
-      76 165020                         monitr	= 165020		; Monitor addr for back jump
-      77                                
-      78                                	; *************************************************
-      79                                	; Main
-      80 001000                         	. = 1000
-      81 000776                         stack	= .-2
-      82                                start:
-      83 001000 012706  000776          	mov	#stack,sp
-      84 001004 005037  177776          	clr	@#psw		; priorty level 0, allow INTR
-      85                                	; Initialize devices
-      86 001010 000005                  	reset
-      87 001012 004737  001212          	call	corini
-      88 001016 004737  001226          	call	coxini
-      89 000001                         .if ne kwenab
-      90 001022 004737  001442          	call	kwinit
-      91                                .endc
-      92 000000                         .if ne rkenab
-      93                                	call	rkinit
-      94                                .endc
-      95 000000                         .if ne rlenab
-      96                                	call	rlinit
-      97                                .endc
-      98 000000                         .if ne ryenab
-      99                                	call	ryinit
-     100                                .endc
-     101 000000                         .if ne duenab
-     102                                	call	duinit
-     103                                .endc
-     104                                
-     105 001026 012701  001460          	mov	#shello,r1	; Print "Hello" message
-     106 001032 004737  001242          	call	puts
-     107                                
-     108                                	; main loop: check interrupt flags, restart DMA
-     109                                	; process serial input
-     110                                loop:
-     111 001036 004737  001050          	call	dokbd		; check keyboard input
-     112 001042 004737  001110          	call	dodev		; check device activities
-     113 001046 000773                  	br	loop
-     114                                
+      36                                	; Vectors		; UniBone emulated CPU start
+      37 000000                         	. = 0
+      38 000000 000137  001000          	jmp	@#start
+      39                                
+      40                                
+      41                                	; Emulated CPU: restart on pwoer event
+      42 000024                         	. = 24			; Power ON/OFF
+      43 000024 001000                  	.word	start		; PC
+      44 000026 000340                  	.word	340		; PSW priority level 7
+      45                                
+      46 000060                         	. = corvec
+      47 000060 001264                  	.word	corisr		; RCV interrupt
+      48 000062 000340                  	.word	340
+      49 000064                         	. = coxvec
+      50 000064 001300                  	.word	coxisr		; XMT interrupt
+      51 000066 000340                  	.word	340
+      52                                
+      53 000001                         .if ne kwenab
+      54 000100                         	. = kwvect
+      55 000100 001524                  	.word	kwisr		; periodic interrupt
+      56 000102 000340                  	.word	340
+      57                                .endc
+      58                                
+      59 000001                         .if ne rlenab
+      60 000160                         	. = rlvect		; RL11
+      61 000160 004640                  	.word	rlisr
+      62 000162 000340                  	.word	340
+      63                                .endc
+      64                                
+      65 000001                         .if ne rkenab
+      66 000220                         	. = rkvect		; RK11
+      67 000220 002562                  	.word	rkisr
+      68 000222 000340                  	.word	340
+      69                                .endc
+      70                                
+      71 000000                         .if ne ryenab
+      72                                	. = ryvect		; RX211
+      73                                	.word	ryisr
+      74                                	.word	340
+      75                                .endc
+      76                                
+      77 000000                         .if ne duenab
+      78                                	. = duvect		; UDA MSCP controller
+      79                                	.word	duisr
+      80                                	.word	340
+      81                                .endc
+      82                                
+      83 177776                         psw	= 177776
+      84 165020                         monitr	= 165020		; Monitor addr for back jump
+      85                                
+      86                                	; *************************************************
+      87                                	; Main
+      88 001000                         	. = 1000
+      89 000776                         stack	= .-2
+      90                                start:
+      91 001000 012706  000776          	mov	#stack,sp
+      92 001004 005037  177776          	clr	@#psw		; priorty level 0, allow INTR
+      93                                	; Initialize devices
+      94 001010 000005                  	reset
+      95 001012 004737  001306          	call	corini
+      96 001016 004737  001322          	call	coxini
+      97 000001                         .if ne kwenab
+      98 001022 004737  001536          	call	kwinit
+      99                                .endc
+     100 000001                         .if ne rkenab
+     101 001026 004737  002570          	call	rkinit
+     102                                .endc
+     103 000001                         .if ne rlenab
+     104 001032 004737  004646          	call	rlinit
+     105                                .endc
+     106 000000                         .if ne ryenab
+     107                                	call	ryinit
+     108                                .endc
+     109 000000                         .if ne duenab
+     110                                	call	duinit
+     111                                .endc
+     112                                
+     113 001036 012701  004766          	mov	#shello,r1	; Print "Hello" message
+     114 001042 004737  001336          	call	puts
      115                                
-     116                                
-     117                                	; --- check keyboard input
-     118                                dokbd:
-     119 001050 004737  001374          	call	getc
-     120 001054 103014                  	bcc	9$		; nothing received
-     121                                	; process char in r0
-     122 001056 120027  000003          	cmpb	r0,#3
-     123 001062 001007                  	bne	1$
-     124 001064 012701  001551          	mov	#sbye,r1	; ^C: print "Bye", back to monitor
-     125 001070 004737  001242          	call	puts
-     126 001074 000005                  	reset			; stop devices
-     127 001076 000137  165020          	jmp	monitr
-     128                                1$:
-     129                                	; echo chars without special meaning
-     130 001102 004737  001354          	call	putc
-     131                                9$:
-     132 001106 000207                  	return
-     133                                
-     134                                	; -- check device activities
-     135                                dodev:
-     136                                	; For all devices: restart device DMA if Interrupt received
-     137 000001                         .if ne kwenab
-     138 001110 005737  001424          	tst	kwiflg
-     139 001114 001412                  	beq	1$
-     140 001116 005037  001424          	clr	kwiflg
-     141 001122 004737  001456          	call	kwgo
-     142 001126 012700  000127          	mov	#kwlabl,r0	; progress printout
-     143 001132 012701  001426          	mov	#kwecnt,r1
-     144 001136 004737  001144          	call	progrs
-     145                                1$:
-     146                                .endc
-     147                                
-     148 000000                         .if ne rkenab
-     149                                	tst	rkiflg
-     150                                	beq	2$
-     151                                	clr	rkiflg
-     152                                	call	rkgo
-     153                                	mov	#rklabl,r0	; progress printout
-     154                                	mov	#rkecnt,r1
-     155                                	call	progrs
-     156                                2$:
-     157                                .endc
-     158 000000                         .if ne rlenab
-     159                                	tst	rliflg
-     160                                	beq	3$
-     161                                	clr	rliflg
-     162                                	call	rlgo
-     163                                	mov	#rllabl,r0	; progress printout
-     164                                	mov	#rlecnt,r1
-     165                                	call	progrs
-     166                                3$:
-     167                                .endc
-     168 000000                         .if ne ryenab
-     169                                	tst	ryiflg
-     170                                	beq	4$
-     171                                	clr	ryiflg
-     172                                	call	rygo
-     173                                	mov	#rylabl,r0	; progress printout
-     174                                	mov	#ryecnt,r1
-     175                                	call	progrs
-     176                                4$:
-     177                                .endc
-     178 000000                         .if ne duenab
-     179                                	tst	duiflg
-     180                                	beq	5$
-     181                                	clr	duiflg
-     182                                	call	dugo
-     183                                	mov	#dulabl,r0	; progress printout
-     184                                	mov	#duecnt,r1
-     185                                	call	progrs
-     186                                5$:
-     187                                .endc
-     188                                
-     189 001142 000207                  	return
-     190                                
-     191                                
-     192                                	; progress
-     193                                	; check if the counter with address in r1 is at
-     194                                	; 1024. if yes, print the char in r0
-     195                                progrs:
-     196                                ;	 bic	 #777700,(r1)	 ; mask counter to 0..63
-     197 001144 042711  177400          	bic	#777400,(r1)	; mask counter to 0..255
-     198                                ;	 bic	 #776000,(r1)	 ; mask counter to 0..1023
-     199 001150 001002                  	bne	9$
-     200 001152 004737  001354          	call	putc		; is at 0: print label character
-     201                                9$:
-     202 001156 000207                  	return
-     203                                
-     204                                
-     205                                
-     206                                	.include ma_cons.mac
+     116                                	; main loop: check interrupt flags, restart DMA
+     117                                	; process serial input
+     118                                loop:
+     119 001046 004737  001060          	call	dokbd		; check keyboard input
+     120 001052 004737  001120          	call	dodev		; check device activities
+     121 001056 000773                  	br	loop
+     122                                
+     123                                
+     124                                
+     125                                	; --- check keyboard input
+     126                                dokbd:
+     127 001060 004737  001470          	call	getc
+     128 001064 103014                  	bcc	9$		; nothing received
+     129                                	; process char in r0
+     130 001066 120027  000003          	cmpb	r0,#3
+     131 001072 001007                  	bne	1$
+     132 001074 012701  005057          	mov	#sbye,r1	; ^C: print "Bye", back to monitor
+     133 001100 004737  001336          	call	puts
+     134 001104 000005                  	reset			; stop devices
+     135 001106 000137  165020          	jmp	monitr
+     136                                1$:
+     137                                	; echo chars without special meaning
+     138 001112 004737  001450          	call	putc
+     139                                9$:
+     140 001116 000207                  	return
+     141                                
+     142                                	; -- check device activities
+     143                                dodev:
+     144                                	; For all devices: restart device DMA if Interrupt received
+     145 000001                         .if ne kwenab
+     146 001120 005737  001520          	tst	kwiflg
+     147 001124 001412                  	beq	1$
+     148 001126 005037  001520          	clr	kwiflg
+     149 001132 004737  001552          	call	kwgo
+     150 001136 012700  000127          	mov	#kwlabl,r0	; progress printout
+     151 001142 012701  001522          	mov	#kwecnt,r1
+     152 001146 004737  001240          	call	progrs
+     153                                1$:
+     154                                .endc
+     155                                
+     156 000001                         .if ne rkenab
+     157 001152 005737  001554          	tst	rkiflg
+     158 001156 001412                  	beq	2$
+     159 001160 005037  001554          	clr	rkiflg
+     160 001164 004737  002576          	call	rkgo
+     161 001170 012700  000113          	mov	#rklabl,r0	; progress printout
+     162 001174 012701  002560          	mov	#rkecnt,r1
+     163 001200 004737  001240          	call	progrs
+     164                                2$:
+     165                                .endc
+     166 000001                         .if ne rlenab
+     167 001204 005737  002632          	tst	rliflg
+     168 001210 001412                  	beq	3$
+     169 001212 005037  002632          	clr	rliflg
+     170 001216 004737  004654          	call	rlgo
+     171 001222 012700  000114          	mov	#rllabl,r0	; progress printout
+     172 001226 012701  004636          	mov	#rlecnt,r1
+     173 001232 004737  001240          	call	progrs
+     174                                3$:
+     175                                .endc
+     176 000000                         .if ne ryenab
+     177                                	tst	ryiflg
+     178                                	beq	4$
+     179                                	clr	ryiflg
+     180                                	call	rygo
+     181                                	mov	#rylabl,r0	; progress printout
+     182                                	mov	#ryecnt,r1
+     183                                	call	progrs
+     184                                4$:
+     185                                .endc
+     186 000000                         .if ne duenab
+     187                                	tst	duiflg
+     188                                	beq	5$
+     189                                	clr	duiflg
+     190                                	call	dugo
+     191                                	mov	#dulabl,r0	; progress printout
+     192                                	mov	#duecnt,r1
+     193                                	call	progrs
+     194                                5$:
+     195                                .endc
+     196                                
+     197 001236 000207                  	return
+     198                                
+     199                                
+     200                                	; progress
+     201                                	; check if the counter with address in r1 is at
+     202                                	; 1024. if yes, print the char in r0
+     203                                progrs:
+     204                                ;	 bic	 #777700,(r1)	 ; mask counter to 0..63
+     205 001240 042711  177400          	bic	#777400,(r1)	; mask counter to 0..255
+     206                                ;	 bic	 #776000,(r1)	 ; mask counter to 0..1023
+     207 001244 001002                  	bne	9$
+     208 001246 004737  001450          	call	putc		; is at 0: print label character
+     209                                9$:
+     210 001252 000207                  	return
+     211                                
+     212                                
+     213                                
+     214                                	.include ma_cons.mac
        1                                
        2                                	.title ma_cons - Serial Console I/O
        3 000060                         corvec= 060		; vector for Receiver
@@ -216,30 +224,30 @@
       10                                
       11                                	; -- ISRs, increment Interrupt FLags
       12                                
-      13 001160 000001                  corifl:	.word	1	; Interrupt flags
-      14 001162 000001                  coxifl:	.word	1
+      13 001254 000001                  corifl:	.word	1	; Interrupt flags
+      14 001256 000001                  coxifl:	.word	1
       15                                
-      16 001164                         corbuf:	.blkw	1  	; data buffer
-      17 001166                         coxbuf: .blkw 	1
+      16 001260                         corbuf:	.blkw	1  	; data buffer
+      17 001262                         coxbuf: .blkw 	1
       18                                
       19                                corisr:
-      20 001170 013737  177562  001164  	mov	@#corbas+2,corbuf	; read char, clear INTR
-      21 001176 005237  001160          	inc	corifl
-      22 001202 000002                  	rti
+      20 001264 013737  177562  001260  	mov	@#corbas+2,corbuf	; read char, clear INTR
+      21 001272 005237  001254          	inc	corifl
+      22 001276 000002                  	rti
       23                                
       24                                coxisr:
-      25 001204 005237  001162          	inc	coxifl
-      26 001210 000002                  	rti
+      25 001300 005237  001256          	inc	coxifl
+      26 001304 000002                  	rti
       27                                
       28                                	; -- Initialize device after RESET
       29                                corini:
-      30 001212 012737  000100  177560  	mov	#100,@#corbas	; Bit 6 = Receiver Interrupt Enable
-      31 001220 005037  001160          	clr	corifl
-      32 001224 000207                  	return
+      30 001306 012737  000100  177560  	mov	#100,@#corbas	; Bit 6 = Receiver Interrupt Enable
+      31 001314 005037  001254          	clr	corifl
+      32 001320 000207                  	return
       33                                coxini:
-      34 001226 012737  000100  177564  	mov	#100,@#coxbas	; Bit 6 = Transmitter Interrupt Enable
-      35 001234 005037  001162          	clr	coxifl
-      36 001240 000207                  	return
+      34 001322 012737  000100  177564  	mov	#100,@#coxbas	; Bit 6 = Transmitter Interrupt Enable
+      35 001330 005037  001256          	clr	coxifl
+      36 001334 000207                  	return
       37                                
       38                                
       39                                
@@ -248,69 +256,69 @@
       42                                	; puts - print a string
       43                                	; r1 = pointer, r0,r1 changed
       44                                puts:
-      45 001242 112100                  	movb	(r1)+,r0	; load xmt char
-      46 001244 001403                  	beq	1$		; string ends with 0
-      47 001246 004737  001354          	call	@#putc
-      48 001252 000773                  	br	puts		; transmit nxt char of string
-      49 001254 000207                  1$:	return
+      45 001336 112100                  	movb	(r1)+,r0	; load xmt char
+      46 001340 001403                  	beq	1$		; string ends with 0
+      47 001342 004737  001450          	call	@#putc
+      48 001346 000773                  	br	puts		; transmit nxt char of string
+      49 001350 000207                  1$:	return
       50                                
       51                                
       52                                	; putnum - print the octal number in r0
-      53 001256                         numbf0:  .blkw	 10		 ; space to mount number string
-      54 001276                         numbf1	=.
+      53 001352                         numbf0:  .blkw	 10		 ; space to mount number string
+      54 001372                         numbf1	=.
       55                                putnum:
-      56 001276 010346                  	mov	r3,-(sp)
-      57 001300 010002                  	mov	r0,r2		; r2 = shifter
-      58 001302 012701  001276          	mov	#numbf1,r1	; r1 = buffer pointer, backwards
-      59 001306 112741  000000          	movb	#0,-(r1)	; set terminating 0
+      56 001372 010346                  	mov	r3,-(sp)
+      57 001374 010002                  	mov	r0,r2		; r2 = shifter
+      58 001376 012701  001372          	mov	#numbf1,r1	; r1 = buffer pointer, backwards
+      59 001402 112741  000000          	movb	#0,-(r1)	; set terminating 0
       60                                	; repeat 6 times
-      61 001312 012703  000006          	mov	#6,r3
+      61 001406 012703  000006          	mov	#6,r3
       62                                1$:
-      63 001316 010200                  	mov	r2,r0
+      63 001412 010200                  	mov	r2,r0
       64                                	; extract lower 3 bits = octal digit
-      65 001320 042700  177770          	bic	#177770,r0 ; r0 &= 0x07
-      66 001324 062700  000060          	add	#60,r0	; r0 += '0'
-      67 001330 110041                  	movb	r0,-(r1) ; write in buffer
-      68 001332 000241                  	clc
-      69 001334 006202                  	asr	r2	; shift to next digit
-      70 001336 006202                  	asr	r2
-      71 001340 006202                  	asr	r2
-      72 001342 077313                  	sob	r3,1$	; loop for all 6 digits
+      65 001414 042700  177770          	bic	#177770,r0 ; r0 &= 0x07
+      66 001420 062700  000060          	add	#60,r0	; r0 += '0'
+      67 001424 110041                  	movb	r0,-(r1) ; write in buffer
+      68 001426 000241                  	clc
+      69 001430 006202                  	asr	r2	; shift to next digit
+      70 001432 006202                  	asr	r2
+      71 001434 006202                  	asr	r2
+      72 001436 077313                  	sob	r3,1$	; loop for all 6 digits
       73                                
-      74 001344 004737  001242          	call	@#puts
-      75 001350 012603                  	mov	(sp)+,r3
-      76 001352 000207                  	return
+      74 001440 004737  001336          	call	@#puts
+      75 001444 012603                  	mov	(sp)+,r3
+      76 001446 000207                  	return
       77                                
       78                                
       79                                	; putc - output a single char
       80                                	; r0 = char
       81                                putc:
-      82 001354 005037  001162          	clr	coxifl		; reset interrupt flag
-      83 001360 010037  177566          	mov	r0,@#coxbas+2	; char into transmit buffer
-      84 001364 005737  001162          1$:	tst	coxifl		; XMT RDY?
-      85 001370 001775                  	beq	1$		; no, loop
+      82 001450 005037  001256          	clr	coxifl		; reset interrupt flag
+      83 001454 010037  177566          	mov	r0,@#coxbas+2	; char into transmit buffer
+      84 001460 005737  001256          1$:	tst	coxifl		; XMT RDY?
+      85 001464 001775                  	beq	1$		; no, loop
       86                                	; UART is buffering: char only started to sent now
       87                                	; interrupt active until next putc
-      88 001372 000207                  	return
+      88 001466 000207                  	return
       89                                
       90                                	; getc - poll and input a single char
       91                                	; result in r0
       92                                	; carry clear : nothing received
       93                                	; carry set: char received
       94                                getc:
-      95 001374 005000                  	clr	r0
-      96 001376 005737  001160          	tst	corifl
-      97 001402 001002                  	bne	1$
-      98 001404 000241                  	clc			; Carry clear, no Interrupt, nothing received
-      99 001406 000207                  	return
+      95 001470 005000                  	clr	r0
+      96 001472 005737  001254          	tst	corifl
+      97 001476 001002                  	bne	1$
+      98 001500 000241                  	clc			; Carry clear, no Interrupt, nothing received
+      99 001502 000207                  	return
      100                                1$:
-     101 001410 013700  001164          	mov	corbuf,r0 	; Interrupt, return char
-     102 001414 005037  001160          	clr	corifl		; reset interrupt flag
-     103 001420 000261                  	sec			; Carry Set
-     104 001422 000207                  	return
+     101 001504 013700  001260          	mov	corbuf,r0 	; Interrupt, return char
+     102 001510 005037  001254          	clr	corifl		; reset interrupt flag
+     103 001514 000261                  	sec			; Carry Set
+     104 001516 000207                  	return
      104                                
-     207 000001                         .if ne kwenab
-     208                                	.include ma_kw.mac
+     215 000001                         .if ne kwenab
+     216                                	.include ma_kw.mac
        1                                	.title ma_kw - KW11 test driver
        2                                
        3                                	; KW11 raises INTR at 50 Hz
@@ -321,80 +329,172 @@
        8                                
        9                                
       10                                	; --- ISRs, increment Interrupt FLags
-      11 001424 000001                  kwiflg:	.word	1	; Interrupt flags
+      11 001520 000001                  kwiflg:	.word	1	; Interrupt flags
       12                                
-      13 001426 000001                  kwecnt:	.word	1	; event counter
+      13 001522 000001                  kwecnt:	.word	1	; event counter
       14                                
       15                                kwisr:
-      16 001430 005237  001426          	inc	kwecnt			; register as event
-      17 001434 005237  001424          	inc	kwiflg	; set ISR flag
-      18 001440 000002                  	rti
+      16 001524 005237  001522          	inc	kwecnt			; register as event
+      17 001530 005237  001520          	inc	kwiflg	; set ISR flag
+      18 001534 000002                  	rti
       19                                
       20                                	; --- Initialize device after RESET
       21                                kwinit:
-      22 001442 012737  000100  177546  	mov	#100,@#kwbase		; set  interrupt enable
-      23 001450 005037  001426          	clr	kwecnt
-      24 001454 000207                  	return
+      22 001536 012737  000100  177546  	mov	#100,@#kwbase		; set  interrupt enable
+      23 001544 005037  001522          	clr	kwecnt
+      24 001550 000207                  	return
       25                                
       26                                	; --- Restart new INTR
       27                                kwgo:
       28                                	; nothing todo, INTR repeated automatically
       29                                	; bic	#200,@#kwbase		; clear INTERRUPT MONITOR bit
-      30 001456 000207                  	return
+      30 001552 000207                  	return
       31                                
       31                                
-     209                                .endc
-     210 000000                         .if ne rkenab
-     211                                	.include ma_rk.mac
-     212                                .endc
-     213 000000                         .if ne rlenab
-     214                                	.include ma_rl.mac
-     215                                .endc
-     216 000000                         .if ne ryenab
-     217                                	.include ma_ry.mac
-     218                                .endc
-     219 000000                         .if ne duenab
-     220                                	.include ma_du.mac
-     221                                .endc
-     222                                	.include ma_strings.mac
+     217                                .endc
+     218 000001                         .if ne rkenab
+     219                                	.include ma_rk.mac
+       1                                
+       2                                	.title ma_rk - RK11/RK05 test driver
+       3                                	; RK11 DMA is generated by reading cylinder 0, head 0, sector 0
+       4                                
+       5 000220                         rkvect = 220		; vector of RK11 controller
+       6 177400                         rkbase = 777400		; base addr of RK11 controller
+       7 000113                         rklabl = 'K		; label char
+       8                                
+       9                                	; --- ISRs, increment Interrupt FLags
+      10 001554 000001                  rkiflg:	.word	1	; Interrupt flags
+      11                                
+      12 001556                         rkbuff:	.blkw	400+1	; data buffer: 1 sector = 256 words
+      13                                
+      14 002560 000001                  rkecnt:	.word	1	; event counter
+      15                                
+      16                                rkisr:
+      17 002562 005237  001554          	inc	rkiflg	; set ISR flag
+      18 002566 000002                  	rti
+      19                                
+      20                                	; --- Initialize device after RESET
+      21                                rkinit:
+      22 002570 005037  002560          	clr	rkecnt
+      23 002574 000207                  	return
+      24                                
+      25                                	; --- Restart new DMA transmission
+      26                                rkgo:
+      27                                	; read first sector into rkbuff
+      28 002576 005037  177412          	clr	@#rkbase+12		; DA disk address = 0: unit 0, cyl/hd/sec=0
+      29 002602 012737  001556  177410  	mov	#rkbuff,@#rkbase+10 	; BA bus address of DMA
+      30 002610 012737  177400  177406  	mov	#-400,@#rkbase+6 	; WC word count = 256 words
+      31 002616 012737  000105  177404  	mov	#100+4+1,@#rkbase+4	; Command INT ENABLE + "READ" + GO
+      32 002624 005237  002560          	inc	rkecnt 			; register as event
+      33 002630 000207                  	return
+      34                                
+      34                                
+     220                                .endc
+     221 000001                         .if ne rlenab
+     222                                	.include ma_rl.mac
+       1                                	.title ma_rl - RL11/RL01/2 test driver
+       2                                
+       3                                	; RL11 DMA is generated by reading cylinder 0, head0, sector 0
+       4                                
+       5 000160                         rlvect = 160		; vector of RL11 controller
+       6 174400                         rlbase = 774400		; base addr of RL11 controller
+       7 000114                         rllabl = 'L		; label char
+       8                                
+       9                                
+      10                                	; --- ISRs, increment Interrupt FLags
+      11 002632 000001                  rliflg:	.word	1	; Interrupt flags
+      12                                
+      13 002634                         rlbuff:	.blkw	2*400+1	; data buffer: 2 sector = 256 words
+      14                                
+      15 004636 000001                  rlecnt:	.word	1	; event counter
+      16                                
+      17                                rlisr:
+      18 004640 005237  002632          	inc	rliflg	; set ISR flag
+      19 004644 000002                  	rti
+      20                                
+      21                                	; --- Initialize device after RESET
+      22                                rlinit:
+      23 004646 005037  004636          	clr	rlecnt
+      24 004652 000207                  	return
+      25                                
+      26                                	; --- Restart new DMA transmission
+      27                                rlgo:
+      28 004654 012701  174400          	mov	#rlbase,r1		; r1 = controller base address
+      29                                
+      30                                	; sequence from boot loader 23-751A9, lot of testing
+      31                                	; 1. get status
+      32 004660 012761  000013  000004  	mov	#013,4(r1)		; DA subcmd reset+getstatus
+      33 004666 012711  000004          	mov	#4,(r1)			; CSR do "GET STATUS"
+      34 004672 105711                  1$:	tstb	(r1)			; test for ready
+      35 004674 100376                  	bpl	1$			; wait
+      36                                	; 2. read current track
+      37 004676 012711  000010          	mov	#10,(r1)		; CSR read header cmd
+      38 004702 105711                  2$:	tstb	(r1)			; test for ready
+      39 004704 100376                  	bpl	2$			; wait
+      40                                	; 3. seek
+      41 004706 016102  000006          	mov	6(r1),r2		; MP retrieve cyl/head/sector
+      42 004712 042702  000077          	bic	#77,r2			; set sector to zero
+      43 004716 005202                  	inc	r2			; set seek flag, head 0, seek to cyl 0
+      44 004720 010261  000004          	mov	r2,4(r1)		; DA for seek
+      45 004724 012711  000006          	mov	#6,(r1)			; CSR seek cmd
+      46 004730 105711                  3$:	tstb	(r1)			; test for ready
+      47 004732 100376                  	bpl	3$			; wait
+      48                                	; 4. read sector 0+1 and interrupt
+      49 004734 012761  002634  000002  	mov	#rlbuff,2(r1)		; BA bus address of DMA
+      50 004742 005061  000004          	clr	4(r1)			; DA select cyl0/head0/sector0
+      51 004746 012761  177000  000006  	mov	#-512.,6(r1)		; MP set word count
+      52 004754 012711  000114          	mov	#100+14,(r1)		; CSR read data cmd with Interrupt Enable
+      53                                
+      54 004760 005237  004636          	inc	rlecnt			; register as event
+      55 004764 000207                  	return
+      56                                
+      56                                
+     223                                .endc
+     224 000000                         .if ne ryenab
+     225                                	.include ma_ry.mac
+     226                                .endc
+     227 000000                         .if ne duenab
+     228                                	.include ma_du.mac
+     229                                .endc
+     230                                	.include ma_strings.mac
        1                                
        2                                	.title ma_strings - String constants
        3                                shello:
-       4 001460    015     012          	.byte	15,12		; space, CR, LF,
-       5 001462    052     052     052  	.ascii	/*** Multi Device Interrupt&DMA test ***/
-         001465    040     115     165  
-         001470    154     164     151  
-         001473    040     104     145  
-         001476    166     151     143  
-         001501    145     040     111  
-         001504    156     164     145  
-         001507    162     162     165  
-         001512    160     164     046  
-         001515    104     115     101  
-         001520    040     164     145  
-         001523    163     164     040  
-         001526    052     052     052  
-       6 001531    015     012          	.byte	15,12		; CR, LF
-       7 001533    136     103     040  	.ascii	/^C to stop./
-         001536    164     157     040  
-         001541    163     164     157  
-         001544    160     056          
-       8 001546    015     012          	.byte	15,12		; CR, LF
-       9 001550    000                  	.byte	0
+       4 004766    015     012          	.byte	15,12		; space, CR, LF,
+       5 004770    052     052     052  	.ascii	/*** Multi Device Interrupt&DMA test ***/
+         004773    040     115     165  
+         004776    154     164     151  
+         005001    040     104     145  
+         005004    166     151     143  
+         005007    145     040     111  
+         005012    156     164     145  
+         005015    162     162     165  
+         005020    160     164     046  
+         005023    104     115     101  
+         005026    040     164     145  
+         005031    163     164     040  
+         005034    052     052     052  
+       6 005037    015     012          	.byte	15,12		; CR, LF
+       7 005041    136     103     040  	.ascii	/^C to stop./
+         005044    164     157     040  
+         005047    163     164     157  
+         005052    160     056          
+       8 005054    015     012          	.byte	15,12		; CR, LF
+       9 005056    000                  	.byte	0
       10                                
       11                                
       12                                sbye:
-      13 001551    015     012          	.byte	15,12
-      14 001553    107     157     157  	.ascii	/Good Bye!/
-         001556    144     040     102  
-         001561    171     145     041  
-      15 001564    015     012          	.byte	15,12 	; CR, LF
-      16 001566    000                  	.byte	0
+      13 005057    015     012          	.byte	15,12
+      14 005061    107     157     157  	.ascii	/Good Bye!/
+         005064    144     040     102  
+         005067    171     145     041  
+      15 005072    015     012          	.byte	15,12 	; CR, LF
+      16 005074    000                  	.byte	0
       17                                
       17                                
-     223                                
-     224                                	.end
-     225                                
-     226                                
-     227                                
-     227                                
+     231                                
+     232                                	.end
+     233                                
+     234                                
+     235                                
+     235                                

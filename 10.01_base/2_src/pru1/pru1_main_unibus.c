@@ -91,7 +91,7 @@
 
 void main(void) {
 	// state function pointer for different state machines
-	statemachine_arb_worker_func sm_arb_worker = &sm_arb_worker_client;
+	statemachine_arb_worker_func sm_device_arb_worker = &sm_arb_worker_device;
 	statemachine_state_func sm_data_slave_state = NULL;
 	statemachine_state_func sm_data_master_state = NULL;
 	statemachine_state_func sm_intr_slave_state = NULL;
@@ -144,17 +144,36 @@ void main(void) {
 			// ARM may start DMA within deviceregister event!
 			if (EVENT_IS_ACKED(mailbox, deviceregister)) {
 				// execute one of the arbitration workers
-				uint8_t grant_mask = sm_arb_worker();
-				// sm_arb_worker()s include State 2 "BBSYWAIT".
+
+				uint8_t cpu_grant_mask;
+				if (emulate_cpu) {
+					cpu_grant_mask = sm_arb_worker_cpu(); // GRANT device requests
+					// do not read GRANT signals from UNIBUS, BG/NPGOUT not visible for
+					// emulated devices
+				} else {
+					// device requests GRANTed by physical CPU
+
+					// Only one at a time may be active, else arbitrator malfucntion.
+					// Arbitrator asserts SACK is inactive
+					// latch[0]: BG signals are inverted, "get" is non-inverting:  bit = active signal.
+					// "set" is inverting!
+					cpu_grant_mask = buslatches_getbyte(0) & PRIORITY_ARBITRATION_BIT_MASK; // read GRANT IN
+					// forward un-requested GRANT IN to GRANT OUT for other cards on neighbor slots
+					buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK & ~sm_arb.device_request_mask, ~cpu_grant_mask)
+					;
+				}
+				// handle GRANT/SACK/BBSY for emulated devices
+				uint8_t granted_request = sm_device_arb_worker(cpu_grant_mask); // devices process GRANT
+				// sm_device_arb_worker()s include State 2 "BBSYWAIT".
 				// So now SACK maybe set, even if grant_mask is still 0
 
-				if (grant_mask & PRIORITY_ARBITRATION_BIT_NP) {
+				if (granted_request & PRIORITY_ARBITRATION_BIT_NP) {
 					sm_data_master_state = (statemachine_state_func) &sm_dma_start;
 					// can data_master_state  be overwritten in the midst of a running data_master_state ?
 					// no: when running, SACK is set, no new GRANTs
-				} else if (grant_mask & PRIORITY_ARBITRATION_INTR_MASK) {
+				} else if (granted_request & PRIORITY_ARBITRATION_INTR_MASK) {
 					// convert bit in grant_mask to INTR index
-					uint8_t idx = PRIORITY_ARBITRATION_INTR_BIT2IDX(grant_mask);
+					uint8_t idx = PRIORITY_ARBITRATION_INTR_BIT2IDX(granted_request);
 					// now transfer INTR vector for interupt of GRANted level.
 					// vector and ARM context have been setup by ARM before ARM2PRU_INTR already
 					sm_intr_master.vector = mailbox.intr.vector[idx];
@@ -179,12 +198,12 @@ void main(void) {
 			// Receive INTR from physical or emulated devices, and signal ARM.
 			if (!sm_intr_slave_state)
 				sm_intr_slave_state = (statemachine_state_func) &sm_intr_slave_start;
-			sm_intr_slave_state = sm_intr_slave_state() ;
-/*			
-			while ((sm_intr_slave_state = sm_intr_slave_state())
-					&& EVENT_IS_ACKED(mailbox, intr_slave))
-				;
-*/				
+			sm_intr_slave_state = sm_intr_slave_state();
+			/*
+			 while ((sm_intr_slave_state = sm_intr_slave_state())
+			 && EVENT_IS_ACKED(mailbox, intr_slave))
+			 ;
+			 */
 		}
 
 		// process ARM commands in master and slave mode
@@ -197,45 +216,26 @@ void main(void) {
 				break;
 			case ARM2PRU_ARB_MODE_NONE: // ignore SACK condition
 				// from now on, ignore INTR requests and allow DMA request immediately
-				sm_arb_worker = &sm_arb_worker_none;
+				sm_device_arb_worker = &sm_arb_worker_none;
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_ARB_MODE_CLIENT:
 				// request DMA from external Arbitrator
-				sm_arb_worker = &sm_arb_worker_client;
-				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
-				break;
-			case ARM2PRU_ARB_MODE_MASTER:
-				sm_arb_worker = &sm_arb_worker_master;
+				sm_device_arb_worker = &sm_arb_worker_device;
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_DMA:
-				if (mailbox.arbitrator.cpu_BBSY) {
-					// ARM CPU emulation did a single word DATA transfer with cpu_DATA_transfer()
-					if (mailbox.arbitrator.device_BBSY) {
-						// ARM started cpu DATA transfer, but arbitration logic
-						// GRANTed a device request in the mean time. Tell ARM.
-						mailbox.arm2pru_req = PRU2ARM_DMA_CPU_TRANSFER_BLOCKED; // error
-						mailbox.arbitrator.cpu_BBSY = false;
-					}
-					// start bus cycle
-					sm_data_master_state = (statemachine_state_func) &sm_dma_start;
+				// different arbitration for device and CPU memory access.
+
+				// request DMA, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
+				if (mailbox.dma.cpu_access) {
+					// Emulated CPU: no NPR/NPG/SACK protocol
+					sm_arb.cpu_request = 1 ;
 				} else {
 					// Emulated device: raise request for emulated or physical Arbitrator.
-					// request DMA, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
 					sm_arb.device_request_mask |= PRIORITY_ARBITRATION_BIT_NP;
-					// sm_arb_worker() evaluates this,extern Arbitrator raises Grant, excution starts in future loop
-					// end of DMA is signaled to ARM with signal
-
-					/* TODO: speed up DMA
-					 While DMA is active:
-					 - SACK active: no GRANT forward necessary
-					 no arbitration necessary
-					 - INIT is monitored: no DC_LO/INIT monitoring necessary
-					 - no scan for new ARM2PRU commands: ARM2PRU_DMA is blocking
-					 - smaller chunks ?
-					 */
-				}
+					}
+				// request not put on bus for CPU memory access
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_INTR:
@@ -243,7 +243,7 @@ void main(void) {
 				// start one INTR cycle. May be raised in midst of slave cycle
 				// by ARM, if access to "active" register triggers INTR.
 				sm_arb.device_request_mask |= mailbox.intr.priority_arbitration_bit;
-				// sm_arb_worker() evaluates this, extern Arbitrator raises Grant,
+				// sm_device_arb_worker() evaluates this, extern Arbitrator raises Grant,
 				// vector of GRANted level is transfered with statemachine sm_intr_master
 
 				// Atomically change state in a device's associates interrupt register.
@@ -261,6 +261,13 @@ void main(void) {
 				sm_arb.device_request_mask &= ~mailbox.intr.priority_arbitration_bit;
 				// no completion event, could interfer with other INTRs?
 				mailbox.arm2pru_req = ARM2PRU_NONE;  // done
+				break;
+			case ARM2PRU_ARB_GRANT_INTR_REQUESTS:
+				if (emulate_cpu) {
+					mailbox.arbitrator.ifs_intr_arbitration_pending = true;
+					// also blocks ARM thread
+				}
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_INITALIZATIONSIGNAL_SET:
 				switch (mailbox.initializationsignal.id) {
@@ -280,12 +287,8 @@ void main(void) {
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_CPU_ENABLE:
-				// bool flag much faster to access then shared mailbox member.
+				// bool flag much faster to access than shared mailbox member.
 				emulate_cpu = mailbox.cpu_enable;
-				if (emulate_cpu)
-					sm_arb_worker = &sm_arb_worker_master;
-				else
-					sm_arb_worker = &sm_arb_worker_client;
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_HALT:

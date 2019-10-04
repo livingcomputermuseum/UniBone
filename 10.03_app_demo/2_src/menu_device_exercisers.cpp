@@ -48,7 +48,6 @@
 #include "devexer_rl.hpp"
 
 void application_c::menu_device_exercisers(void) {
-	enum unibus_c::arbitration_mode_enum arbitration_mode = unibus_c::ARBITRATION_MODE_MASTER;
 	bool ready = false;
 	bool show_help = true;
 	bool memory_installed = false;
@@ -59,8 +58,9 @@ void application_c::menu_device_exercisers(void) {
 
 //	iopageregisters_init();
 	// UNIBUS activity
-	hardware_startup(pru_c::PRUCODE_UNIBUS, unibus_c::ARBITRATION_MODE_CLIENT);
+	hardware_startup(pru_c::PRUCODE_UNIBUS);
 	buslatches_output_enable(true);
+	unibus->set_arbitrator_active(false) ;
 
 	// instantiate different device exercisers
 
@@ -76,7 +76,7 @@ void application_c::menu_device_exercisers(void) {
 			show_help = false; // only once
 			printf("\n");
 			printf("*** Exercise (= work with) installed UNIBUS decives.\n");
-			print_arbitration_info(arbitration_mode, "    ");
+			print_arbitration_info("    ");
 			if (cur_exerciser) {
 				printf("    Current device is \"%s\" @ %06o\n",
 						cur_exerciser->name.value.c_str(), cur_exerciser->base_addr.value);
@@ -135,7 +135,7 @@ void application_c::menu_device_exercisers(void) {
 			} else if (!strcasecmp(s_opcode, "m") && n_fields == 2
 					&& !strcasecmp(s_param[0], "i")) {
 				// install (emulate) max UNIBUS memory
-				memory_installed = emulate_memory(arbitration_mode);
+				memory_installed = emulate_memory();
 				show_help = true; // menu struct changed
 			} else if (memory_installed && !strcasecmp(s_opcode, "m") && n_fields >= 2
 					&& !strcasecmp(s_param[0], "f")) {
@@ -149,7 +149,7 @@ void application_c::menu_device_exercisers(void) {
 				// write buffer-> UNIBUS
 				printf("Fill memory with %06o, writing UNIBUS memory[%06o:%06o]\n", fillword,
 						emulated_memory_start_addr, emulated_memory_end_addr);
-				unibus->mem_write(arbitration_mode, membuffer->data.words,
+				unibus->mem_write(membuffer->data.words,
 						emulated_memory_start_addr, emulated_memory_end_addr, &timeout);
 				if (timeout)
 					printf("Error writing UNIBUS memory!\n");
@@ -159,13 +159,13 @@ void application_c::menu_device_exercisers(void) {
 				const char * filename = "memory.dump";
 				bool timeout;
 				// 1. read UNIBUS memory
-				uint32_t end_addr = unibus->test_sizer(arbitration_mode) - 2;
+				uint32_t end_addr = unibus->test_sizer() - 2;
 				printf("Reading UNIBUS memory[0:%06o] with DMA\n", end_addr);
 				//  clear memory buffer, to be sure content changed
 				membuffer->set_addr_range(0, end_addr);
 				membuffer->fill(0);
 
-				unibus->mem_read(arbitration_mode, membuffer->data.words, 0, end_addr,
+				unibus->mem_read(membuffer->data.words, 0, end_addr,
 						&timeout);
 				if (timeout)
 					printf("Error reading UNIBUS memory!\n");
@@ -226,7 +226,7 @@ void application_c::menu_device_exercisers(void) {
 				// interpret as 18 bit address
 				parse_addr18(s_param[0], &addr);
 				parse_word(s_param[1], &wordbuffer);
-				bool timeout = !unibus->dma(arbitration_mode, true, UNIBUS_CONTROL_DATO, addr,
+				bool timeout = !unibus->dma(true, UNIBUS_CONTROL_DATO, addr,
 						&wordbuffer, 1);
 				printf("DEPOSIT %06o <- %06o\n", addr, wordbuffer);
 				if (timeout)
@@ -237,7 +237,7 @@ void application_c::menu_device_exercisers(void) {
 				uint32_t addr;
 				if (n_fields == 2) { // single reg number given
 					parse_addr18(s_param[0], &addr); 	// interpret as 18 bit address
-					timeout = !unibus->dma(arbitration_mode, true, UNIBUS_CONTROL_DATI, addr,
+					timeout = !unibus->dma(true, UNIBUS_CONTROL_DATI, addr,
 							&wordbuffer, 1);
 					printf("EXAM %06o -> %06o\n", addr, wordbuffer);
 				}

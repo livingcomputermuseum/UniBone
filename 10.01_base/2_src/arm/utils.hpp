@@ -73,9 +73,9 @@ public:
 	uint64_t elapsed_us(void);
 	uint64_t elapsed_ms(void);
 	bool reached(void);
-	void wait_ns(uint64_t duration_ns);
-	void wait_us(unsigned duration_us);
-	void wait_ms(unsigned duration_ms);
+	static void wait_ns(uint64_t duration_ns);
+	static void wait_us(unsigned duration_us);
+	static void wait_ms(unsigned duration_ms);
 
 };
 

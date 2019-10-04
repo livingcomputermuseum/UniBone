@@ -87,10 +87,12 @@ typedef struct {
 
 // test pins
 // SET(1) -> pin auf H, LED OFF
-#define ARM_DEBUG_PIN0(n)	GPIO_SETVAL(gpios->led[0], !!(n))
-#define ARM_DEBUG_PIN1(n)	GPIO_SETVAL(gpios->led[1], !!(n))
-#define ARM_DEBUG_PIN2(n)	GPIO_SETVAL(gpios->led[2], !!(n))
-#define ARM_DEBUG_PIN3(n)	GPIO_SETVAL(gpios->led[3], !!(n))
+#define ARM_DEBUG_PIN0(val)	GPIO_SETVAL(gpios->led[0], !!(val))
+#define ARM_DEBUG_PIN1(val)	GPIO_SETVAL(gpios->led[1], !!(val))
+#define ARM_DEBUG_PIN2(val)	GPIO_SETVAL(gpios->led[2], !!(val))
+#define ARM_DEBUG_PIN3(val)	GPIO_SETVAL(gpios->led[3], !!(val))
+#define ARM_DEBUG_PIN(n,val) GPIO_SETVAL(gpios->led[n], !!(val))
+
 
 
 class gpios_c: public logsource_c {

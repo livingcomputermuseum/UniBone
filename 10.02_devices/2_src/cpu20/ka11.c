@@ -3,6 +3,7 @@
 
 #include "gpios.hpp" // ARM_DEBUG_PIN*
 
+void unibone_on_before_instruction(void) ;
 int unibone_dato(unsigned addr, unsigned data);
 int unibone_datob(unsigned addr, unsigned data);
 int unibone_dati(unsigned addr, unsigned *data);
@@ -132,11 +133,8 @@ int
 dati(KA11 *cpu, int b)
 {
 trace("dati %06o:\n", cpu->ba);
-	if(!b && cpu->ba&1) {
-//ARM_DEBUG_PIN0(1) ;
-//unibone_logdump() ; // write trace() output to file
+	if(!b && cpu->ba&1) 
 		goto be;
-}		
 
 	/* internal registers */
 	if((cpu->ba&0177400) == 0177400){
@@ -367,7 +365,6 @@ step(KA11 *cpu)
 #define TRB(m)	trace("%06o "#m"%s\n", PC-2, by ? "B" : "")
 
 	oldpsw = PSW;
-
 	INA(PC, cpu->ir);
 	PC += 2;	/* don't increment on bus error! */
 	by = !!(cpu->ir&B15);
@@ -574,7 +571,7 @@ be:	if(cpu->be > 1){
 		cpu->state = STATE_HALTED;
 		return;
 	}
-printf("bus error\n");
+printf("bus error ar %06o\n", cpu->ba);
 	TRAP(4);
 
 trap:
@@ -654,6 +651,9 @@ ka11_condstep(KA11 *cpu)
 	if((cpu->state == STATE_RUNNING) ||
 	   (cpu->state == STATE_WAITING && cpu->traps)){
 		cpu->state = STATE_RUNNING;
+
+		unibone_on_before_instruction() ;
+		svc(cpu, cpu->bus);
 		step(cpu);
 	}
 }
@@ -663,8 +663,6 @@ run(KA11 *cpu)
 {
 	cpu->state = STATE_RUNNING;
 	while(cpu->state != STATE_HALTED){
-		svc(cpu, cpu->bus);
-
 		ka11_condstep(cpu);
 	}
 

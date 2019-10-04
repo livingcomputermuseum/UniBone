@@ -59,6 +59,10 @@ public:
 	struct Bus bus; // UNIBUS interface of CPU
 	struct KA11 ka11; // Angelos CPU state
 
+	void start(void) ;
+	void stop(void) ;
+
+
 	// background worker function
 	void worker(unsigned instance) override;
 

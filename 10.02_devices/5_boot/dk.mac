@@ -14,9 +14,18 @@ rkda	=+12-4				; disk address
 xxwc	=rkwc				; common word count offset
 
 	.asect
-	.=10000
+	; ---- Simple boot drive 0 from 0
+	. = 0
+	jmp	@#start0
 
-	; --------------------------------------------------
+	; ---- Reboot drive 0 on power event
+	. = 24				; Power ON/OFF
+	.word	     start0		; PC
+	.word	     340		; PSW priority level 7
+
+
+	; ----- Main boot addresses
+	.=10000 			;  arbitrary position > 3000
 
 start:
 	; 8 unit numbers => 8 entry addresses

@@ -98,8 +98,6 @@ static statemachine_state_func sm_intr_master_state_2() {
 	// deassert BBSY
 	buslatches_setbits(1, BIT(6), 0);
 	// device cycle ended: now CPU may become UNIBUS master again
-	// device_BBSY monitored by sm_arbitration	(physical devices).
-
 	// SACK already removed
 
 	// signal to ARM which INTR was completed

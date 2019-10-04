@@ -70,8 +70,6 @@ public:
 	void parse_commandline(int argc, char **argv);
 
 	void hardware_startup(enum pru_c::prucode_enum prucode_id);
-	void hardware_startup(enum pru_c::prucode_enum prucode_id,
-			enum unibus_c::arbitration_mode_enum arbitration_mode);
 
 	void hardware_shutdown(void);
 
@@ -79,10 +77,9 @@ public:
 	uint32_t emulated_memory_start_addr;
 	uint32_t emulated_memory_end_addr;
 
-	void print_arbitration_info(enum unibus_c::arbitration_mode_enum arbitration_mode,
-			const char *indent);
-	char *getchoice(void);bool emulate_memory(
-			enum unibus_c::arbitration_mode_enum arbitration_mode);
+	void print_arbitration_info(		const char *indent);
+	char *getchoice(void);
+	bool emulate_memory(void);
 	void print_params(parameterized_c *parameterized, parameter_c *p);
 
 	unibusdevice_register_t * device_register_by_id(unibusdevice_c *device, char *specifier);
@@ -98,7 +95,7 @@ public:
 	void menu_buslatches(void);
 	void menu_unibus_signals(void);
 	void menu_ddrmem_slave_only(void);
-	void menu_masterslave(enum unibus_c::arbitration_mode_enum arbitration_mode);
+	void menu_masterslave(bool with_CPU);
 	void menu_interrupts(void);
 	void menu_devices(bool with_CPU);
 	void menu_device_exercisers(void);

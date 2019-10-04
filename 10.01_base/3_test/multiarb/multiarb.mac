@@ -24,8 +24,8 @@
 
 	; enable tests
 kwenab	=	1
-rkenab	=	0
-rlenab	=	0
+rkenab	=	1
+rlenab	=	1
 ryenab	=	0	; not yet tested
 duenab	=	0	; not yet implemeneted
 
@@ -33,7 +33,15 @@ duenab	=	0	; not yet implemeneted
 	.asect
 
 	; *************************************************
-	; Vectors
+	; Vectors		; UniBone emulated CPU start
+	. = 0
+	jmp	@#start
+
+
+	; Emulated CPU: restart on pwoer event
+	. = 24			; Power ON/OFF
+	.word	start		; PC
+	.word	340		; PSW priority level 7
 
 	. = corvec
 	.word	corisr		; RCV interrupt

@@ -82,8 +82,7 @@ static statemachine_state_func sm_dma_state_99(void);
 // startaddr, wordcount, cycle, words[]   ?
 // "cycle" must be UNIBUS_CONTROL_DATI or UNIBUS_CONTROL_DATO
 // Wait for BBSY, SACK already held asserted
-// Sorting between device and CPU transfers:
-// IF a device DMA is busy mailbox.device_BBSY is set.
+// Sorting between device and CPU transfers: unibusadapter request scheduler
 statemachine_state_func sm_dma_start() {
 	// assert BBSY: latch[1], bit 6
 	// buslatches_setbits(1, BIT(6), BIT(6));
@@ -118,8 +117,6 @@ static statemachine_state_func sm_dma_state_1() {
 	uint16_t data;
 	uint8_t control = mailbox.dma.control;
 	// uint8_t page_table_entry;
-	uint8_t b;
-	bool internal;
 
 	//  BBSY released
 	if (mailbox.dma.cur_status != DMA_STATE_RUNNING || mailbox.dma.wordcount == 0)
@@ -143,10 +140,15 @@ static statemachine_state_func sm_dma_state_1() {
 	// C1 = latch[4], bit 3
 	// MSYN = latch[4], bit 4
 	// SSYN = latch[4], bit 5
-	if (UNIBUS_CONTROL_ISDATO(control)) {
+	if (UNIBUS_CONTROL_IS_DATO(control)) {
+		bool internal;
+		bool is_datob = (control == UNIBUS_CONTROL_DATOB);
 		tmpval = (addr >> 16) & 3;
-		tmpval |= BIT(3); // DATO: c1=1, c0=0
-		// bit 2,4,5 == 0  -> C0,MSYN,SSYN not asserted
+		if (is_datob)
+			tmpval |= (BIT(3) | BIT(2)); // DATOB: c1=1, c0=1
+		else
+			tmpval |= BIT(3); // DATO: c1=1, c0=0
+		// bit 4,5 == 0  -> MSYN,SSYN not asserted
 		buslatches_setbits(4, 0x3f, tmpval);
 		// write data. SSYN may still be active and cleared now? by sm_slave_10 etc?
 //		data = mailbox.dma.words[sm_dma.cur_wordidx];
@@ -171,18 +173,13 @@ static statemachine_state_func sm_dma_state_1() {
 
 		// DATO to internal slave (fast test).
 		// write data into slave (
-		switch (control) {
-		case UNIBUS_CONTROL_DATO:
-			internal = iopageregisters_write_w(addr, data);
-			break;
-		case UNIBUS_CONTROL_DATOB:
+		if (is_datob) {
 			// A00=1: upper byte, A00=0: lower byte
-			b = (addr & 1) ? (data >> 8) : (data & 0xff);
+			uint8_t b = (addr & 1) ? (data >> 8) : (data & 0xff);
 			internal = iopageregisters_write_b(addr, b); // always sucessful, addr already tested
-			break;
-		default:
-			internal = false; // not reached
-		}
+		} else
+			// DATO
+			internal = iopageregisters_write_w(addr, data);
 		if (internal) {
 			buslatches_setbits(4, BIT(5), BIT(5)); // slave assert SSYN
 			buslatches_setbits(4, BIT(4), 0); // master deassert MSYN
@@ -329,23 +326,26 @@ static statemachine_state_func sm_dma_state_99() {
 		// remove BBSY: latch[1], bit 6
 		buslatches_setbits(1, BIT(6), 0);
 
-		timeout_cleanup(TIMEOUT_DMA); 
-
-		// device or cpu cycle ended: now CPU may become UNIBUS master again
-		mailbox.events.dma.cpu_transfer = mailbox.arbitrator.cpu_BBSY ;
-		// device_BBSY monitored by sm_arbitration  (physical devices).
-		mailbox.arbitrator.cpu_BBSY = false;
+		timeout_cleanup(TIMEOUT_DMA);
 
 		// SACK already de-asserted at wordcount==1
 		mailbox.dma.cur_status = final_dma_state; // signal to ARM
 
-		// signal to ARM
-		EVENT_SIGNAL(mailbox,dma) ;
-		// ARM is clearing this, before requesting new DMA.
+		// device or cpu cycle ended
 		// no concurrent ARM+PRU access
-		PRU2ARM_INTERRUPT
-		;
 
+		// for cpu access: ARM CPU thread ends looping now
+		// test for DMA_STATE_IS_COMPLETE(cur_status)
+		EVENT_SIGNAL(mailbox, dma);
+
+		// for device DMA: unibusadapter worker() waits for signal
+		if (!mailbox.dma.cpu_access) {
+			// signal to ARM
+			// ARM is clearing this, before requesting new DMA.
+			// no concurrent ARM+PRU access
+			PRU2ARM_INTERRUPT
+			;
+		}
 		return NULL; // now stopped
 	}
 }

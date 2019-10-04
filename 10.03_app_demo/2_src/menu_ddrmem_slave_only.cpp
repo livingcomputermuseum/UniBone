@@ -47,7 +47,8 @@ void application_c::menu_ddrmem_slave_only() {
 	bool ready;
 	int n_fields;
 
-	hardware_startup(pru_c::PRUCODE_UNIBUS, unibus_c::ARBITRATION_MODE_NONE);
+	hardware_startup(pru_c::PRUCODE_UNIBUS);
+	unibus->set_arbitrator_active(false) ;
 
 	ready = false;
 	while (!ready) {

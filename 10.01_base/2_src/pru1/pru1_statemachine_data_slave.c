@@ -83,7 +83,7 @@ statemachine_state_func sm_data_slave_start() {
 	// addr8..15 = latch[3]
 	// addr 16,17 = latch[4].0,1
 	addr = latch2val | ((uint32_t) latch3val << 8) | ((uint32_t) (latch4val & 3) << 16);
-//if (addr == 0777546) // LTC
+//if (addr == 0777560) // DL11
 //  PRU_DEBUG_PIN0(1) ; // trigger to LA.
 
 	

@@ -61,7 +61,7 @@ statemachine_state_func sm_intr_slave_start() {
 	buslatches_setbits(4, BIT(5), BIT(5));
 
 	// mark priority level as invalid, block more BG GRANTS until PSW fetched
-	mailbox.arbitrator.cpu_priority_level = CPU_PRIORITY_LEVEL_FETCHING ;
+	mailbox.arbitrator.ifs_priority_level = CPU_PRIORITY_LEVEL_FETCHING ;
 
 	// signal ARM, wait for event to be processed
 	mailbox.events.intr_slave.vector = (uint16_t) latch6val << 8 | latch5val ;

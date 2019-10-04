@@ -116,12 +116,10 @@ void sm_arb_reset() {
  * Ignores active SACK and/or BBSY from other bus masters.
  * For diagnostics on hung CPU, active device or console processor holding SACK.
  */
-uint8_t sm_arb_worker_none() {
+uint8_t sm_arb_worker_none(uint8_t grant_mask) {
 	// Unconditionally forward GRANT IN to GRANT OUT
-	uint8_t grant_mask = buslatches_getbyte(0) & PRIORITY_ARBITRATION_BIT_MASK; // read GRANT IN
 	buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK, ~grant_mask)
 	;
-
 	// ignore BR* INTR requests, only ack DMA.
 	if (sm_arb.device_request_mask & PRIORITY_ARBITRATION_BIT_NP) {
 		sm_arb.device_request_mask &= ~PRIORITY_ARBITRATION_BIT_NP;
@@ -130,15 +128,66 @@ uint8_t sm_arb_worker_none() {
 		return 0;
 }
 
-/*  Helper:
- Wait for GRANTs requested by emulated devices,
- then raise SACK,
- then wait for BBSY deasserted.
- Calling this is only 2*5 ns extra.
- "grant_mask": all GRANT lines received from physical or emulated CPU.
- result: 0 if busy, else bitmask with one bit set for GRANTed and SACKEd request.
+/* worker_client:
+ Issue request to extern or emulated Arbitrator (PDP-11 CPU).
+ Watch for GRANTs on the bus signal lines, then raise SACK.
+ Wait for current bus master to release bus => Wait for BBSY clear.
+ Then return GRANTed request.
+ "Wait for BBSY clear" may not be part of the arbitration protocol.
+ But it guarantees caller may now issue an DMA or INTR.
+
+ grant_mask: state of all BGIN/NPGIN lines
  */
-static uint8_t sm_arb_worker_device_grant_sack_bbsy(uint8_t grant_mask) {
+uint8_t sm_arb_worker_device(uint8_t grant_mask) {
+	if (sm_arb.cpu_request) {
+		// Emulated CPU memory access: no NPR/NPG/SACK protocol.
+		// No arbitration, start transaction when bus idle.
+		// device_request_mask is ignored for CPU
+		uint8_t latch1val = buslatches_getbyte(1);
+
+		/* Do not GRANT cpu memory ACCESS if -
+		 -	SACK
+		 - NPR pending
+		 - BR4-7 request and ifs_arbitration_pending
+		 (Deadlock ahead: CPu needs to execute program to reach point before fecth",
+		 where INTRs are granted.)
+		 */
+		bool granted = true;
+		if ((latch1val & 0x70) != 0)
+			// NPR, BBSY or SACK set
+			granted = false;
+		else if ((latch1val & 0xf) && mailbox.arbitrator.ifs_intr_arbitration_pending)
+			// BR* set, and next is opcode fetch: INTR first
+			granted = false;
+		if (granted) {
+			// neither REQUESTs nor SACK nor BBSY asserted
+			sm_arb.cpu_request = 0;
+			return PRIORITY_ARBITRATION_BIT_NP;
+			// DMA will be started, BBSY will be set
+		} else {
+			// CPU memory access delayed until device requests processed/completed
+		}
+	}
+#if 0
+	if ((sm_arb.device_request_mask & PRIORITY_ARBITRATION_BIT_NP) && mailbox.dma.cpu_access) {
+		uint8_t latch1val = buslatches_getbyte(1);
+		if ((latch1val & 0x1f) == 0) {
+			// neither REQUESTs nor SACK nor BBSY asserted
+			sm_arb.device_request_mask &= ~PRIORITY_ARBITRATION_BIT_NP;
+			return PRIORITY_ARBITRATION_BIT_NP;
+			// DMA will be started, BBSY will be set
+		} else {
+			// CPU memory access delayed until device requests processed/completed
+		}
+	}
+#endif
+	// Always update UNIBUS BR/NPR lines, are ORed with requests from other devices.
+	buslatches_setbits(1, PRIORITY_ARBITRATION_BIT_MASK, sm_arb.device_request_mask)
+	;
+
+	// read GRANT IN lines from CPU (Arbitrator). 
+	// Only one nit ion cpu_grant_mask at a time may be active, else arbitrator malfunction.
+	// Arbitrator asserts SACK is inactive
 
 	if (sm_arb.bbsy_wait_grant_mask == 0) {
 		// State 1: Wait For GRANT:
@@ -173,36 +222,6 @@ static uint8_t sm_arb_worker_device_grant_sack_bbsy(uint8_t grant_mask) {
 	}
 }
 
-/* worker_client:
- Issue request to extern Arbitrator (PDP-11 CPU).
- Watch for GRANTs on the bus signal lines, then raise SACK.
- Wait for current bus master to release bus => Wait for BBSY clear.
- Then return GRANTed request.
- "Wait for BBSY clear" may not be part of the arbitration protocol.
- But it guarantees caller may now issue an DMA or INTR.
- */
-uint8_t sm_arb_worker_client() {
-
-	// Always update UNIBUS BR/NPR lines, are ORed with requests from other devices.
-	buslatches_setbits(1, PRIORITY_ARBITRATION_BIT_MASK, sm_arb.device_request_mask)
-	;
-
-	// read GRANT IN lines from CPU (Arbitrator). 
-	// Only one at a time may be active, else arbitrator malfucntion.
-	// Arbitrator asserts SACK is inactive
-	// latch[0]: BG signals are inverted, "get" is non-inverting:  bit = active signal.
-	// "set" is inverting!
-	uint8_t grant_mask = buslatches_getbyte(0) & PRIORITY_ARBITRATION_BIT_MASK; // read GRANT IN
-
-	// forward un-requested GRANT IN to GRANT OUT for other cards on neighbor slots
-	buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK & ~sm_arb.device_request_mask, ~grant_mask)
-	;
-
-	// GRANT forwarding complete,
-	// handle GRANT/SACK/BBSY for emulated devices
-	return sm_arb_worker_device_grant_sack_bbsy(grant_mask);
-}
-
 /*  "worker_master"
  Act as Arbitrator, Interrupt Fielding Processor and Client
  Is assumed to be on first slot, so BG*IN/NPGIN lines are ignored
@@ -219,33 +238,26 @@ uint8_t sm_arb_worker_client() {
 // BR4 = 0x01 -> 4, BR5 = 0x02 ->  5, etc.
 // Index only PRIORITY_ARBITRATION_INTR_MASK, [0] invalid.
 static uint8_t requests_2_highests_intr[16] = { //
-		/*0000*/9, /*0001*/4, /*0010*/5, /*0011*/5,
-		/*0100*/6, /*0101*/6, /*0110*/6, /*0111*/6,
-		/*1000*/7, /*1001*/7, /*1010*/7, /*1011*/7,
-		/*1100*/7, /*1101*/7, /*1110*/7, /*1111*/7 };
+	/*0000*/9, /*0001*/4, /*0010*/5, /*0011*/5,
+	/*0100*/6, /*0101*/6, /*0110*/6, /*0111*/6,
+	/*1000*/7, /*1001*/7, /*1010*/7, /*1011*/7,
+	/*1100*/7, /*1101*/7, /*1110*/7, /*1111*/7};
 #endif 
 
-uint8_t sm_arb_worker_master() {
+uint8_t sm_arb_worker_cpu() {
 	/******* arbitrator logic *********/
 	uint8_t intr_request_mask;
 	uint8_t latch1val = buslatches_getbyte(1);
+	bool do_intr_arbitration = mailbox.arbitrator.ifs_intr_arbitration_pending; // ARM allowed INTR arbitration
 
 	// monitor BBSY
-	if (!(latch1val & BIT(5)) && !(latch1val & BIT(6))) {
-		// neither SACK nor BBSY: bus is not used by device.
-		// exclude "SACK and NOT BBSY": device has not yet raised BBSY
-		mailbox.arbitrator.device_BBSY = false ;
-	}
-	
-
 	if (latch1val & BIT(5)) {
 		// SACK set by a device
 		// priority arbitration disabled, remove GRANT.
 		sm_arb.arbitrator_grant_mask = 0;
 
 		// CPU looses now access to UNIBUS after current cycle
-		mailbox.arbitrator.device_BBSY = true; 
-      	// DATA section to be used by device now, for DMA or INTR
+		// DATA section to be used by device now, for DMA or INTR
 
 		timeout_cleanup(TIMEOUT_SACK);
 	} else if (latch1val & PRIORITY_ARBITRATION_BIT_NP) {
@@ -255,7 +267,8 @@ uint8_t sm_arb_worker_master() {
 			sm_arb.arbitrator_grant_mask = PRIORITY_ARBITRATION_BIT_NP;
 			timeout_set(TIMEOUT_SACK, MILLISECS(ARB_MASTER_SACK_TIMOUT_MS));
 		}
-	} else if ((intr_request_mask = (latch1val & PRIORITY_ARBITRATION_INTR_MASK))) {
+	} else if (do_intr_arbitration
+			&& (intr_request_mask = (latch1val & PRIORITY_ARBITRATION_INTR_MASK))) {
 		// device BR4,BR5,BR6 or BR7
 		if (sm_arb.arbitrator_grant_mask == 0) {
 			// no 2nd device's request may modify GRANT before 1st device acks with SACK
@@ -263,15 +276,14 @@ uint8_t sm_arb_worker_master() {
 			// find level # of highest request in bitmask
 			// lmbd() = LeftMostBitDetect(0x01)-> 0 (0x03) -> 1, (0x07) -> 2, 0x0f -> 3
 			// BR4 = 0x01 -> 4, BR5 = 0x02 ->  5, etc.
-			uint8_t requested_intr_level = __lmbd(intr_request_mask,1) + 4 ;
+			uint8_t requested_intr_level = __lmbd(intr_request_mask, 1) + 4;
 			// compare against cpu run level 4..7
 			// but do not GRANT anything if emulated CPU did not fetch new PSW yet,
 			// then cpu_priority_level is invalid
-			if (requested_intr_level > mailbox.arbitrator.cpu_priority_level //
-					&& requested_intr_level != CPU_PRIORITY_LEVEL_FETCHING) {
+			if (requested_intr_level > mailbox.arbitrator.ifs_priority_level //
+			&& requested_intr_level != CPU_PRIORITY_LEVEL_FETCHING) {
 				// GRANT request,  set GRANT line:
 				// BG4 is signal bit mask 0x01, 0x02, etc ...
-//requested_intr_level = 4 ;				
 				sm_arb.arbitrator_grant_mask = BIT(requested_intr_level - 4);
 				// 320 ns ???
 				timeout_set(TIMEOUT_SACK, MILLISECS(ARB_MASTER_SACK_TIMOUT_MS));
@@ -280,27 +292,17 @@ uint8_t sm_arb_worker_master() {
 	} else if (sm_arb.arbitrator_grant_mask && timeout_reached(TIMEOUT_SACK)) {
 		// no SACK, no requests, but GRANTs: SACK timeout?
 		sm_arb.arbitrator_grant_mask = 0;
-		mailbox.arbitrator.device_BBSY = false; // started by SACK, but UNIBUS DATA section not used by device
 		timeout_cleanup(TIMEOUT_SACK);
 	}
-	// put the single BR/NPR GRANT onto BUS lines. BGOUT inverted.
-	buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK, ~sm_arb.arbitrator_grant_mask ) ;
-
-
-	/***** client device logic *****/
-	
-	// Always update UNIBUS BR/NPR lines, are ORed with requests from other devices.
-	buslatches_setbits(1, PRIORITY_ARBITRATION_BIT_MASK, sm_arb.device_request_mask)
+	// put the single BR/NPR GRANT onto GRANT OUT BUS line, latches inverted.
+	// visible for physical devices, not for emulated devcies on this UniBone
+	buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK, ~sm_arb.arbitrator_grant_mask )
 	;
 
-	// Do not forward GRANT IN to GRANT OUT: we, the arbitrator, do not have GRANT IN.
+	// do not produce GRANTs until next ARM call of ARM2PRU_ARB_GRANT_INTR_REQUESTS
+	mailbox.arbitrator.ifs_intr_arbitration_pending = false;
 
-	// GRANTs for UniBone internal devices are not visible on UNIBUS
-	// (emualted GRANT OUT - GRANT IN connections)
-
-	// Arbitration master stuff complete,
-	// handle GRANT/SACK/BBSY for emulated devices
-	return sm_arb_worker_device_grant_sack_bbsy(sm_arb.arbitrator_grant_mask);
+	return sm_arb.arbitrator_grant_mask;
 
 }
 

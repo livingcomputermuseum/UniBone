@@ -132,7 +132,7 @@ bool slu_c::on_param_changed(parameter_c *param) {
 
 			INFO("Serial port %s opened", serialport.value.c_str());
 			char buff[256];
-			sprintf(buff, "Serial port %s opened\n\r", serialport.value.c_str());
+			sprintf(buff, "\n\rSerial port %s opened\n\r", serialport.value.c_str());
 			rs232.cputs(buff);
 		} else {
 			// disable SLU
@@ -552,9 +552,9 @@ void ltc_c::on_init_changed(void) {
 		intr_enable = 0;
 		line_clock_monitor = 1;
 		intr_request.edge_detect_reset(); // but edge_detect() not used
-	// initial condition is "not signaled"
-	// INFO("ltc_c::on_init()");
-}
+		// initial condition is "not signaled"
+		// INFO("ltc_c::on_init()");
+	}
 }
 
 /* background worker.
@@ -563,60 +563,61 @@ void ltc_c::on_init_changed(void) {
  lost edges are compensated
  */
 void ltc_c::worker(unsigned instance) {
-UNUSED(instance); // only one
-timeout_c global_time;
-timeout_c timeout;
-int64_t global_next_edge_ns;
+	UNUSED(instance); // only one
+	timeout_c global_time;
+	timeout_c timeout;
+	int64_t global_next_edge_ns;
 
 // set prio to RT, but less than unibus_adapter
-worker_init_realtime_priority(rt_device);
+	worker_init_realtime_priority(rt_device);
 
-INFO("KW11 time resolution is < %u us", (unsigned )(global_time.get_resolution_ns() / 1000));
-global_time.start_ns(0);
-global_next_edge_ns = global_time.elapsed_ns();
-uint64_t global_edge_count = 0;
-while (!workers_terminate) {
-	// signal egde period may change if 50/60 Hz is changed
-	uint64_t edge_period_ns = BILLION / (2 * frequency.value);
-	uint64_t wait_ns;
-	// overdue_ns: time which signal edge is too late
-	int64_t overdue_ns = (int64_t) global_time.elapsed_ns() - global_next_edge_ns;
-	// INFO does not work on 64 ints
-	// printf("elapsed [ms] =%u, overdue [us] =%u\n", (unsigned) global_time.elapsed_ms(), (unsigned) overdue_ns/1000) ;
-	// if overdue_ns positive, next signal edge should have occured
-	if (overdue_ns < 0) {
-		wait_ns = -overdue_ns; // wait until next edge time reached
-	} else {
-		// time for next signal edge reached
-		if (ltc_enable.value) {
-			global_edge_count++;
-			clock_signal = !clock_signal; // square wave
-			if (clock_signal) {
-				line_clock_monitor = 1;
-				pthread_mutex_lock(&on_after_register_access_mutex);
-				set_lks_dati_value_and_INTR(intr_enable);
-				pthread_mutex_unlock(&on_after_register_access_mutex);
-			}
-		} else
-			// clock disconnected
-			clock_signal = 0;
+	INFO("KW11 time resolution is < %u us",
+			(unsigned )(global_time.get_resolution_ns() / 1000));
+	global_time.start_ns(0);
+	global_next_edge_ns = global_time.elapsed_ns();
+	uint64_t global_edge_count = 0;
+	while (!workers_terminate) {
+		// signal egde period may change if 50/60 Hz is changed
+		uint64_t edge_period_ns = BILLION / (2 * frequency.value);
+		uint64_t wait_ns;
+		// overdue_ns: time which signal edge is too late
+		int64_t overdue_ns = (int64_t) global_time.elapsed_ns() - global_next_edge_ns;
+		// INFO does not work on 64 ints
+		// printf("elapsed [ms] =%u, overdue [us] =%u\n", (unsigned) global_time.elapsed_ms(), (unsigned) overdue_ns/1000) ;
+		// if overdue_ns positive, next signal edge should have occured
+		if (overdue_ns < 0) {
+			wait_ns = -overdue_ns; // wait until next edge time reached
+		} else {
+			// time for next signal edge reached
+			if (ltc_enable.value) {
+				global_edge_count++;
+				clock_signal = !clock_signal; // square wave
+				if (clock_signal) {
+					line_clock_monitor = 1;
+					pthread_mutex_lock(&on_after_register_access_mutex);
+					set_lks_dati_value_and_INTR(intr_enable);
+					pthread_mutex_unlock(&on_after_register_access_mutex);
+				}
+			} else
+				// clock disconnected
+				clock_signal = 0;
 
-		// time of next signal edge
-		global_next_edge_ns += edge_period_ns;
-		// overdue_ns now time which next signal edge is too late
-		overdue_ns -= edge_period_ns;
+			// time of next signal edge
+			global_next_edge_ns += edge_period_ns;
+			// overdue_ns now time which next signal edge is too late
+			overdue_ns -= edge_period_ns;
 
-		if (overdue_ns < 0)
-			// next edge now in future: wait exact
-			wait_ns = -overdue_ns;
-		else
-			// next edge still in past:
-			// wait shorter than signal edge period to keep up slowly
-			wait_ns = edge_period_ns / 2;
-		//if ((global_edge_count % 100) == 0)
-		//	INFO("LTC: %u secs by edges", (unsigned)(global_edge_count/100) ) ;
+			if (overdue_ns < 0)
+				// next edge now in future: wait exact
+				wait_ns = -overdue_ns;
+			else
+				// next edge still in past:
+				// wait shorter than signal edge period to keep up slowly
+				wait_ns = edge_period_ns / 2;
+			//if ((global_edge_count % 100) == 0)
+			//	INFO("LTC: %u secs by edges", (unsigned)(global_edge_count/100) ) ;
+		}
+		timeout.wait_ns(wait_ns);
 	}
-	timeout.wait_ns(wait_ns);
-}
 }
 

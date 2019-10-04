@@ -58,10 +58,25 @@ void unibone_log(unsigned msglevel, const char *srcfilename, unsigned srcline, c
 	va_end(arg_ptr);
 }
 
-		
 void unibone_logdump(void) {
 //	logger->dump(logger->default_filepath);
 	logger->dump(); // stdout
+}
+
+// called before opcode fetch of next instruction
+// This is the point in time were INTR requests are checked and GRANTed
+// (PRU implementation may limit NPR GRANTs also to this time)
+void unibone_on_before_instruction(void) {
+	// after that the CPU should check for received INTR vectors
+	// in its microcode service() step.c
+
+	// allow PRU do to produce GRANT for device requests
+	mailbox_execute (ARM2PRU_ARB_GRANT_INTR_REQUESTS);
+	// Block CPU thread
+	while (mailbox->arbitrator.ifs_intr_arbitration_pending) {
+// often 60-80 us, So just idle loop the CPU thread
+//		timeout_c::wait_us(1);
+	}
 }
 
 // Result: 1 = OK, 0 = bus timeout
@@ -93,8 +108,6 @@ int unibone_dati(unsigned addr, unsigned *data) {
 	*data = wordbuffer;
 	dbg = 0;
 	// printf("DATI; ba=%o, data=%o\n", addr, *data) ;
-//if (!unibone_cpu->data_transfer_request.success)
-//	ARM_DEBUG_PIN0(1) ;
 
 	return unibone_cpu->data_transfer_request.success;
 }
@@ -104,7 +117,7 @@ int unibone_dati(unsigned addr, unsigned *data) {
 // mailbox->arbitrator.cpu_priority_level was CPU_PRIORITY_LEVEL_FETCHING
 // In that case, PRU is allowed now to grant BGs again.
 void unibone_prioritylevelchange(uint8_t level) {
-	mailbox->arbitrator.cpu_priority_level = level;
+	mailbox->arbitrator.ifs_priority_level = level;
 }
 
 // CPU executes RESET opcode -> pulses INIT line
@@ -148,15 +161,43 @@ cpu_c::~cpu_c() {
 bool cpu_c::on_param_changed(parameter_c *param) {
 	if (param == &enabled) {
 		if (!enabled.new_value) {
-			// HALT disabled CPU
-			runmode.value = false;
 			init.value = false;
+			// HALT disabled CPU
+			stop();
+		} else {
+			// enable active: assert CPU starts stopped
+			stop();
+		}
+	} else if (param == &runmode) {
+		if (runmode.new_value) {
+			start();
+		} else {
+			stop();
 		}
 	}
+
 	return unibusdevice_c::on_param_changed(param); // more actions (for enable)
 }
 
+// start CPU logic on PRU and switch arbitration mode
+void cpu_c::start() {
+	runmode.value = true;
+	mailbox->cpu_enable = 1;
+	mailbox_execute(ARM2PRU_CPU_ENABLE);
+	unibus->set_arbitrator_active(true);
+}
+
+// stop CPU logic on PRU and switch arbitration mode
+void cpu_c::stop() {
+	ka11.state = 0;
+	runmode.value = false;
+	mailbox->cpu_enable = 0;
+	mailbox_execute(ARM2PRU_CPU_ENABLE);
+	unibus->set_arbitrator_active(false);
+}
+
 // background worker.
+// Started/stopped on param "enable"
 void cpu_c::worker(unsigned instance) {
 	UNUSED(instance); // only one
 	timeout_c timeout;
@@ -169,58 +210,45 @@ void cpu_c::worker(unsigned instance) {
 	power_event = power_event_none;
 
 	// run with lowest priority, but without wait()
-	// => get all remainingn CPU power
-//	worker_init_realtime_priority(none_rt);
-//worker_init_realtime_priority(device_rt);
+	// => get all remaining CPU power
+	worker_init_realtime_priority(none_rt);
+	//worker_init_realtime_priority(device_rt);
+
+	timeout.wait_us(1);
+
 	while (!workers_terminate) {
-		// speed control is diffiuclt, force to use more ARM cycles
-		timeout.wait_us(1);
-		for (int i = 0; i < 10; i++) {
-
-			if (runmode.value != (ka11.state != 0))
-				ka11.state = runmode.value;
-			ka11_condstep(&ka11);
-			if (runmode.value != (ka11.state != 0)) {
-				runmode.value = ka11.state != 0;
-				printf("CPU HALT at %06o.\n", ka11.r[7]);
-			}
-
-			// serialize asynchronous power events
-			if (runmode.value) {
-				// don't call power traps if HALTed. Also not on CONT.
-				if (power_event == power_event_down)
-					ka11_pwrdown(&unibone_cpu->ka11);
-				// stop stop some time after power down
-				else if (power_event == power_event_up)
-					ka11_pwrup(&unibone_cpu->ka11);
-				power_event = power_event_none; // processed
-			}
-
-			if (init.value) {
-				// user wants CPU reset
-				ka11_reset(&ka11);
-				init.value = 0;
-			}
+		// speed control is difficult, force to use more ARM cycles
+//			if (runmode.value != (ka11.state != 0))
+//				ka11.state = runmode.value;
+		if (runmode.value && (ka11.state == 0))
+			ka11.state = 1; // HALTED -> RUNNING
+		else if (!runmode.value)
+			// HALT position inside instructions !!!
+			ka11.state = 0; // WAITING|RUNNING =- HALTED
+		int prev_ka11_state = ka11.state;
+		ka11_condstep(&ka11);
+		if (prev_ka11_state > 0 && ka11.state == 0) {
+			// CPU run on HALT, sync runmode
+			runmode.value = false;
+			printf("CPU HALT at %06o.\n", ka11.r[7]);
 		}
 
-#if 0
+		// serialize asynchronous power events
 		if (runmode.value) {
-			// simulate a fetch
-			nxm = !unibone_dati(pc, &opcode);
-			if (nxm) {
-				printf("Bus timeout at PC = %06o. HALT.\n", pc);
-				runmode.value = false;
-			}
-			pc = (pc + 2) % 0100; // loop around
-			// set LEDS
-			nxm = !unibone_dato(dr, pc & 0xf);
-			if (nxm) {
-				printf("Bus timeout at DR = %06o. HALT.\n", dr);
-				runmode.value = false;
-			}
+			// don't call power traps if HALTed. Also not on CONT.
+			if (power_event == power_event_down)
+				ka11_pwrdown(&unibone_cpu->ka11);
+			// stop stop some time after power down
+			else if (power_event == power_event_up)
+				ka11_pwrup(&unibone_cpu->ka11);
+			power_event = power_event_none; // processed
 		}
-#endif
 
+		if (init.value) {
+			// user wants CPU reset
+			ka11_reset(&ka11);
+			init.value = 0;
+		}
 	}
 }
 
