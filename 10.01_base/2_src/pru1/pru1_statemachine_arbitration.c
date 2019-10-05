@@ -101,7 +101,7 @@ void sm_arb_reset() {
 	buslatches_setbits(1, PRIORITY_ARBITRATION_BIT_MASK | BIT(5), 0);
 	sm_arb.device_request_mask = 0;
 	sm_arb.bbsy_wait_grant_mask = 0;
-
+	sm_arb.cpu_request = 0 ;
 	sm_arb.arbitrator_grant_mask = 0;
 	timeout_cleanup(TIMEOUT_SACK);
 }
@@ -168,19 +168,6 @@ uint8_t sm_arb_worker_device(uint8_t grant_mask) {
 			// CPU memory access delayed until device requests processed/completed
 		}
 	}
-#if 0
-	if ((sm_arb.device_request_mask & PRIORITY_ARBITRATION_BIT_NP) && mailbox.dma.cpu_access) {
-		uint8_t latch1val = buslatches_getbyte(1);
-		if ((latch1val & 0x1f) == 0) {
-			// neither REQUESTs nor SACK nor BBSY asserted
-			sm_arb.device_request_mask &= ~PRIORITY_ARBITRATION_BIT_NP;
-			return PRIORITY_ARBITRATION_BIT_NP;
-			// DMA will be started, BBSY will be set
-		} else {
-			// CPU memory access delayed until device requests processed/completed
-		}
-	}
-#endif
 	// Always update UNIBUS BR/NPR lines, are ORed with requests from other devices.
 	buslatches_setbits(1, PRIORITY_ARBITRATION_BIT_MASK, sm_arb.device_request_mask)
 	;
@@ -233,17 +220,6 @@ uint8_t sm_arb_worker_device(uint8_t grant_mask) {
  - GRANT BR* in descending priority, when CPU execution level allows .
  - Cancel GRANT, if no device responds with SACK within timeout period
  */
-#if 0
-// decode set of requests lines to highest INTR level
-// BR4 = 0x01 -> 4, BR5 = 0x02 ->  5, etc.
-// Index only PRIORITY_ARBITRATION_INTR_MASK, [0] invalid.
-static uint8_t requests_2_highests_intr[16] = { //
-	/*0000*/9, /*0001*/4, /*0010*/5, /*0011*/5,
-	/*0100*/6, /*0101*/6, /*0110*/6, /*0111*/6,
-	/*1000*/7, /*1001*/7, /*1010*/7, /*1011*/7,
-	/*1100*/7, /*1101*/7, /*1110*/7, /*1111*/7};
-#endif 
-
 uint8_t sm_arb_worker_cpu() {
 	/******* arbitrator logic *********/
 	uint8_t intr_request_mask;
