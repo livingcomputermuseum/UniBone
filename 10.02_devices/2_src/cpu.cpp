@@ -69,7 +69,6 @@ void unibone_logdump(void) {
 void unibone_on_before_instruction(void) {
 	// after that the CPU should check for received INTR vectors
 	// in its microcode service() step.c
-
 	// allow PRU do to produce GRANT for device requests
 	mailbox_execute (ARM2PRU_ARB_GRANT_INTR_REQUESTS);
 	// Block CPU thread
@@ -267,7 +266,7 @@ void cpu_c::on_after_register_access(unibusdevice_register_t *device_reg,
 }
 
 // CPU received interrupt vector from UNIBUS
-// PRU triggers this via unibusadapter, 
+// PRU triggers this via unibusadapter worker thread, 
 // mailbox->arbitrator.cpu_priority_level is CPU_PRIORITY_LEVEL_FETCHING
 // CPU fetches PSW and calls unibone_prioritylevelchange(), which
 // sets mailbox->arbitrator.cpu_priority_level and 

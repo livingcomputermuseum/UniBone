@@ -121,7 +121,7 @@ void application_c::menu_interrupts(void) {
 		if (!strcasecmp(s_opcode, "q")) {
 			ready = true;
 		} else if (!strcasecmp(s_opcode, "pwr")) {
-			unibus->powercycle();
+			unibus->probe_grant_continuity(true);
 		} else if (!strcasecmp(s_opcode, "m") && n_fields == 1) {
 			emulate_memory();
 		} else if (!strcasecmp(s_opcode, "e") && n_fields == 2) {

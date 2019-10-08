@@ -612,7 +612,7 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 		} while (!completed);
 
 	} else if (blocking) {
-		pthread_mutex_lock(&dma_request.complete_mutex);
+		pthread_mutex_lock(&dma_request.complete_mutex)  ;
 		// DMA() is blocking: Wait for request to finish.
 		//	pthread_mutex_lock(&dma_request.mutex);
 		while (!dma_request.complete) {
@@ -1111,15 +1111,17 @@ void unibusadapter_c::worker(unsigned instance) {
 				// ARM2PRU opcodes raised by device logic are processed in midst of bus cycle
 				EVENT_ACK(*mailbox, deviceregister); // PRU continues bus cycle with SSYN now
 			}
+
 			if (!EVENT_IS_ACKED(*mailbox, dma) && !mailbox->dma.cpu_access) {
 				// not called for CPU DATI/DATO
 				
 				any_event = true;
 				pthread_mutex_lock(&requests_mutex);
 				worker_device_dma_chunk_complete_event();
+				
 				pthread_mutex_unlock(&requests_mutex);
-				// rpu may have set again event_dma again, if this is called before EVENT signal??
-				// call this only on singal, not on timeout!
+				// PRU may have set again event_dma again, if this is called before EVENT signal??
+				// call this only on signal, not on timeout!
 
 				// this may clear reraised PRU event flag!
 				EVENT_ACK(*mailbox, dma); // PRU may re-raise and change mailbox now

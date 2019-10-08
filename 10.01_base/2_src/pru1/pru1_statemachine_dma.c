@@ -130,6 +130,8 @@ static statemachine_state_func sm_dma_state_1() {
 	}
 
 	sm_dma.state_timeout = 0;
+//if (addr == 01046) // trigger address
+// 	PRU_DEBUG_PIN0(1) ; // trigger to LA.
 
 	// addr0..7 = latch[2]
 	buslatches_setbyte(2, addr & 0xff);

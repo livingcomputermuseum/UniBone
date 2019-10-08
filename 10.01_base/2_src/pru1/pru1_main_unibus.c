@@ -230,11 +230,11 @@ void main(void) {
 				// request DMA, arbitrator must've been selected with ARM2PRU_ARB_MODE_*
 				if (mailbox.dma.cpu_access) {
 					// Emulated CPU: no NPR/NPG/SACK protocol
-					sm_arb.cpu_request = 1 ;
+					sm_arb.cpu_request = 1;
 				} else {
 					// Emulated device: raise request for emulated or physical Arbitrator.
 					sm_arb.device_request_mask |= PRIORITY_ARBITRATION_BIT_NP;
-					}
+				}
 				// request not put on bus for CPU memory access
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
@@ -289,6 +289,24 @@ void main(void) {
 			case ARM2PRU_CPU_ENABLE:
 				// bool flag much faster to access than shared mailbox member.
 				emulate_cpu = mailbox.cpu_enable;
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				break;
+			case ARM2PRU_BUSLATCH_SET: { // set a mux register
+                // and read back
+				// don't feed "volatile" vars into buslatch_macros !!!
+				uint8_t reg_sel = mailbox.buslatch.addr & 7;
+				uint8_t bitmask = mailbox.buslatch.bitmask;
+				uint8_t val = mailbox.buslatch.val;
+				buslatches_setbits(reg_sel, bitmask, val);
+				mailbox.buslatch.val = buslatches_getbyte(reg_sel);
+			}
+				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
+				break;
+			case ARM2PRU_BUSLATCH_GET: {
+				// don't feed "volatile" vars into buslatch_macros !!!
+				uint8_t reg_sel = mailbox.buslatch.addr & 7;
+				mailbox.buslatch.val = buslatches_getbyte(reg_sel);
+			}
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_HALT:

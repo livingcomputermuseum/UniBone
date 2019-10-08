@@ -123,7 +123,7 @@ void application_c::menu_device_exercisers(void) {
 			} else if (!strcasecmp(s_opcode, "init")) {
 				unibus->init(50);
 			} else if (!strcasecmp(s_opcode, "pwr")) {
-				unibus->powercycle();
+				unibus->probe_grant_continuity(true);
 			} else if (!strcasecmp(s_opcode, "dbg") && n_fields == 2) {
 				if (!strcasecmp(s_param[0], "c")) {
 					logger->clear();

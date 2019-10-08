@@ -182,7 +182,7 @@ void application_c::menu_devices(bool with_emulated_CPU) {
 	}
 
 	// now devices are "Plugged in". Reset PDP-11.
-	unibus->powercycle();
+	unibus->probe_grant_continuity(true);
 
 	while (!ready) {
 
@@ -261,7 +261,7 @@ void application_c::menu_devices(bool with_emulated_CPU) {
 			} else if (!strcasecmp(s_opcode, "init")) {
 				unibus->init(50);
 			} else if (!strcasecmp(s_opcode, "pwr")) {
-				unibus->powercycle();
+				unibus->probe_grant_continuity(true) ;
 			} else if (!strcasecmp(s_opcode, "dbg") && n_fields == 2) {
 				if (!strcasecmp(s_param[0], "c")) {
 					logger->clear();

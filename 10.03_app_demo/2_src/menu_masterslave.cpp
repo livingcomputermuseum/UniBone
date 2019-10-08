@@ -158,7 +158,7 @@ void application_c::menu_masterslave(bool with_CPU) {
 		} else if (!strcasecmp(s_opcode, "i")) {
 			iopageregisters_print_tables();
 		} else if (!strcasecmp(s_opcode, "pwr")) {
-			unibus->powercycle();
+			unibus->probe_grant_continuity(true);
 		} else if (!strcasecmp(s_opcode, "m") && n_fields == 3) {
 			uint32_t start_addr, end_addr;
 			parse_addr18(s_param[0], &start_addr);

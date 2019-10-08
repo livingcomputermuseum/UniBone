@@ -128,7 +128,6 @@ void main(void) {
 			break;
 
 		case ARM2PRU_BUSLATCH_SET: { // set a mux register
-
 			// don't feed "volatile" vars into buslatch_macros !!!
 			uint8_t reg_sel = mailbox.buslatch.addr & 7;
 			uint8_t bitmask = mailbox.buslatch.bitmask;

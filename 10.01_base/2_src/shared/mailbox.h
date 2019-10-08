@@ -30,7 +30,7 @@
 #include <stdint.h>
 #include "unibus.h"
 
-// arm to pru
+// ARM to PRU
 #define ARM2PRU_NONE	0	// Operation complete: must be 0!
 #define ARM2PRU_NOP	1	// to check wether PRU is running
 #define ARM2PRU_HALT	2	// run PRU1 into halt
@@ -43,14 +43,14 @@
 #define ARM2PRU_INITALIZATIONSIGNAL_SET		9 	// set an ACL=/DCLO/INIT signal
 #define ARM2PRU_ARB_MODE_NONE		11               // DMA without NPR/NPG/SACK arbitration
 #define ARM2PRU_ARB_MODE_CLIENT		12               // DMA with arbitration by external Arbitrator
-#define ARM2PRU_DMA		14               // DMA with selected arbitration
-//#define PRU2ARM_DMA_CPU_TRANSFER_BLOCKED 15 // possible result of ARM2PRU_DMA
-#define ARM2PRU_INTR		16               // INTR with arbitration by external Arbitrator
-#define ARM2PRU_INTR_CANCEL		17               // clear INTR which has been requested
-#define ARM2PRU_CPU_ENABLE		18	// siwtch CPU master side functions ON/OFF
-#define ARM2PRU_DDR_FILL_PATTERN	19	// fill DDR with test pattern
-#define ARM2PRU_DDR_SLAVE_MEMORY	20	// use DDR as UNIBUS slave memory
-#define ARM2PRU_ARB_GRANT_INTR_REQUESTS	21 // emulated CPU answers device requests
+#define ARM2PRU_DMA		13               // DMA with selected arbitration
+#define ARM2PRU_INTR		14               // INTR with arbitration by external Arbitrator
+#define ARM2PRU_INTR_CANCEL		15               // clear INTR which has been requested
+#define ARM2PRU_CPU_ENABLE		16	// siwtch CPU master side functions ON/OFF
+#define ARM2PRU_DDR_FILL_PATTERN	17	// fill DDR with test pattern
+#define ARM2PRU_DDR_SLAVE_MEMORY	18	// use DDR as UNIBUS slave memory
+#define ARM2PRU_ARB_GRANT_INTR_REQUESTS	19 // emulated CPU answers device requests
+
 
 
 // signal IDs for ARM2PRU_INITALIZATIONSIGNAL_* 
@@ -66,7 +66,7 @@
 #define DMA_STATE_TIMEOUTSTOP	3	// stop because of UNIBUS timeout
 #define DMA_STATE_INITSTOP	4	// stop because INIT signal sensed
 
-// bits BR*/NPR interrupts in buslatch 0 and 1
+// Bit masks BR*/NPR and BG*/NPG in buslatch 0 and 1
 // bit # is index into arbitration_request[] array.
 #define PRIORITY_ARBITRATION_BIT_B4	0x01
 #define PRIORITY_ARBITRATION_BIT_B5	0x02

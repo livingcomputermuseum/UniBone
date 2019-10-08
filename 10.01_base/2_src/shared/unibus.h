@@ -91,7 +91,10 @@ public:
 
 	bool get_arbitrator_active(void);
 
-	void powercycle(void);
+	
+	uint8_t probe_grant_continuity(bool error_if_closed) ;
+
+	void powercycle(int phase = 3);
 
 	// functions of unibusadapter to do simple DMA 
 	dma_request_c *dma_request;
