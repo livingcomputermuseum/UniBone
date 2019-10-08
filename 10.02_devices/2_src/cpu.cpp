@@ -66,7 +66,7 @@ void unibone_logdump(void) {
 // called before opcode fetch of next instruction
 // This is the point in time were INTR requests are checked and GRANTed
 // (PRU implementation may limit NPR GRANTs also to this time)
-void unibone_on_before_instruction(void) {
+void unibone_grant_interrupts(void) {
 	// after that the CPU should check for received INTR vectors
 	// in its microcode service() step.c
 	// allow PRU do to produce GRANT for device requests

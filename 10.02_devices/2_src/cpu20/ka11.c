@@ -3,7 +3,7 @@
 
 #include "gpios.hpp" // ARM_DEBUG_PIN*
 
-void unibone_on_before_instruction(void) ;
+void unibone_grant_interrupts(void) ;
 int unibone_dato(unsigned addr, unsigned data);
 int unibone_datob(unsigned addr, unsigned data);
 int unibone_dati(unsigned addr, unsigned *data);
@@ -553,9 +553,7 @@ step(KA11 *cpu)
 	/* Operate */
 	switch(cpu->ir & 7){
 	case 0:	TR(HALT); cpu->state = STATE_HALTED; return;
-	case 1:	TR(WAIT); 
-printf("WAIT\n") ;
-	cpu->state = STATE_WAITING; return;
+	case 1:	TR(WAIT); cpu->state = STATE_WAITING; return;
 	case 2:	TR(RTI);
 		BA = SP; POP; IN(PC);
 		BA = SP; POP; IN(PSW);
@@ -644,6 +642,8 @@ ka11_setintr(KA11 *cpu, unsigned vec)
 	cpu->external_intr = true;
 	cpu->external_intrvec = vec;
 	trace("INTR vec=%03o\n", vec) ;
+	if (cpu->state == STATE_WAITING) // atomically
+		cpu->state = STATE_RUNNING ;
 	pthread_mutex_unlock(&cpu->mutex) ;
 }
 
@@ -671,11 +671,15 @@ be:
 void
 ka11_condstep(KA11 *cpu)
 {
+	if(cpu->state == STATE_RUNNING || cpu->state == STATE_WAITING)
+		// GRANT Interrupts before opcode fetch, or when CPU is on WAIT
+	unibone_grant_interrupts() ;
+
 	if((cpu->state == STATE_RUNNING) ||
 	   (cpu->state == STATE_WAITING && cpu->traps)){
 		cpu->state = STATE_RUNNING;
+		// external_intr WAIT handled atomically in ka11_setintr() !
 
-		unibone_on_before_instruction() ;
 		svc(cpu, cpu->bus);
 		step(cpu);
 	}
