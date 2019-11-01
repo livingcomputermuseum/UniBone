@@ -159,8 +159,9 @@ void main(void) {
 					// "set" is inverting!
 					cpu_grant_mask = buslatches_getbyte(0) & PRIORITY_ARBITRATION_BIT_MASK; // read GRANT IN
 					// forward un-requested GRANT IN to GRANT OUT for other cards on neighbor slots
-					buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK & ~sm_arb.device_request_mask, ~cpu_grant_mask)
-					;
+					uint8_t grant_out_mask = cpu_grant_mask & ~sm_arb.device_request_mask ; 
+					buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK, ~grant_out_mask)
+				;
 				}
 				// handle GRANT/SACK/BBSY for emulated devices
 				uint8_t granted_request = sm_device_arb_worker(cpu_grant_mask); // devices process GRANT

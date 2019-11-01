@@ -83,11 +83,7 @@ statemachine_state_func sm_data_slave_start() {
 	// addr8..15 = latch[3]
 	// addr 16,17 = latch[4].0,1
 	addr = latch2val | ((uint32_t) latch3val << 8) | ((uint32_t) (latch4val & 3) << 16);
-//if (addr == 01046) // trigger address
-//  PRU_DEBUG_PIN0(1) ; // trigger to LA.
-
 	
-
 	// make bool of a17..a13. iopage, if a17..a13 all 1's
 	// iopage = ((latch3val & 0xe0) | (latch4val & 3)) == 0xe3;
 	// 2 statements above = 12 cycles = 60ns
@@ -97,6 +93,12 @@ statemachine_state_func sm_data_slave_start() {
 	control = (latch4val >> 2) & 3;
 	// !!! Attention: on fast UNIBUS cycles to other devices,
 	// !!! SSYN may already be asserted. Or MSYN may even be inactive again !!!
+
+//	if (addr == 0 && control == UNIBUS_CONTROL_DATI) // trigger address, after boot
+//	  PRU_DEBUG_PIN0(1) ; // trigger to LA.
+//if (addr >= 0777560 && addr <= 0777566) // trigger address, after boot
+//	PRU_DEBUG_PIN0(1) ; // trigger to LA.
+
 
 	// page_table_entry = PAGE_TABLE_ENTRY(deviceregisters,addr) ; // is addr ignored,memory,iopage?
 //	if (addr >= 0x8000 && addr < 0x10000)

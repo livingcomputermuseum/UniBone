@@ -271,7 +271,7 @@ uint8_t sm_arb_worker_cpu() {
 		timeout_cleanup(TIMEOUT_SACK);
 	}
 	// put the single BR/NPR GRANT onto GRANT OUT BUS line, latches inverted.
-	// visible for physical devices, not for emulated devcies on this UniBone
+	// visible for physical devices, not for emulated devices on this UniBone
 	buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK, ~sm_arb.arbitrator_grant_mask )
 	;
 

@@ -269,7 +269,7 @@ char *unibusdevice_c::get_unibus_resource_info(void) {
 		slot_to = std::max(slot_to, (*it)->get_priority_slot());
 	}
 
-	if (slot_from > slot_to) // no requests: use devcie parameter
+	if (slot_from > slot_to) // no requests: use device parameter
 		slot_from = slot_to = priority_slot.value;
 	if (slot_from == slot_to)
 		sprintf(tmpbuff, ", slot %u", (unsigned) slot_from);

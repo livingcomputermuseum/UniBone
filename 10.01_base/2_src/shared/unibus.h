@@ -74,7 +74,7 @@ private:
 
 	// false: no running CPU on UNIBUS (physical or emulated)
 	// 	devices do DMA without NPR/NPG protocol
-	// true:  active CPU. devcies pus perform Request/Grant/SACK protocoll
+	// true:  active CPU. devices perform Request/Grant/SACK protocoll
 	bool arbitrator_active;
 
 public:

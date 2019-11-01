@@ -102,7 +102,7 @@ bool application_c::parse_slot(char *txt, uint8_t *priority_slot) {
 
 void application_c::print_arbitration_info(const char *indent) {
 	if (unibus->get_arbitrator_active()) {
-		printf("%s\"UniBone devcies are clients to PDP-11 CPU doing NPR/INTR Arbitrator\n",
+		printf("%s\"UniBone devices are clients to PDP-11 CPU doing NPR/INTR Arbitrator\n",
 				indent);
 		printf("%s(CPU active, console processor inactive).\n", indent);
 		printf("%sCPU is physical or emulated.\n", indent);
