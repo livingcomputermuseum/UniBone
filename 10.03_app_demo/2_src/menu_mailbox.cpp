@@ -28,7 +28,6 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "inputline.h"
 #include "application.hpp" // own
 #include "pru.hpp"
 

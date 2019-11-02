@@ -33,7 +33,15 @@ duenab	=	0	; not yet implemeneted
 	.asect
 
 	; *************************************************
-	; Vectors
+	; Vectors		; UniBone emulated CPU start
+	. = 0
+	jmp	@#start
+
+
+	; Emulated CPU: restart on pwoer event
+	. = 24			; Power ON/OFF
+	.word	start		; PC
+	.word	340		; PSW priority level 7
 
 	. = corvec
 	.word	corisr		; RCV interrupt
@@ -123,6 +131,7 @@ dokbd:
 	bne	1$
 	mov	#sbye,r1	; ^C: print "Bye", back to monitor
 	call	puts
+	reset			; stop devices
 	jmp	monitr
 1$:
 	; echo chars without special meaning
@@ -174,7 +183,7 @@ dodev:
 	call	progrs
 4$:
 .endc
-.if ne ryenab
+.if ne duenab
 	tst	duiflg
 	beq	5$
 	clr	duiflg

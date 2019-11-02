@@ -5,6 +5,8 @@
 dc			# "device with cpu" menu
 
 m i   			# emulate missing memory
+sd dl11
+# p b 300			# reduced baudrate
 
 en dl11			# switch on emulated DL11
 
@@ -25,6 +27,8 @@ init
 
 p run 1
 
-.print CPU20 started
+# .print CPU20 started... wait for auto-typed input.
+# dl11 rcv 5000 <This\x20text\x20is\x20typed\x20and\x20echoed\x0d\0x0a>
+
 
 

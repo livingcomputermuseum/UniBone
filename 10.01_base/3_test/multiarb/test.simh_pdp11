@@ -21,5 +21,10 @@ set ry  enabled
 set ry0 double
 attach ry0 scratch.rx02_dd
 
-# PDP11GUI
+set rq enabled
+set rq0 ra80
+attach rq0 scratch.ra80
+
+
+; PDP11GUI
 set stdio telnet=23

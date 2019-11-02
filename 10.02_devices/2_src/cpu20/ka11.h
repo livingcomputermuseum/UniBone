@@ -16,10 +16,15 @@ struct KA11
 		int (*bg)(void *dev);
 		void *dev;
 	} br[4];
-	word trapvec;	// for unibone
+
+	// UniBone 	
+	pthread_mutex_t mutex ;
+	volatile bool external_intr ; // INTR by parallel thread pending
+	volatile word external_intrvec;	// associated vector
 
 	word sw;
 };
+
 
 void ka11_reset(KA11 *cpu);
 void ka11_setintr(KA11 *cpu, unsigned vec);

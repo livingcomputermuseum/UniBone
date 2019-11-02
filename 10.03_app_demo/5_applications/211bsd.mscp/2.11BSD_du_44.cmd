@@ -8,11 +8,14 @@ m i			# install max UNIBUS memory
 # Deposit bootloader into memory
 m ll du.lst
 
+en uda			# enable UDA50 controller
+
 # mount 2.11bSD in drive #0 and start
+en uda0			# enable drive #0
 sd uda0			# select drive #0
 
-p type RA72
-p image 2.11BSD_44.ra72 # mount image file with test pattern
+p type RA92
+p image 2.11BSD_44.ra92 # mount image file with test pattern
 
 .print MSCP drives ready.
 .print UDA50 boot loader installed.

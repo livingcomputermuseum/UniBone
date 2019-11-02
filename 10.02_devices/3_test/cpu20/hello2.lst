@@ -11,30 +11,33 @@
       11 177560                         	serial = 177560 	; base addr of DL11
       12                                
       13                                
-      14 002000                         	.=2000
-      15                                
-      16                                start:
-      17 002000 012702  177564          	mov	#serial+4,r2	; r2 points to DL11 transmitter section
-      18 002004 012701  002032          	mov	#string,r1	; r1 points to the current character
-      19                                nxtchr:
-      20 002010 012100                  	mov	(r1)+,r0	; load xmt char into r0
-      21 002012 001405                  	beq	done		; string ends with 0
-      22                                
-      23 002014 110062  000002          	movb	r0,2(r2)	; xmt char
-      24 002020 105712                  wait:	tstb	(r2)		; character transmitted?
-      25 002022 100376                  	bpl	wait		; no, loop
-      26 002024 000771                  	br	nxtchr		; transmit nxt char of string
-      27                                
-      28 002026 000000                  done:	halt
-      29 002030 000763                  	br	start
+      14 000000                         	.=0			; incomplete
+      15 000000 000137  002000          	jmp	@#start
+      16                                
+      17 002000                         	.=2000
+      18                                
+      19                                start:
+      20 002000 012702  177564          	mov	#serial+4,r2	; r2 points to DL11 transmitter section
+      21 002004 012701  002032          	mov	#string,r1	; r1 points to the current character
+      22                                nxtchr:
+      23 002010 012100                  	mov	(r1)+,r0	; load xmt char into r0
+      24 002012 001405                  	beq	done		; string ends with 0
+      25                                
+      26 002014 110062  000002          	movb	r0,2(r2)	; xmt char
+      27 002020 105712                  wait:	tstb	(r2)		; character transmitted?
+      28 002022 100376                  	bpl	wait		; no, loop
+      29 002024 000771                  	br	nxtchr		; transmit nxt char of string
       30                                
-      31                                string:
-      32 002032 000110  000145  000154  	.word	110,145,154,154,157,054,040 ; "Hello, "
+      31 002026 000000                  done:	halt
+      32 002030 000763                  	br	start
+      33                                
+      34                                string:
+      35 002032 000110  000145  000154  	.word	110,145,154,154,157,054,040 ; "Hello, "
          002040 000154  000157  000054  
          002046 000040                  
-      33 002050 000167  000157  000162  	.word	167,157,162,154,144,041     ; "world!"
+      36 002050 000167  000157  000162  	.word	167,157,162,154,144,041     ; "world!"
          002056 000154  000144  000041  
-      34 002064 000015  000012  000000  	.word	15,12,0 	; CR, LF, NUL=end marker
-      35                                
-      36                                	.end
-      36                                
+      37 002064 000015  000012  000000  	.word	15,12,0 	; CR, LF, NUL=end marker
+      38                                
+      39                                	.end
+      39                                

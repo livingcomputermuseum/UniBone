@@ -6,6 +6,7 @@ d			# device test menu
 # sd dl11
 # p p ttyS2		# use "UART2 connector
 # en dl11
+# en kw11
 
 
 pwr

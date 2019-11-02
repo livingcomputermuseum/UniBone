@@ -74,7 +74,7 @@ private:
 	// internal priority index of a request level, see REQUEST_INDEX_*
 	uint8_t level_index; // is BR4567,NPR level - 4
 
-	uint8_t slot; // backplane slot which triggered request
+	uint8_t priority_slot; // backplane priority_slot which triggered request
 public:
 	// better make state variables volatile, accessed by unibusadapter::worker
 	volatile bool executing_on_PRU; // true between schedule to PRU and compelte signal
@@ -89,7 +89,7 @@ public:
 
 	void set_priority_slot(uint8_t slot);
 	uint8_t get_priority_slot(void) {
-		return slot;
+		return priority_slot;
 	}
 };
 
@@ -105,6 +105,8 @@ public:
 	uint32_t unibus_end_addr;
 	uint16_t* buffer;
 	uint32_t wordcount;
+
+	bool is_cpu_access; // true if DMA is CPU memory access
 
 	// DMA transaction are divided in to smaller DAT transfer "chunks" 
 	uint32_t chunk_max_words; // max is PRU capacity PRU_MAX_DMA_WORDCOUNT (512)
@@ -166,7 +168,7 @@ public:
 
 	// detect raising edge of interrupt level
 	enum interrupt_edge_enum edge_detect(bool new_signal_level) {
-		if (signal_level == new_signal_level) 
+		if (signal_level == new_signal_level)
 			return INTERRUPT_EDGE_NONE;
 		else {
 			// change: which edge?

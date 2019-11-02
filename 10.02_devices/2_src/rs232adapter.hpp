@@ -29,30 +29,39 @@
 #include <ostream>
 #include <istream>
 #include <sstream>
+#include <deque>
 #include "utils.hpp"
 #include "logsource.hpp"
 #include "rs232.hpp"
 
+// a character with additional transmission status
+typedef struct {
+	uint8_t c; // 5/6/7/8 bit character
+	// framing and parity errors combined
+	bool format_error;
+} rs232byte_t;
+
 class rs232adapter_c: public logsource_c {
 private:
 	// for loopback and to decode 0xff to 0xff,0xff
-	std::stringstream rcv_decoder;
+	std::deque<rs232byte_t> rcvbuffer;
+//	std::stringstream rcv_decoder;
 
-	// last sequence of xmt data for pattern matching
-	static const int pattern_max_len = 256 ;
-	char pattern[pattern_max_len+1]; // if != "", this is search for
-	char pattern_stream_data[pattern_max_len+1];
+// last sequence of xmt data for pattern matching
+	static const int pattern_max_len = 256;
+	char pattern[pattern_max_len + 1]; // if != "", this is search for
+	char pattern_stream_data[pattern_max_len + 1];
 
 	// deliver rcv chars delayed by this "baudrate"
-	timeout_c rcv_baudrate_delay ;
+	timeout_c rcv_baudrate_delay;
 
 public:
 
 	rs232adapter_c();
 
-	pthread_mutex_t	mutex = PTHREAD_MUTEX_INITIALIZER;
+	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-	unsigned baudrate ; // deliver rcv chars throttled by this "baudrate"
+	unsigned baudrate; // deliver rcv chars throttled by this "baudrate"
 
 	// if true, an inject 0xff is delivered as 0xff,0xff.
 	// this is compatible with termios(3) encoding of error flags
@@ -64,9 +73,9 @@ public:
 	rs232_c *rs232; // if assigned, routing to initialized RS232 port
 
 	/*** BYTE interface ***/
-	bool byte_rcv_poll(unsigned char *rcvchar);
-	void byte_xmt_send(unsigned char xmtchar);
-	void byte_loopback(unsigned char xmtchar);
+	bool rs232byte_rcv_poll(rs232byte_t *rcvbyte);
+	void rs232byte_xmt_send(rs232byte_t xmtbyte);
+	void rs232byte_loopback(rs232byte_t xmtbyte);
 
 	/*** STREAM interface ***/
 	std::istream *stream_rcv; // users sets this to a stream which producess chars
@@ -78,7 +87,7 @@ public:
 
 	/*** PATTERN detection ***/
 	void set_pattern(char *pattern);
-	bool pattern_found; // switches ture on match, user must clear
+	bool pattern_found; // switches true on match, user must clear
 
 };
 

@@ -28,7 +28,6 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "inputline.h"
 #include "mcout.h"
 #include "application.hpp" // own
 

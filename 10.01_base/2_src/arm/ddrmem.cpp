@@ -33,10 +33,11 @@
 #include <assert.h>
 
 #include "logger.hpp"
-#include "inputline.h"
 #include "mailbox.h"
 #include "iopageregister.h"
 #include "ddrmem.h"
+
+#include "application.hpp"
 
 /* another singleton */
 ddrmem_c *ddrmem;
@@ -179,7 +180,7 @@ void ddrmem_c::unibus_slave(uint32_t startaddr, uint32_t endaddr) {
 	mailbox->arm2pru_req = ARM2PRU_DDR_SLAVE_MEMORY;
 	printf("Hit 'q' ENTER to end.\n");
 	do { // only this code wait for input under Eclipse
-		s = inputline(buf, sizeof(buf), NULL);
+		s = app->inputline.readline(buf, sizeof(buf), NULL);
 	} while (strlen(s) == 0);
 	// clearing  arm2pru_req stops the emulation
 	mailbox_execute(ARM2PRU_NONE);

@@ -30,7 +30,6 @@
 #include <assert.h>
 
 #include "utils.hpp"
-#include "inputline.h"
 #include "mcout.h"
 #include "application.hpp" // own
 #include "pru.hpp"

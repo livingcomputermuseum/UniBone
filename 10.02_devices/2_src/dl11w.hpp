@@ -37,7 +37,6 @@ using namespace std;
 #include "rs232.hpp"
 #include "rs232adapter.hpp"
 
-
 // socket console settings
 //#define IP_PORT 5001
 //#define IP_HOST "localhost"
@@ -103,7 +102,7 @@ private:
 public:
 	rs232adapter_c rs232adapter; /// stream router
 
-	private:
+private:
 	unibusdevice_register_t *reg_rcsr;
 	unibusdevice_register_t *reg_rbuf;
 	unibusdevice_register_t *reg_xcsr;
@@ -192,12 +191,13 @@ private:
 	// KW11 has one interrupt
 	intr_request_c intr_request = intr_request_c(this);
 
-	bool clock_signal; // value of 50Hz square wave signal
 	bool intr_enable; // interrupt enable, LKS bit 6
-	bool intr_monitor ; // LKS bit 7
+	bool line_clock_monitor; // LKS bit 7
+
+	bool clock_signal ; // square wave from pwower supply
 
 	bool get_intr_signal_level(void);
-	void set_lks_dati_value_and_INTR(void);
+	void set_lks_dati_value_and_INTR(bool do_intr);
 
 public:
 

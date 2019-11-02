@@ -20,9 +20,18 @@ cmrdhd	=4*2				; read header
 cmrdda	=6*2				; read data
 
 	.asect
-	.=10000 			;  arbitrary position > 3000
+	; ---- Simple boot drive 0 from 0
+	. = 0
+	jmp	@#start0
 
-	; --------------------------------------------------
+	; ---- Reboot drive 0 on power event
+	. = 24				; Power ON/OFF
+	.word	     start0		; PC
+	.word	     340		; PSW priority level 7
+
+
+	; ----- Main boot addresses
+	.=10000 			;  arbitrary position > 3000
 
 start:
 	; 4 unit numbers => 4 entry addresses

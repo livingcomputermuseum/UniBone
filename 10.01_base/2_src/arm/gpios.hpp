@@ -28,6 +28,9 @@
 #define _GPIOS_H_
 
 #include <stdint.h>
+#include <vector>
+#include <string>
+
 #include "logsource.hpp"
 
 // device for a set of 32 gpio pins
@@ -84,10 +87,13 @@ typedef struct {
 
 // test pins
 // SET(1) -> pin auf H, LED OFF
-#define ARM_DEBUG_PIN0(n)	GPIO_SETVAL(gpios->led[0], !!(n))
-#define ARM_DEBUG_PIN1(n)	GPIO_SETVAL(gpios->led[1], !!(n))
-#define ARM_DEBUG_PIN2(n)	GPIO_SETVAL(gpios->led[2], !!(n))
-#define ARM_DEBUG_PIN3(n)	GPIO_SETVAL(gpios->led[3], !!(n))
+#define ARM_DEBUG_PIN0(val)	GPIO_SETVAL(gpios->led[0], !!(val))
+#define ARM_DEBUG_PIN1(val)	GPIO_SETVAL(gpios->led[1], !!(val))
+#define ARM_DEBUG_PIN2(val)	GPIO_SETVAL(gpios->led[2], !!(val))
+#define ARM_DEBUG_PIN3(val)	GPIO_SETVAL(gpios->led[3], !!(val))
+#define ARM_DEBUG_PIN(n,val) GPIO_SETVAL(gpios->led[n], !!(val))
+
+
 
 class gpios_c: public logsource_c {
 private:
@@ -203,18 +209,18 @@ public:
 	};
 
 	id_enum id;
-	string name;
+	std::string name;
 	unsigned bitwidth;
 	unibus_signal_info_c() {
 	}
 	;
-	unibus_signal_info_c(id_enum id, string name, unsigned bitwidth);
+	unibus_signal_info_c(id_enum id, std::string name, unsigned bitwidth);
 };
 
 class unibus_signals_c {
 public:
 	unibus_signals_c();
-	vector<unibus_signal_info_c> signals;
+	std::vector<unibus_signal_info_c> signals;
 	unsigned max_name_len();
 	unsigned size();
 
