@@ -42,6 +42,12 @@ typedef struct {
 	// BR/NPR lines = set of _PRIORITY_ARBITRATION_BIT_*
 	uint8_t device_request_mask;
 
+	// device_request_mask when actually on BR/NR lines
+	uint8_t device_request_signalled_mask;
+
+	// forwarded to GRANT OUT, not accepted as response to device_request_signalled_mask 
+	uint8_t device_forwarded_grant_mask;
+
 	// sm_arb has 2 states: State 1 "Wait for GRANT" and State 2 "wait for BBSY"
 	// When arbitrator GRANts a request, we set SACK, GRAMT is cleared and we wait
 	// for BBSY clear. 
@@ -51,11 +57,11 @@ typedef struct {
 
 	/*** master ****/
 	// CPU is requesting memory access via PRU2ARM_DMA/mailbox.dma
-	uint8_t cpu_request ; 
-	
+	uint8_t cpu_request;
+
 	uint8_t arbitrator_grant_mask; // single GRANT line set by master
 
-	// uint8_t	dummy[3] ;
+	uint8_t dummy[2]; // make it dword-sized
 
 } statemachine_arbitration_t;
 

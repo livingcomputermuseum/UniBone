@@ -159,9 +159,11 @@ void main(void) {
 					// "set" is inverting!
 					cpu_grant_mask = buslatches_getbyte(0) & PRIORITY_ARBITRATION_BIT_MASK; // read GRANT IN
 					// forward un-requested GRANT IN to GRANT OUT for other cards on neighbor slots
-					uint8_t grant_out_mask = cpu_grant_mask & ~sm_arb.device_request_mask ; 
-					buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK, ~grant_out_mask)
-				;
+					sm_arb.device_forwarded_grant_mask = cpu_grant_mask
+							& ~sm_arb.device_request_signalled_mask;
+					buslatches_setbits(0, PRIORITY_ARBITRATION_BIT_MASK, ~sm_arb.device_forwarded_grant_mask)
+					;
+					// "A device may not accept a grant (assert SACK) after it passes the grant"
 				}
 				// handle GRANT/SACK/BBSY for emulated devices
 				uint8_t granted_request = sm_device_arb_worker(cpu_grant_mask); // devices process GRANT
@@ -293,7 +295,7 @@ void main(void) {
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_BUSLATCH_SET: { // set a mux register
-                // and read back
+				// and read back
 				// don't feed "volatile" vars into buslatch_macros !!!
 				uint8_t reg_sel = mailbox.buslatch.addr & 7;
 				uint8_t bitmask = mailbox.buslatch.bitmask;

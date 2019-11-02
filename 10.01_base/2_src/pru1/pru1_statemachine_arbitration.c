@@ -100,8 +100,11 @@ void sm_arb_reset() {
 	// cleanup: clear all REQUESTS and SACK
 	buslatches_setbits(1, PRIORITY_ARBITRATION_BIT_MASK | BIT(5), 0);
 	sm_arb.device_request_mask = 0;
+	sm_arb.device_forwarded_grant_mask = 0;
+	sm_arb.device_request_signalled_mask = 0;
+
 	sm_arb.bbsy_wait_grant_mask = 0;
-	sm_arb.cpu_request = 0 ;
+	sm_arb.cpu_request = 0;
 	sm_arb.arbitrator_grant_mask = 0;
 	timeout_cleanup(TIMEOUT_SACK);
 }
@@ -171,6 +174,8 @@ uint8_t sm_arb_worker_device(uint8_t grant_mask) {
 	// Always update UNIBUS BR/NPR lines, are ORed with requests from other devices.
 	buslatches_setbits(1, PRIORITY_ARBITRATION_BIT_MASK, sm_arb.device_request_mask)
 	;
+	// now relevant for GRANt forwarding
+	sm_arb.device_request_signalled_mask = sm_arb.device_request_mask;
 
 	// read GRANT IN lines from CPU (Arbitrator). 
 	// Only one nit ion cpu_grant_mask at a time may be active, else arbitrator malfunction.
@@ -179,7 +184,8 @@ uint8_t sm_arb_worker_device(uint8_t grant_mask) {
 	if (sm_arb.bbsy_wait_grant_mask == 0) {
 		// State 1: Wait For GRANT:
 		// process the requested grant for an open requests.
-		grant_mask &= sm_arb.device_request_mask;
+		// "A device may not accept a grant (assert SACK) after it passes the grant"
+		grant_mask &= (sm_arb.device_request_mask & ~sm_arb.device_forwarded_grant_mask);
 		if (grant_mask) {
 			// one of our requests was granted:
 			// set SACK
