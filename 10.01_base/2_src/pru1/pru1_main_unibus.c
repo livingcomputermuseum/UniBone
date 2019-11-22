@@ -150,6 +150,7 @@ void main(void) {
 					cpu_grant_mask = sm_arb_worker_cpu(); // GRANT device requests
 					// do not read GRANT signals from UNIBUS, BG/NPGOUT not visible for
 					// emulated devices
+//					sm_arb.device_forwarded_grant_mask = 0 ;
 				} else {
 					// device requests GRANTed by physical CPU
 
@@ -291,7 +292,10 @@ void main(void) {
 				break;
 			case ARM2PRU_CPU_ENABLE:
 				// bool flag much faster to access than shared mailbox member.
-				emulate_cpu = mailbox.cpu_enable;
+				if (emulate_cpu != mailbox.cpu_enable) {
+					emulate_cpu = mailbox.cpu_enable;
+					sm_arb_reset() ; // new arbitration algorithms
+				}
 				mailbox.arm2pru_req = ARM2PRU_NONE; // ACK: done
 				break;
 			case ARM2PRU_BUSLATCH_SET: { // set a mux register

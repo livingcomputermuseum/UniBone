@@ -103,7 +103,7 @@ void sm_arb_reset() {
 	sm_arb.device_forwarded_grant_mask = 0;
 	sm_arb.device_request_signalled_mask = 0;
 
-	sm_arb.bbsy_wait_grant_mask = 0;
+	sm_arb.grant_bbsy_ssyn_wait_grant_mask = 0;
 	sm_arb.cpu_request = 0;
 	sm_arb.arbitrator_grant_mask = 0;
 	timeout_cleanup(TIMEOUT_SACK);
@@ -139,7 +139,9 @@ uint8_t sm_arb_worker_none(uint8_t grant_mask) {
  "Wait for BBSY clear" may not be part of the arbitration protocol.
  But it guarantees caller may now issue an DMA or INTR.
 
- grant_mask: state of all BGIN/NPGIN lines
+ grant_mask: state of all BGIN/NPGIN lines, 
+ as forwarded by other devices from physical CPU
+ or generated directly by emulated CPU
  */
 uint8_t sm_arb_worker_device(uint8_t grant_mask) {
 	if (sm_arb.cpu_request) {
@@ -178,10 +180,10 @@ uint8_t sm_arb_worker_device(uint8_t grant_mask) {
 	sm_arb.device_request_signalled_mask = sm_arb.device_request_mask;
 
 	// read GRANT IN lines from CPU (Arbitrator). 
-	// Only one nit ion cpu_grant_mask at a time may be active, else arbitrator malfunction.
+	// Only one bit on cpu_grant_mask at a time may be active, else arbitrator malfunction.
 	// Arbitrator asserts SACK is inactive
 
-	if (sm_arb.bbsy_wait_grant_mask == 0) {
+	if (sm_arb.grant_bbsy_ssyn_wait_grant_mask == 0) {
 		// State 1: Wait For GRANT:
 		// process the requested grant for an open requests.
 		// "A device may not accept a grant (assert SACK) after it passes the grant"
@@ -201,16 +203,23 @@ uint8_t sm_arb_worker_device(uint8_t grant_mask) {
 			// -> DMA and INTR statemachine must wait for BBSY.
 
 			// Arbitrator should remove GRANT now. Data section on Bus still BBSY
-			sm_arb.bbsy_wait_grant_mask = grant_mask;	// next is State 2: wait for BBSY clear
+			sm_arb.grant_bbsy_ssyn_wait_grant_mask = grant_mask;
+			// next is State 2: wait for BBSY clear
 		}
-		return 0; // no GRANT for us, or wait for BBSY
+		return 0; // no REQUEST, or no GRANT for us, or wait for BG/BPG & BBSY && SSYN
 	} else {
-		// State 2: wait for BBSY to clear
+		// State 2: wait for BG/NPG, BBSY and SSYN to clear
+		// DMA and INTR:
+		// "After receiving the negation of BBSY, SSYN and BGn,
+		// the requesting device asserts BBSY"
+		if (grant_mask & sm_arb.grant_bbsy_ssyn_wait_grant_mask)
+			return 0; // BG*/NPG still set
 		if (buslatches_getbyte(1) & BIT(6))
 			return 0; // BBSY still set
-		grant_mask = sm_arb.bbsy_wait_grant_mask;
-		sm_arb.bbsy_wait_grant_mask = 0; // Next State is 1
-
+		if (buslatches_getbyte(4) & BIT(5))
+			return 0; // SSYN still set
+		grant_mask = sm_arb.grant_bbsy_ssyn_wait_grant_mask;
+		sm_arb.grant_bbsy_ssyn_wait_grant_mask = 0; // Next State is 1
 		return grant_mask; // signal what request we got granted.
 	}
 }

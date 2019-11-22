@@ -53,7 +53,7 @@ typedef struct {
 	// for BBSY clear. 
 	// 0: not waitong for BBSY.
 	// != saves GRANTed request and indicates BBSY wait state
-	uint8_t bbsy_wait_grant_mask;
+	uint8_t grant_bbsy_ssyn_wait_grant_mask;
 
 	/*** master ****/
 	// CPU is requesting memory access via PRU2ARM_DMA/mailbox.dma
