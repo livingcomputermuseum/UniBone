@@ -143,7 +143,7 @@ uint8_t sm_arb_worker_none(uint8_t grant_mask) {
  as forwarded by other devices from physical CPU
  or generated directly by emulated CPU
  */
-uint8_t sm_arb_worker_device(uint8_t grant_mask) {
+uint8_t sm_arb_worker_device(uint8_t granted_requests_mask) {
 	if (sm_arb.cpu_request) {
 		// Emulated CPU memory access: no NPR/NPG/SACK protocol.
 		// No arbitration, start transaction when bus idle.
@@ -187,23 +187,22 @@ uint8_t sm_arb_worker_device(uint8_t grant_mask) {
 		// State 1: Wait For GRANT:
 		// process the requested grant for an open requests.
 		// "A device may not accept a grant (assert SACK) after it passes the grant"
-		grant_mask &= (sm_arb.device_request_mask & ~sm_arb.device_forwarded_grant_mask);
-		if (grant_mask) {
-			// one of our requests was granted:
-			// set SACK
+		uint8_t device_grant_mask = granted_requests_mask & sm_arb.device_request_mask & ~sm_arb.device_forwarded_grant_mask;
+		if (device_grant_mask) {
+			// one of our requests was granted: set SACK
 			// AND simultaneously clear granted requests BR*/NPR
 			// BIT(5): SACK mask and level
 			buslatches_setbits(1, (PRIORITY_ARBITRATION_BIT_MASK & sm_arb.device_request_mask) | BIT(5),
-					~grant_mask | BIT(5))
+					~device_grant_mask | BIT(5))
 			;
 
 			// clear granted requests internally
-			sm_arb.device_request_mask &= ~grant_mask;
+			sm_arb.device_request_mask &= ~device_grant_mask;
 			// UNIBUS DATA section is indepedent: MSYN, SSYN, BBSY may still be active.
 			// -> DMA and INTR statemachine must wait for BBSY.
 
 			// Arbitrator should remove GRANT now. Data section on Bus still BBSY
-			sm_arb.grant_bbsy_ssyn_wait_grant_mask = grant_mask;
+			sm_arb.grant_bbsy_ssyn_wait_grant_mask = device_grant_mask;
 			// next is State 2: wait for BBSY clear
 		}
 		return 0; // no REQUEST, or no GRANT for us, or wait for BG/BPG & BBSY && SSYN
@@ -212,15 +211,15 @@ uint8_t sm_arb_worker_device(uint8_t grant_mask) {
 		// DMA and INTR:
 		// "After receiving the negation of BBSY, SSYN and BGn,
 		// the requesting device asserts BBSY"
-		if (grant_mask & sm_arb.grant_bbsy_ssyn_wait_grant_mask)
+		if (granted_requests_mask & sm_arb.grant_bbsy_ssyn_wait_grant_mask)
 			return 0; // BG*/NPG still set
 		if (buslatches_getbyte(1) & BIT(6))
 			return 0; // BBSY still set
 		if (buslatches_getbyte(4) & BIT(5))
 			return 0; // SSYN still set
-		grant_mask = sm_arb.grant_bbsy_ssyn_wait_grant_mask;
+		granted_requests_mask = sm_arb.grant_bbsy_ssyn_wait_grant_mask;
 		sm_arb.grant_bbsy_ssyn_wait_grant_mask = 0; // Next State is 1
-		return grant_mask; // signal what request we got granted.
+		return granted_requests_mask; // signal what request we got granted.
 	}
 }
 
