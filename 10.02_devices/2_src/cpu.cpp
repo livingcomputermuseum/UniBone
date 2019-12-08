@@ -101,13 +101,14 @@ int unibone_datob(unsigned addr, unsigned data) {
 
 int unibone_dati(unsigned addr, unsigned *data) {
 	uint16_t wordbuffer;
+// ARM_DEBUG_PIN0(1) ; // CPU20 diag
 	dbg = 1;
 	unibusadapter->cpu_DATA_transfer(unibone_cpu->data_transfer_request, UNIBUS_CONTROL_DATI,
 			addr, &wordbuffer);
 	*data = wordbuffer;
 	dbg = 0;
 	// printf("DATI; ba=%o, data=%o\n", addr, *data) ;
-
+// ARM_DEBUG_PIN0(0) ; // CPU20 diag
 	return unibone_cpu->data_transfer_request.success;
 }
 
