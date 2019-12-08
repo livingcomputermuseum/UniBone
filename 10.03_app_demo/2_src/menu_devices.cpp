@@ -105,7 +105,7 @@ static void print_device(device_c *device) {
 				device->type_name.value.c_str());
 }
 
-void application_c::menu_devices(bool with_emulated_CPU) {
+void application_c::menu_devices(const char *menu_code, bool with_emulated_CPU) {
 	/** list of usable devices ***/
 	bool with_storage_file_test = false;
 
@@ -250,7 +250,7 @@ void application_c::menu_devices(bool with_emulated_CPU) {
 			printf("pwr                  Simulate UNIBUS power cycle (ACLO/DCLO)\n");
 			printf("q                    Quit\n");
 		}
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 
 		printf("\n");
 		try {

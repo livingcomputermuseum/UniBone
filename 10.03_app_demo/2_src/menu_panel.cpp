@@ -37,7 +37,7 @@
  * Test input and outputs on I2C connected MC23017s.
  * no active PRU needed
  * */
-void application_c::menu_panel() {
+void application_c::menu_panel(const char *menu_code) {
 	mcout_t mcout; // Multi Column OUTput
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	bool ready = false;
@@ -101,7 +101,7 @@ void application_c::menu_panel() {
 			printf("q                       Quit\n");
 		}
 
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 
 		printf("\n");
 

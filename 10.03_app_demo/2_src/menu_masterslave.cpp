@@ -50,7 +50,7 @@
 
 // "with_CPU": false if operating in an environment without
 // arbitration and interrupt fielding?
-void application_c::menu_masterslave(bool with_CPU) {
+void application_c::menu_masterslave(const char *menu_code, bool with_CPU) {
 	// UniBone uses this test controller:
 	// memory cells at start of IO page, can be tested with ZKMA
 	testcontroller_c testcontroller;
@@ -138,7 +138,7 @@ void application_c::menu_masterslave(bool with_CPU) {
 			printf("q                           Quit\n");
 		}
 		printf("Current EXAM/DEPOSIT address is %06o\n", cur_addr);
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 
 		printf("\n");
 		n_fields = sscanf(s_choice, "%s %s %s %s %s %s", s_opcode, s_param[0], s_param[1],

@@ -47,7 +47,7 @@
 
 #include "devexer_rl.hpp"
 
-void application_c::menu_device_exercisers(void) {
+void application_c::menu_device_exercisers(const char *menu_code) {
 	bool ready = false;
 	bool show_help = true;
 	bool memory_installed = false;
@@ -113,7 +113,7 @@ void application_c::menu_device_exercisers(void) {
 			printf("pwr                  Simulate UNIBUS power cycle (ACLO/DCLO)\n");
 			printf("q                    Quit\n");
 		}
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 
 		printf("\n");
 		try {

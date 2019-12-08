@@ -32,7 +32,7 @@ LDFLAGS+= -static -lstdc++ -lpthread $(PRUSS_DRV_LIB)
 ifeq ($(MAKE_CONFIGURATION),RELEASE)
 	CC_DBG_FLAGS = -O3 -Wall -Wextra -DDBG
 else ifeq ($(MAKE_CONFIGURATION),DBG)
-	CC_DBG_FLAGS = -ggdb3 -O0 -Wall -Wextra -DDBG
+ 	CC_DBG_FLAGS = -ggdb3 -O0 -Wall -Wextra -DDBG
 else
 	$(error Set MAKE_CONFIGURATION to RELEASE or DBG!)
 endif
