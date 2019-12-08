@@ -189,8 +189,8 @@ uint8_t sm_arb_worker_device(uint8_t granted_requests_mask) {
 		// "A device may not accept a grant (assert SACK) after it passes the grant"
 		uint8_t device_grant_mask = granted_requests_mask & sm_arb.device_request_mask & ~sm_arb.device_forwarded_grant_mask;
 		if (device_grant_mask) {
-			// one of our requests was granted: set SACK
-			// AND simultaneously clear granted requests BR*/NPR
+			// one of our requests was granted and not forwarded: 
+			// set SACK AND simultaneously clear granted requests BR*/NPR
 			// BIT(5): SACK mask and level
 			buslatches_setbits(1, (PRIORITY_ARBITRATION_BIT_MASK & sm_arb.device_request_mask) | BIT(5),
 					~device_grant_mask | BIT(5))
@@ -207,7 +207,7 @@ uint8_t sm_arb_worker_device(uint8_t granted_requests_mask) {
 		}
 		return 0; // no REQUEST, or no GRANT for us, or wait for BG/BPG & BBSY && SSYN
 	} else {
-		// State 2: wait for BG/NPG, BBSY and SSYN to clear
+		// State 2: got GRANT, wait for BG/NPG, BBSY and SSYN to clear
 		// DMA and INTR:
 		// "After receiving the negation of BBSY, SSYN and BGn,
 		// the requesting device asserts BBSY"
