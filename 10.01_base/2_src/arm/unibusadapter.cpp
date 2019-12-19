@@ -360,7 +360,7 @@ priority_request_c *unibusadapter_c::request_activate_lowest_slot(unsigned level
 	 Is implemented on ARM as just 2 opcodes: rbit (bit reverse), clz (count number of leading zeros)
 	 VERY FAST (without sorting list)
 	 */
-	// Must run under  pthread_mutex_lock(&requests_mutex);
+	// Must run under  pthread_mutex_lock(&);
 	priority_request_level_c *prl = &request_levels[level_index];
 	priority_request_c *rq;
 
@@ -591,11 +591,12 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 		// NO wait for PRU signal, instead busy waiting. CPU thread blocked.
 		// Reason: SPEED. CPU does high frequency single word accesses.
 		bool completed = false;
+// ARM_DEBUG_PIN1(1); // CPU20 performace
 		do {
 			// CPU thread is now spinning
 			// wait until CPU access scheduled and processed on PRU
 			// in parallel, other device threads call DMA()
-			pthread_mutex_lock(&requests_mutex);//&dma_request.complete_mutex);
+			pthread_mutex_lock(&requests_mutex);
 			dma_request_c *activereq = dynamic_cast<dma_request_c *>(prl->active);
 //if (activereq == &dma_request)
 //	printf("a\n") ;
@@ -610,6 +611,7 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 			}
 			pthread_mutex_unlock(&requests_mutex);//&dma_request.complete_mutex);
 		} while (!completed);
+//ARM_DEBUG_PIN1(0); // CPU20 performace
 
 	} else if (blocking) {
 		pthread_mutex_lock(&dma_request.complete_mutex)  ;

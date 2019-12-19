@@ -24,7 +24,6 @@ p powerswitch 1		# power on, now in "load" state
 p image xxdp25.rl02 	# mount image file
 	p runstopbutton 1
 
-
 m lp /root/10.02_devices/3_test/dl11w/ZDLDI0.BIN
 .print Now start ZDLD at address 200
 .print Or boot XXDP from DL, then execute "R ZDLDI0"
