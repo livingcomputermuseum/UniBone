@@ -481,8 +481,10 @@ ltc_c::~ltc_c() {
 bool ltc_c::on_param_changed(parameter_c *param) {
 	// no own parameter or "enable" logic here
 	if (param == &frequency) {
-		// accept only these
-		return (frequency.new_value == 50 || frequency.new_value == 60);
+		// allow all values, but complain
+		if (frequency.new_value != 50 && frequency.new_value != 60)
+			WARNING("KW11 non-standard clock value %d, regular 50 or 60", frequency.new_value) ;
+		// return (frequency.new_value == 50 || frequency.new_value == 60);
 	} else if (param == &priority_slot) {
 		intr_request.set_priority_slot(priority_slot.new_value);
 	} else if (param == &intr_level) {
