@@ -32,13 +32,13 @@ void unibuscpu_c::on_power_changed(void) {
 	if (power_down) { // power-on defaults
 		INFO("CPU: ACLO failed");
 		power_event = power_event_down;
-//			ka11_pwrdown(&the_cpu->ka11);
+//			ka11_pwrdown(&unibone_cpu->ka11);
 		// ACLO failed. 
 		// CPU traps to vector 24 and has 2ms time to execute code
 	} else {
 		INFO("CPU: DCLO restored");
 		power_event = power_event_up;
-//			ka11_pwrup(&the_cpu->ka11);
+//			ka11_pwrup(&unibone_cpu->ka11);
 		// DCLO restored
 		// CPU loads PC and PSW from vector 24 
 		// if HALTed: do nothing, user is expected to setup PC and PSW ?

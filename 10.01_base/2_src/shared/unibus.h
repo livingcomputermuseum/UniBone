@@ -39,7 +39,8 @@
 #define UNIBUS_CONTROL_DATO	0x02 // 16 bit word from master to slave
 #define UNIBUS_CONTROL_DATOB	0x03 // 8 bit byte  from master to slave
 // data<15:8> for a00 = 1, data<7:0> for a00 = 0
-#define UNIBUS_CONTROL_ISDATO(c) (!!((c) & 0x02)) // check for DATO/B
+#define UNIBUS_CONTROL_IS_DATI(c) (!((c) & 0x02)) // check for DATI/P
+#define UNIBUS_CONTROL_IS_DATO(c) (!!((c) & 0x02)) // check for DATO/B
 
 #define UNIBUS_TIMEOUTVAL	0xffffffff // EXAM result for bus timeout
 
@@ -66,16 +67,15 @@ class intr_request_c;
 
 class unibus_c: public logsource_c {
 public:
-	enum arbitration_mode_enum {
-		ARBITRATION_MODE_NONE = 0,	// no BR*/BG*, NR/NPG SACK protocoll
-		ARBITRATION_MODE_CLIENT = 1,	// external Arbitrator (running PDP-11 CPU) required
-		ARBITRATION_MODE_MASTER = 2	// implmenet Arbitrator
-	// with or without physical CPU for arbitration
-	};
 
 private:
 
 	timeout_c timeout;
+
+	// false: no running CPU on UNIBUS (physical or emulated)
+	// 	devices do DMA without NPR/NPG protocol
+	// true:  active CPU. devices perform Request/Grant/SACK protocoll
+	bool arbitrator_active;
 
 public:
 
@@ -86,32 +86,37 @@ public:
 	static char *data2text(unsigned val);
 
 	void init(unsigned pulsewidth_ms);
-	static void set_arbitration_mode(enum arbitration_mode_enum arbitration_mode);
 
-	void powercycle(void);
+	void set_arbitrator_active(bool active);
+
+	bool get_arbitrator_active(void);
+
+	
+	uint8_t probe_grant_continuity(bool error_if_closed) ;
+
+	void powercycle(int phase = 3);
 
 	// functions of unibusadapter to do simple DMA 
 	dma_request_c *dma_request;
 	//intr_request_c *intr_request;
 
-	bool dma(enum unibus_c::arbitration_mode_enum arbitration_mode, bool blocking, uint8_t control,
-			uint32_t startaddr, uint16_t *buffer, unsigned wordcount);
+	bool dma(bool blocking,
+			uint8_t control, uint32_t startaddr, uint16_t *buffer, unsigned wordcount);
 
-	void mem_read(enum unibus_c::arbitration_mode_enum arbitration_mode, uint16_t *words,
+	void mem_read(uint16_t *words,
 			uint32_t unibus_start_addr, uint32_t unibus_end_addr, bool *timeout);
-	void mem_write(enum unibus_c::arbitration_mode_enum arbitration_mode, uint16_t *words,
+	void mem_write(uint16_t *words,
 			unsigned unibus_start_addr, unsigned unibus_end_addr, bool *timeout);
 
-	void mem_access_random(enum unibus_c::arbitration_mode_enum arbitration_mode,
+	void mem_access_random(
 			uint8_t unibus_control, uint16_t *words, uint32_t unibus_start_addr,
 			uint32_t unibus_end_addr, bool *timeout, uint32_t *block_counter);
 
-	uint32_t test_sizer(enum unibus_c::arbitration_mode_enum arbitration_mode);
+	uint32_t test_sizer(void);
 
 	uint16_t testwords[UNIBUS_WORDCOUNT];
 
-	void test_mem(enum unibus_c::arbitration_mode_enum arbitration_mode, uint32_t start_addr,
-			uint32_t end_addr, unsigned mode);
+	void test_mem(uint32_t start_addr,	uint32_t end_addr, unsigned mode);
 
 };
 

@@ -98,8 +98,6 @@ static statemachine_state_func sm_intr_master_state_2() {
 	// deassert BBSY
 	buslatches_setbits(1, BIT(6), 0);
 	// device cycle ended: now CPU may become UNIBUS master again
-	mailbox.arbitrator.device_BBSY = false ;
-
 	// SACK already removed
 
 	// signal to ARM which INTR was completed
@@ -110,6 +108,7 @@ static statemachine_state_func sm_intr_master_state_2() {
 	// so no concurrent ARP+PRU access
 	PRU2ARM_INTERRUPT
 	;
+	
 
 	return NULL; // ready
 	// master still drives SSYN

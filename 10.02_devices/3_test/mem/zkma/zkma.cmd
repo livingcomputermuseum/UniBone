@@ -1,7 +1,7 @@
 # full memory emulation
 m
 pwr
-.wait 5000	# wait for PDP-11 to reset through ACLO/DCLO
+.wait 2000	# wait for PDP-11 to reset through ACLO/DCLO
 m         	# emulate full memory
 .wait 1000
 lp zkma.ptap    # load into memory

@@ -63,6 +63,7 @@ gpios_c *gpios; // Singleton
 
 buslatches_t buslatches;
 
+
 gpios_c::gpios_c() {
 	log_label = "GPIOS";
 }
@@ -202,6 +203,13 @@ void gpios_c::init() {
 	for (n = 0; n < 4; n++)
 		GPIO_SETVAL(led[n], 1)
 		; // inverted drivers
+
+	// shared with LEDs
+	ARM_DEBUG_PIN0(0) ;
+	ARM_DEBUG_PIN1(0) ;
+	ARM_DEBUG_PIN2(0) ;
+	ARM_DEBUG_PIN3(0) ;
+		
 }
 
 /*
@@ -991,7 +999,7 @@ void unibus_signals_c::set_val(enum unibus_signal_info_c::id_enum id, unsigned v
 	case unibus_signal_info_c::ub_address:
 		buslatches_setval(2, 0xff, value); // ADDR0:7
 		buslatches_setval(3, 0xff, value >> 8); // ADDR8:15
-		buslatches_setval(4, 0x03, value >> 12); // ADDR16,17
+		buslatches_setval(4, 0x03, value >> 16); // ADDR16,17
 		break;
 	case unibus_signal_info_c::ub_data:
 		buslatches_setval(5, 0xff, value); // DATA0:7

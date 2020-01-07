@@ -96,18 +96,20 @@ void timeout_cleanup(uint32_t *target_cycles_var) {
 
 // test a timeout, wether it reached its arg count nor or earlier
 bool timeout_reached(uint32_t *target_cycles_var) {
+	bool result = false ;
 	// fast path: assume timeout_reached() is called
 	// because timeout is active
 	if (PRU1_CTRL.CYCLE < *target_cycles_var)
-		return false;
+		result = false;
 	else if (*target_cycles_var == 0)
-		return true; // already "reached" if inactive
+		result =true; // already "reached" if inactive
 	else {
 		// switched from "running" to "timeout reached"
 		*target_cycles_var = 0;
 		timeouts_active--;
-		return true;
+		result = true;
 	}
+	return result ;
 }
 
 void timeout_init(void) {

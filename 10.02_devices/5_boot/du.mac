@@ -22,9 +22,20 @@ msip	=+0				; IP register
 mssa	=+2				; SA register
 
 	.asect
+	; ---- Simple boot drive 0 from 0
+	. = 0
+	jmp	@#start0
+
+	; ---- Reboot drive 0 on power event
+	. = 24				; Power ON/OFF
+	.word	     start0		; PC
+	.word	     340		; PSW priority level 7
+
+
+	; ----- Main boot addresses
 	.=10000 			;  arbitrary position > 3000
 
-	; --------------------------------------------------
+
 rpkt	=1004	; rpkt structure
 cpkt	=1070	; cpkt structure
 comm	=1200	; comm structure

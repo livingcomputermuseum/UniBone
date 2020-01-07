@@ -1,6 +1,9 @@
 #include "11.h"
 #include "ka11.h"
 
+#include "gpios.hpp" // ARM_DEBUG_PIN*
+
+void unibone_grant_interrupts(void) ;
 int unibone_dato(unsigned addr, unsigned data);
 int unibone_datob(unsigned addr, unsigned data);
 int unibone_dati(unsigned addr, unsigned *data);
@@ -55,7 +58,6 @@ enum {
 	TRAP_BR6 = 010,
 	TRAP_BR5 = 040,
 	TRAP_BR4 = 0100,
-	TRAP_BRX = 0200,	// for unibone
 	TRAP_CSTOP = 01000	// can't happen?
 };
 
@@ -63,8 +65,8 @@ enum {
 
 enum {
 	STATE_HALTED = 0,
-	STATE_RUNNING,
-	STATE_WAITING
+	STATE_RUNNING = 1,
+	STATE_WAITING = 2
 };
 
 word
@@ -115,12 +117,15 @@ printstate(KA11 *cpu)
 		cpu->ba, cpu->ir, cpu->psw);
 }
 
+// only to be called from ka11_condstep() thread
 void
 ka11_reset(KA11 *cpu)
 {
 	Busdev *bd;
 
 	cpu->traps = 0;
+	cpu->external_intr = 0;
+	cpu->mutex = PTHREAD_MUTEX_INITIALIZER ;
 
 	for(bd = cpu->bus->devs; bd; bd = bd->next)
 		bd->reset(bd->dev);
@@ -129,7 +134,7 @@ ka11_reset(KA11 *cpu)
 int
 dati(KA11 *cpu, int b)
 {
-trace("dati %06o: ", cpu->ba);
+trace("dati %06o:\n", cpu->ba);
 	if(!b && cpu->ba&1)
 		goto be;
 
@@ -362,7 +367,6 @@ step(KA11 *cpu)
 #define TRB(m)	trace("%06o "#m"%s\n", PC-2, by ? "B" : "")
 
 	oldpsw = PSW;
-
 	INA(PC, cpu->ir);
 	PC += 2;	/* don't increment on bus error! */
 	by = !!(cpu->ir&B15);
@@ -569,7 +573,7 @@ be:	if(cpu->be > 1){
 		cpu->state = STATE_HALTED;
 		return;
 	}
-printf("bus error\n");
+	trace("bus error at %06o\n", cpu->ba);
 	TRAP(4);
 
 trap:
@@ -587,6 +591,19 @@ trap:
 //	SVC;
 
 service:
+{
+	// external interrupt from parallel threads?
+	pthread_mutex_lock(&cpu->mutex) ;
+	bool external_intr = cpu->external_intr ;
+	word external_intrvec = cpu->external_intrvec ;
+	cpu->external_intr = 0 ;
+	pthread_mutex_unlock(&cpu->mutex) ;
+	if (external_intr){
+		TRAP(external_intrvec);
+	}	
+}
+
+
 	c = PSW >> 5;
 	if(oldpsw & PSW_T){
 		oldpsw &= ~PSW_T;
@@ -598,9 +615,6 @@ service:
 	}else if(cpu->traps & TRAP_PWR){
 		cpu->traps &= ~TRAP_PWR;
 		TRAP(024);
-	}else if(cpu->traps & TRAP_BRX){
-		cpu->traps &= ~TRAP_BRX;
-		TRAP(cpu->trapvec);
 	}else if(c < 7 && cpu->traps & TRAP_BR7){
 		cpu->traps &= ~TRAP_BR7;
 		TRAP(cpu->br[3].bg(cpu->br[3].dev));
@@ -619,12 +633,21 @@ service:
 		return;
 }
 
+// to be called from parallel threads to signal asnyc intr
+// (unibusadapter worker thread)
 void
 ka11_setintr(KA11 *cpu, unsigned vec)
 {
-	cpu->traps |= TRAP_BRX;
-	cpu->trapvec = vec;
+	pthread_mutex_lock(&cpu->mutex) ;
+	cpu->external_intr = true;
+	cpu->external_intrvec = vec;
+	trace("INTR vec=%03o\n", vec) ;
+	if (cpu->state == STATE_WAITING) // atomically
+		cpu->state = STATE_RUNNING ;
+	pthread_mutex_unlock(&cpu->mutex) ;
 }
+
+// only to be called from ka11_condstep() thread
 
 void
 ka11_pwrdown(KA11 *cpu)
@@ -632,6 +655,8 @@ ka11_pwrdown(KA11 *cpu)
 	cpu->traps |= TRAP_PWR;
 }
 
+// only to be called from ka11_condstep() thread
+// if locked, will lock DATI and unibus adapter()!
 void
 ka11_pwrup(KA11 *cpu)
 {
@@ -646,9 +671,16 @@ be:
 void
 ka11_condstep(KA11 *cpu)
 {
+	if(cpu->state == STATE_RUNNING || cpu->state == STATE_WAITING)
+		// GRANT Interrupts before opcode fetch, or when CPU is on WAIT
+	unibone_grant_interrupts() ;
+
 	if((cpu->state == STATE_RUNNING) ||
 	   (cpu->state == STATE_WAITING && cpu->traps)){
 		cpu->state = STATE_RUNNING;
+		// external_intr WAIT handled atomically in ka11_setintr() !
+
+		svc(cpu, cpu->bus);
 		step(cpu);
 	}
 }
@@ -658,8 +690,6 @@ run(KA11 *cpu)
 {
 	cpu->state = STATE_RUNNING;
 	while(cpu->state != STATE_HALTED){
-		svc(cpu, cpu->bus);
-
 		ka11_condstep(cpu);
 	}
 

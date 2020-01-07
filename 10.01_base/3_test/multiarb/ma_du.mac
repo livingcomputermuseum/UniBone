@@ -12,6 +12,29 @@ duiflg:	.word	1	; Interrupt flags
 
 dubuff:	.blkw	1000+1	; data buffer: 512 words
 
+durpkt:	.blkw	70	; rpkt structure, guessed from M9312 code
+	.word 	4711	; guard word, overwritten?
+ducpkt:	.blkw	100	; cpkt structure
+	.word 	4712	; guard word, overwritten?
+ducomm:	.blkw	100	; comm structure
+	.word 	4713	; guard word, overwritten?
+
+	; MSCP init and command data
+	; pointed to by r3
+dudt:
+	.word	100000			; S1: 100000 = no int, ring size 1, no vector
+	.word	ducomm			; S2: 002404 = ringbase lo addr
+	.word	000000			; S3: 000000 = no purge/poll, ringbase hi addr
+	.word	000001			; S4: 000001 = go bit
+	;
+	; MSCP command data
+	;
+	.byte	011,000 		; cmd=011(online), bytecnt_hi=000(0)
+	.byte	041,002 		; cmd=041(read), bytecnt_hi=002(512)
+	.word	0
+
+
+
 duecnt:	.word	1	; event counter
 
 duisr:
@@ -26,8 +49,49 @@ duinit:
 	; --- Restart new DMA transmission
 dugo:
 	mov	#dubase,r1		; r1 = controller base address
+	;  code from ROM 23-767A9 for M9312
 
-	; TODO: read block 0 like boot loader
+	clr	r0                      ; unit #0
+	mov	r0,(r1)+		; init controller (write IP), bump ptr
+	mov	#4000,r5		; S1 state bitmask
+	mov	#dudt,r3		; point to data
+	halt
+
+	; write 4 init words, with r5 mask from 4000 to 40000
+1$:	tst	(r1)			; error bit set ?
+	bpl	2$
+	halt				; halt on error
+2$:	bit	(r1),r5 		; step bit set ?
+	beq	1$			; not yet, wait loop
+	mov	(r3)+,(r1)		; yes, send next init data
+	asl	r5			; next mask
+	bpl	1$			; s4 done? br if not yet
+
+4$:	mov	#dubuff,r2		; set bufptr to 0
+5$:	clr	(r2)+			; clear buffer [0..2403]
+	cmp	r2,#ducomm		; check for end of buffer
+	bne	5$			; loop if not done
+
+	; 1st loop: Drive online. 2nd loop: read block
+	mov	r2,@#ducpkt-4		; r2= ducomm. set lnt -- R2=2404
+	movb	(r3)+,@#ducpkt+10 	; R3 in init data - set command
+	movb	(r3),@#ducpkt+15	; set bytecnt(hi)
+	mov	r0,@#ducpkt+4		; set unit
+	mov	#durpkt,(r2)+		; rq desc addr
+	mov	r5,(r2)+		; rq own bit15
+	mov	#ducpkt,(r2)+		; cp desc addr
+	mov	r5,(r2)+		; cq own bit15
+	mov	-2(r1),r2		; wake controller (read IP)
+
+6$:	tst	@#ducomm+2		; rq own controller ?
+	bmi	6$			; loop if not done
+
+	tstb	@#durpkt+12		; check for error ?
+	beq	7$
+	halt				; yup, fail back to begin to retry
+7$:
+	tstb	(r3)+			; check end of table ?
+	beq	4$			; br if not yet
 
 
 	inc	duecnt			; register as event

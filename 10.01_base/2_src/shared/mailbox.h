@@ -30,7 +30,7 @@
 #include <stdint.h>
 #include "unibus.h"
 
-// arm to pru
+// ARM to PRU
 #define ARM2PRU_NONE	0	// Operation complete: must be 0!
 #define ARM2PRU_NOP	1	// to check wether PRU is running
 #define ARM2PRU_HALT	2	// run PRU1 into halt
@@ -43,14 +43,15 @@
 #define ARM2PRU_INITALIZATIONSIGNAL_SET		9 	// set an ACL=/DCLO/INIT signal
 #define ARM2PRU_ARB_MODE_NONE		11               // DMA without NPR/NPG/SACK arbitration
 #define ARM2PRU_ARB_MODE_CLIENT		12               // DMA with arbitration by external Arbitrator
-#define ARM2PRU_ARB_MODE_MASTER		13               // DMA as Arbitrator
-#define ARM2PRU_DMA		14               // DMA with selected arbitration
-#define PRU2ARM_DMA_CPU_TRANSFER_BLOCKED 15 // possible result of ARM2PRU_DMA
-#define ARM2PRU_INTR		16               // INTR with arbitration by external Arbitrator
-#define ARM2PRU_INTR_CANCEL		17               // clear INTR which has been requested
-#define ARM2PRU_CPU_ENABLE		18	// siwtch CPU master side functions ON/OFF
-#define ARM2PRU_DDR_FILL_PATTERN	19	// fill DDR with test pattern
-#define ARM2PRU_DDR_SLAVE_MEMORY	20	// use DDR as UNIBUS slave memory
+#define ARM2PRU_DMA		13               // DMA with selected arbitration
+#define ARM2PRU_INTR		14               // INTR with arbitration by external Arbitrator
+#define ARM2PRU_INTR_CANCEL		15               // clear INTR which has been requested
+#define ARM2PRU_CPU_ENABLE		16	// siwtch CPU master side functions ON/OFF
+#define ARM2PRU_DDR_FILL_PATTERN	17	// fill DDR with test pattern
+#define ARM2PRU_DDR_SLAVE_MEMORY	18	// use DDR as UNIBUS slave memory
+#define ARM2PRU_ARB_GRANT_INTR_REQUESTS	19 // emulated CPU answers device requests
+
+
 
 // signal IDs for ARM2PRU_INITALIZATIONSIGNAL_* 
 // states of initialization section lines. Bitmask = latch[7]
@@ -65,7 +66,7 @@
 #define DMA_STATE_TIMEOUTSTOP	3	// stop because of UNIBUS timeout
 #define DMA_STATE_INITSTOP	4	// stop because INIT signal sensed
 
-// bits BR*/NPR interrupts in buslatch 0 and 1
+// Bit masks BR*/NPR and BG*/NPG in buslatch 0 and 1
 // bit # is index into arbitration_request[] array.
 #define PRIORITY_ARBITRATION_BIT_B4	0x01
 #define PRIORITY_ARBITRATION_BIT_B5	0x02
@@ -79,7 +80,7 @@
 #define CPU_PRIORITY_LEVEL_FETCHING	0xff
 
 // data for a requested DMA operation
-#define	PRU_MAX_DMA_WORDCOUNT	512
+#define	PRU_MAX_DMA_WORDCOUNT	(8*512)
 
 #include "ddrmem.h"
 
@@ -123,17 +124,12 @@ typedef struct {
 
 // data for bus arbitrator 
 typedef struct {
-	// arbitrator.device_BBSY indicates a device wants or has acquired the UNIBUS
-	// cpu DATA transfer must be delayed until == 00
-	// set by arbitration logic
-	uint8_t device_BBSY;
+	// ifs = Interrupt Fielding Processor
+	uint8_t ifs_priority_level; // Priority level of CPU, visible in PSW. 7,6,5,4 <4.
 
-	// Command by ARM on DMA start: DATA transfer as CPU, else as device	
-	uint8_t cpu_BBSY;
+	uint8_t	ifs_intr_arbitration_pending ; // produce GRANTS from requests
 
-	uint8_t cpu_priority_level; // Priority level of CPU, visible in PSW. 7,6,5,4 <4.
-
-	uint8_t _dummy1;	// keep 32 bit borders
+	uint8_t _dummy[2];	// keep 32 bit borders
 
 } mailbox_arbitrator_t;
 
@@ -141,10 +137,12 @@ typedef struct {
 typedef struct {
 	// take care of 32 bit word borders for struct members
 	uint8_t cur_status; // 0 = idle, 1 = DMA running, 2 = timeout error
-	// 0x80: set on start to indicate CPU access
 
 	uint8_t control; // cycle to perform: only DATO, DATI allowed
 	uint16_t wordcount; // # of remaining words transmit/receive, static
+	// ---dword---
+	uint8_t	cpu_access ; // 0 for device DMA, 1 for emulated CPU
+	uint8_t	dummy[3] ; 
 	// ---dword---
 	uint32_t cur_addr; // current address in transfer, if timeout: offending address.
 	// if complete: last address accessed.
@@ -213,8 +211,8 @@ typedef struct {
 	 */
 	uint8_t signaled; //  PRU->ARM
 	uint8_t acked; // ARM->PRU
-	uint8_t cpu_transfer; // 1: ARM must process DMA as completed cpu DATA transfer
-	uint8_t _dummy2;
+//int8_t cpu_transfer; // 1: ARM must process DMA as completed cpu DATA transfer
+	uint8_t _dummy2[2];
 } mailbox_event_dma_t;
 
 // INTR raised by device

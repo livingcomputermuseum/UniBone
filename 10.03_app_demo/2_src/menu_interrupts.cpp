@@ -29,7 +29,7 @@
 #include <stdbool.h>
 
 #include "utils.hpp"
-#include "inputline.h"
+#include "inputline.hpp"
 #include "mcout.h"
 #include "application.hpp" // own
 
@@ -41,10 +41,7 @@
 #include "unibusadapter.hpp"
 #include "testcontroller.hpp"
 
-void application_c::menu_interrupts(void) {
-	// needs physical CPU
-	enum unibus_c::arbitration_mode_enum arbitration_mode = unibus_c::ARBITRATION_MODE_CLIENT;
-
+void application_c::menu_interrupts(const char *menu_code) {
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	bool active = false; // 1 if PRU executes slave&master logic
 	bool ready;
@@ -58,8 +55,10 @@ void application_c::menu_interrupts(void) {
 
 	// These test need active PRUs
 	// and an PDP-11 CPU as Arbitrator
-	hardware_startup(pru_c::PRUCODE_UNIBUS, arbitration_mode);
+	hardware_startup(pru_c::PRUCODE_UNIBUS);
 	buslatches_output_enable(true);
+	// CPU required
+	unibus->set_arbitrator_active(true) ;
 
 	ready = false;
 	test_loaded = false;
@@ -82,13 +81,13 @@ void application_c::menu_interrupts(void) {
 				unibusadapter->enabled.set(true);
 				active = true;
 			}
-			printf("m		 		     emulate all missing memory\n");
-			printf("e <addr> 		     EXAMINE the word at <addr>. [octal]\n");
+			printf("m                    emulate all missing memory\n");
+			printf("e <addr>             EXAMINE the word at <addr>. [octal]\n");
 			printf("d <addr> <val>       DEPOSIT <val> into <addr> [octal]\n");
 			printf("ll <filename>        Load test program from MACRO-11 listing\n");
 			if (test_loaded) {
 				printf(
-						"i <level> <vector>   Issue interrupt at priority <level> to <<vector> [octal]\n");
+ 				   "i <level> <vector>   Issue interrupt at priority <level> to <<vector> [octal]\n");
 				printf("                     <level> = 0..7, <vector> = 0,4,10,...,374\n");
 				printf(
 						"                     Then interrupts cause print-out, and	processor priority\n");
@@ -110,11 +109,11 @@ void application_c::menu_interrupts(void) {
 				printf("                      <channel> 0..%u possible.\n",
 						(unsigned) test_controller->dma_channel_count);
 			}
-			printf("dbg c|s|f             Debug log: Clear, Show on console, dump to File.\n");
-			printf("pwr                   Simulate UNIBUS power cycle (ACLO/DCLO)\n");
-			printf("q                     Quit\n");
+			printf("dbg c|s|f            Debug log: Clear, Show on console, dump to File.\n");
+			printf("pwr                  Simulate UNIBUS power cycle (ACLO/DCLO)\n");
+			printf("q                    Quit\n");
 		}
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 
 		printf("\n");
 		n_fields = sscanf(s_choice, "%s %s %s %s %s %s", s_opcode, s_param[0], s_param[1],
@@ -122,14 +121,14 @@ void application_c::menu_interrupts(void) {
 		if (!strcasecmp(s_opcode, "q")) {
 			ready = true;
 		} else if (!strcasecmp(s_opcode, "pwr")) {
-			unibus->powercycle();
+			unibus->probe_grant_continuity(true);
 		} else if (!strcasecmp(s_opcode, "m") && n_fields == 1) {
-			emulate_memory(arbitration_mode);
+			emulate_memory();
 		} else if (!strcasecmp(s_opcode, "e") && n_fields == 2) {
 			uint32_t cur_addr;
 			uint16_t wordbuffer;
 			parse_addr18(s_param[0], &cur_addr);
-			bool timeout = !unibus->dma(arbitration_mode, true, UNIBUS_CONTROL_DATI, cur_addr,
+			bool timeout = !unibus->dma(true, UNIBUS_CONTROL_DATI, cur_addr,
 					&wordbuffer, 1);
 			if (timeout)
 				printf("Bus timeout at %06o.\n", cur_addr);
@@ -140,7 +139,7 @@ void application_c::menu_interrupts(void) {
 			uint16_t wordbuffer;
 			parse_addr18(s_param[0], &cur_addr);
 			parse_word(s_param[1], &wordbuffer);
-			bool timeout = !unibus->dma(arbitration_mode, true, UNIBUS_CONTROL_DATO, cur_addr,
+			bool timeout = !unibus->dma(true, UNIBUS_CONTROL_DATO, cur_addr,
 					&wordbuffer, 1);
 			if (timeout)
 				printf("Bus timeout at %06o.\n", cur_addr);
@@ -160,7 +159,7 @@ void application_c::menu_interrupts(void) {
 			membuffer->get_addr_range(&start_addr, &end_addr);
 			printf("Loaded %u words, writing UNIBUS memory[%06o:%06o].\n",
 					membuffer->get_word_count(), start_addr, end_addr);
-			unibus->mem_write(arbitration_mode, membuffer->data.words, start_addr, end_addr,
+			unibus->mem_write(membuffer->data.words, start_addr, end_addr,
 					&timeout);
 			if (timeout)
 				printf("Memory write failed with UNIBUS timeout, aborting.\n");

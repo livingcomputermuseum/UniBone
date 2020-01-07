@@ -1,47 +1,47 @@
 /* logger.cpp: global error & info handling
 
-   Copyright (c) 2018, Joerg Hoppe
-   j_hoppe@t-online.de, www.retrocmp.com
+ Copyright (c) 2018, Joerg Hoppe
+ j_hoppe@t-online.de, www.retrocmp.com
 
-   All rights reserved.
+ All rights reserved.
 
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions
-   are met:
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
 
-   - Redistributions of source code must retain the above copyright
-     notice, this list of conditions and the following disclaimer.
+ - Redistributions of source code must retain the above copyright
+ notice, this list of conditions and the following disclaimer.
 
-   - Redistributions in binary form must reproduce the above copyright
-     notice, this list of conditions and the following disclaimer in the
-     documentation and/or other materials provided with the distribution.
+ - Redistributions in binary form must reproduce the above copyright
+ notice, this list of conditions and the following disclaimer in the
+ documentation and/or other materials provided with the distribution.
 
-   - Neither the name of the copyright holder nor the names of its
-     contributors may be used to endorse or promote products derived from
-     this software without specific prior written permission.
+ - Neither the name of the copyright holder nor the names of its
+ contributors may be used to endorse or promote products derived from
+ this software without specific prior written permission.
 
-   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-   HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-   TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-   PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+ TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-   12-nov-2018  JH      entered beta phase
-   09-Jul-2018  JH      created
+ 12-nov-2018  JH      entered beta phase
+ 09-Jul-2018  JH      created
 
-   - Can route messages to console and into a file
- 	- loglevels Error, Warning, Info and Debug
- 	- user sees Info and Debug if "verbose"
- 	"Debug" messages are marked with "log channel" bitmask, to
- 	enable only selected channels
-*/
+ - Can route messages to console and into a file
+ - loglevels Error, Warning, Info and Debug
+ - user sees Info and Debug if "verbose"
+ "Debug" messages are marked with "log channel" bitmask, to
+ enable only selected channels
+ */
 
 #include <iostream>
 #include <fstream>
@@ -259,7 +259,7 @@ void logger_c::message_render(char *buffer, unsigned buffer_size, logmessage_t *
 
 		// very long text? 10000 = reserve for % place holder expansion
 		assert(buffer_size > (strlen(msg->printf_format) + 1000));
-		assert(strlen(msg->logsource->log_label	.c_str())) ; // forgotten?
+		assert(strlen(msg->logsource->log_label .c_str())); // forgotten?
 		switch (style) {
 		case RENDER_STYLE_CONSOLE:
 
@@ -291,8 +291,17 @@ void logger_c::message_render(char *buffer, unsigned buffer_size, logmessage_t *
 				msg->printf_args[3], msg->printf_args[4], msg->printf_args[5],
 				msg->printf_args[6], msg->printf_args[7], msg->printf_args[8],
 				msg->printf_args[9]);
+		/*
+		 chars_written = vsnprintf(wp, buffer_size - chars_written, msg->printf_format,
+		 msg->print_args) ;
+		 va_end(msg->print_args) ; // free parameter list after use
+		 */
+
 		wp += chars_written;
 		*wp = 0; // necessary for snprintf() ?
+		// strip of optional trailing \n, will be added in dump()
+		if (wp[-1] == '\n')
+			wp[-1] = 0;
 	}
 }
 
@@ -301,10 +310,13 @@ void logger_c::set_fifo_size(unsigned size) {
 }
 
 // single portal for all messages
+
+// See http://c-faq.com/varargs/handoff.html
+// for log/vlog or printf/vprintf)
+
 volatile int m1 = 0;
-void logger_c::log(logsource_c *logsource, unsigned msglevel, const char *srcfilename,
-		unsigned srcline, const char *fmt, ...) {
-	va_list args;
+void logger_c::vlog(logsource_c *logsource, unsigned msglevel, const char *srcfilename,
+		unsigned srcline, const char *fmt, va_list args) {
 	logmessage_t msg;
 	if (ignored(logsource, msglevel))
 		return; // don't output
@@ -326,7 +338,9 @@ void logger_c::log(logsource_c *logsource, unsigned msglevel, const char *srcfil
 	strcpy(msg.printf_format, fmt);
 
 	assert(LOGMESSAGE_ARGCOUNT >= 10);
-	va_start(args, fmt);
+	/*
+	 va_copy(msg.print_args, args) ; // same arguments
+	 */
 	msg.printf_args[0] = va_arg(args, LOGMESSAGE_ARGTYPE);
 	msg.printf_args[1] = va_arg(args, LOGMESSAGE_ARGTYPE);
 	msg.printf_args[2] = va_arg(args, LOGMESSAGE_ARGTYPE);
@@ -349,8 +363,6 @@ void logger_c::log(logsource_c *logsource, unsigned msglevel, const char *srcfil
 		// cout << string(msgtext) << "\n"; // not thread safe???
 	}
 
-	va_end(args);
-
 	m1--;
 	fifo_mutex.unlock();
 //	pthread_mutex_unlock (&mutex);
@@ -359,6 +371,14 @@ void logger_c::log(logsource_c *logsource, unsigned msglevel, const char *srcfil
 	if (msglevel == LL_FATAL) {
 		exit(1);
 	}
+}
+
+void logger_c::log(logsource_c *logsource, unsigned msglevel, const char *srcfilename,
+		unsigned srcline, const char *fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	vlog(logsource, msglevel, srcfilename, srcline, fmt, args);
+	va_end(args);
 }
 
 /* dump buffer as hexdump at DEBUG level
@@ -418,7 +438,7 @@ void logger_c::debug_hexdump(logsource_c *logsource, const char *info, uint8_t *
 		else
 			zero_count = 0;
 		// buffer full ??
-		if (((unsigned)(wp - message_buffer) + max_linelen) > sizeof(message_buffer))
+		if (((unsigned) (wp - message_buffer) + max_linelen) > sizeof(message_buffer))
 			// buffer almost filled
 			early_end = true;
 
@@ -471,7 +491,7 @@ void logger_c::dump(void) {
 
 // dump all messages into a file
 void logger_c::dump(string filepath) {
-	ofstream file_stream ;
+	ofstream file_stream;
 	file_stream.open(filepath, ofstream::out | ofstream::trunc);
 	if (!file_stream.is_open()) {
 		cout << "Can not open log file \"" << filepath << "\"! Aborting!\n";

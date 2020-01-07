@@ -25,5 +25,7 @@ kwinit:
 
 	; --- Restart new INTR
 kwgo:
+	; nothing todo, INTR repeated automatically
+	; bic	#200,@#kwbase		; clear INTERRUPT MONITOR bit
 	return
 

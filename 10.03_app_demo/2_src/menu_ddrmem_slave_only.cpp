@@ -28,7 +28,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "inputline.h"
+#include "inputline.hpp"
 #include "mcout.h"
 #include "application.hpp" // own
 
@@ -40,14 +40,15 @@
  * DDRMEM
  * function to read, write, test shared DDR memory
  * */
-void application_c::menu_ddrmem_slave_only() {
+void application_c::menu_ddrmem_slave_only(const char *menu_code) {
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	char *s_choice;
 	char s_opcode[256], s_param[2][256];
 	bool ready;
 	int n_fields;
 
-	hardware_startup(pru_c::PRUCODE_UNIBUS, unibus_c::ARBITRATION_MODE_NONE);
+	hardware_startup(pru_c::PRUCODE_UNIBUS);
+	unibus->set_arbitrator_active(false) ;
 
 	ready = false;
 	while (!ready) {
@@ -71,7 +72,7 @@ void application_c::menu_ddrmem_slave_only() {
 			printf("i                Info\n");
 			printf("q                Quit\n");
 		}
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 
 		printf("\n");
 		n_fields = sscanf(s_choice, "%s  %s %s", s_opcode, s_param[0], s_param[1]);

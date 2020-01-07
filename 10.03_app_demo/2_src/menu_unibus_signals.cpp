@@ -30,7 +30,6 @@
 #include <assert.h>
 
 #include "utils.hpp"
-#include "inputline.h"
 #include "mcout.h"
 #include "application.hpp" // own
 #include "pru.hpp"
@@ -46,7 +45,7 @@
  * slow moving zero
  */
 
-void application_c::menu_unibus_signals(void) {
+void application_c::menu_unibus_signals(const char *menu_code) {
 	mcout_t mcout; // Multi Column OUTput
 	unsigned i;
 	unibus_signal_info_c usi;
@@ -91,7 +90,7 @@ void application_c::menu_unibus_signals(void) {
 			printf("r           Reset outputs to \"neutral\" values\n");
 			printf("q           Quit\n");
 		}
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 		printf("\n");
 		n_fields = sscanf(s_choice, "%s %s", s_opcode, s_param);
 		if (strlen(s_choice) == 0) {

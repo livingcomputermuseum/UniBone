@@ -35,7 +35,7 @@ priority_request_c::priority_request_c(unibusdevice_c *device) {
 	this->device = device;
 	this->complete = false;
 	this->executing_on_PRU = false;
-	this->slot = 0xff; // uninitialized, asserts() if used
+	this->priority_slot = 0xff; // uninitialized, asserts() if used
 	complete_mutex = PTHREAD_MUTEX_INITIALIZER;
 	complete_cond = PTHREAD_COND_INITIALIZER; // PRU signal notifies request on completeness
 }
@@ -47,13 +47,13 @@ priority_request_c::~priority_request_c() {
 void priority_request_c::set_priority_slot(uint8_t priority_slot) {
 	assert(priority_slot > 0); // 0 reserved
 	assert(priority_slot < PRIORITY_SLOT_COUNT);
-	if (this->slot == priority_slot)
+	if (this->priority_slot == priority_slot)
 		return ; // called on every on_param_change()
 	unibusdevice_c *ubdevice = unibusdevice_c::find_by_request_slot(priority_slot);
 	if (ubdevice && ubdevice != this->device) {
 			WARNING("Slot %u already used by device %s", (unsigned) priority_slot, ubdevice->name.value.c_str());
 		}
-	this->slot = priority_slot;
+	this->priority_slot = priority_slot;
 	// todo: check for collision with all other devices, all other requests
 }
 
@@ -62,6 +62,7 @@ dma_request_c::dma_request_c(unibusdevice_c *device) :
 		priority_request_c(device) {
 	this->level_index = PRIORITY_LEVEL_INDEX_NPR;
 	this->success = false;
+	this->is_cpu_access = false ;// over written for emulated CPU
 	// register request for device
 	if (device) {
 		device->dma_requests.push_back(this);

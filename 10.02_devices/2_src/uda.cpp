@@ -20,6 +20,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include "gpios.hpp"	// debug pin
 #include "unibus.h"
 #include "unibusadapter.hpp"
 #include "unibusdevice.hpp"
@@ -965,6 +966,8 @@ uda_c::DMAWrite(
     uint8_t* buffer)
 {
     assert ((lengthInBytes % 2) == 0);
+//    if (address >= 0x40000)
+//    	logger->dump(logger->default_filepath) ;
     assert (address < 0x40000);
 
     unibusadapter->DMA(dma_request, true,

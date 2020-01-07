@@ -103,7 +103,7 @@ unibusadapter_c::unibusadapter_c() :
 
 	requests_init();
 
-	the_cpu = NULL;
+	registered_cpu = NULL;
 }
 
 bool unibusadapter_c::on_param_changed(parameter_c *param) {
@@ -231,15 +231,14 @@ bool unibusadapter_c::register_device(unibusdevice_c& device) {
 // printf("!!! register @0%06o = reg 0x%x\n", addr, reghandle) ;
 		register_handle++;
 	}
-
 	// if its a CPU, switch PRU to "with_CPU"
 	unibuscpu_c *cpu = dynamic_cast<unibuscpu_c*>(&device);
 	if (cpu) {
-		assert(the_cpu == NULL); // only one allowed!
-		the_cpu = cpu;
-		// TODO: PRU code debuggen
-		//mailbox->cpu_enable = 1 ;
-		//mailbox_execute(ARM2PRU_CPU_ENABLE) ;
+		assert(registered_cpu == NULL); // only one allowed!
+		registered_cpu = cpu;
+		// enable/disable will start/stop CPU arbitrator on PRU
+//		mailbox->cpu_enable = 1;
+//		mailbox_execute(ARM2PRU_CPU_ENABLE);
 	}
 	return true;
 }
@@ -259,7 +258,7 @@ void unibusadapter_c::unregister_device(unibusdevice_c& device) {
 	if (cpu) {
 		mailbox->cpu_enable = 0;
 		mailbox_execute(ARM2PRU_CPU_ENABLE);
-		the_cpu = NULL;
+		registered_cpu = NULL;
 	}
 
 	// remove "from backplane"
@@ -287,7 +286,7 @@ void unibusadapter_c::requests_init(void) {
 }
 
 // put a request into the level/slot table
-// do not yet active!
+// do not yet activate!
 void unibusadapter_c::request_schedule(priority_request_c& request) {
 	// Must run under  pthread_mutex_lock(&requests_mutex);
 	priority_request_level_c *prl = &request_levels[request.level_index];
@@ -295,16 +294,16 @@ void unibusadapter_c::request_schedule(priority_request_c& request) {
 
 	// a device may reraise on of its own interrupts, but not an DMA on same slot
 	if (dynamic_cast<dma_request_c *>(&request)) {
-		if (prl->slot_request[request.slot] != NULL)
-			FATAL("Concurrent DMA requested for slot %d.", (unsigned )request.slot);
+		if (prl->slot_request[request.priority_slot] != NULL)
+			FATAL("Concurrent DMA requested for slot %d.", (unsigned )request.priority_slot);
 	} else if (dynamic_cast<intr_request_c *>(&request)) {
-		if (prl->slot_request[request.slot] != NULL) {
-			unibusdevice_c *slotdevice = prl->slot_request[request.slot]->device;
+		if (prl->slot_request[request.priority_slot] != NULL) {
+			unibusdevice_c *slotdevice = prl->slot_request[request.priority_slot]->device;
 			if (slotdevice != request.device)
 				FATAL(
 						"Devices %s and %s share both slot %u for INTR request with priority index %u",
 						slotdevice ? slotdevice->name.value.c_str() : "NULL",
-						request.device->name.value.c_str(), (unsigned )request.slot,
+						request.device->name.value.c_str(), (unsigned )request.priority_slot,
 						(unsigned )request.level_index);
 			// DEBUG("request_schedule(): update request %p into level %u, slot %u",&request, request.level_index, request.slot);
 		} else {
@@ -312,8 +311,8 @@ void unibusadapter_c::request_schedule(priority_request_c& request) {
 		}
 	}
 
-	prl->slot_request[request.slot] = &request; // mark slot with request
-	prl->slot_request_mask |= (1 << request.slot);  // set slot bit
+	prl->slot_request[request.priority_slot] = &request; // mark slot with request
+	prl->slot_request_mask |= (1 << request.priority_slot);  // set slot bit
 }
 
 // Cancel all pending device_DMA and IRQ requests of every level.
@@ -361,7 +360,7 @@ priority_request_c *unibusadapter_c::request_activate_lowest_slot(unsigned level
 	 Is implemented on ARM as just 2 opcodes: rbit (bit reverse), clz (count number of leading zeros)
 	 VERY FAST (without sorting list)
 	 */
-	// Must run under  pthread_mutex_lock(&requests_mutex);
+	// Must run under  pthread_mutex_lock(&);
 	priority_request_level_c *prl = &request_levels[level_index];
 	priority_request_c *rq;
 
@@ -423,9 +422,10 @@ void unibusadapter_c::request_execute_active_on_PRU(unsigned level_index) {
 		mailbox->dma.startaddr = dmareq->chunk_unibus_start_addr;
 		mailbox->dma.control = dmareq->unibus_control;
 		mailbox->dma.wordcount = dmareq->chunk_words;
+		mailbox->dma.cpu_access = dmareq->is_cpu_access;
 
 		// Copy outgoing data into mailbox device_DMA buffer
-		if (dmareq->unibus_control == UNIBUS_CONTROL_DATO) {
+		if (UNIBUS_CONTROL_IS_DATO(dmareq->unibus_control)) {
 			memcpy((void*) mailbox->dma.words, dmareq->chunk_buffer_start(),
 					2 * dmareq->chunk_words);
 		}
@@ -483,7 +483,7 @@ void unibusadapter_c::request_execute_active_on_PRU(unsigned level_index) {
 	}
 
 	/* when PRU is finished, the worker() gets a signal,
-	 then worker_dma_chunk_complete_event() or worker_intr_complete_event() is called.
+	 then worker_device_dma_chunk_complete_event() or worker_intr_complete_event() is called.
 	 On INTR or last DMA chunk, the request is completed.
 	 It is removed from the slot schedule table and request->compelte_conmd is signaled
 	 to DMA() or INTR()
@@ -492,7 +492,7 @@ void unibusadapter_c::request_execute_active_on_PRU(unsigned level_index) {
 
 // remove request pointer currently handled by PRU from tables
 // also called on INTR_CANCEL
-void unibusadapter_c::request_active_complete(unsigned level_index) {
+void unibusadapter_c::request_active_complete(unsigned level_index, bool signal_complete) {
 	// Must run under  pthread_mutex_lock(&requests_mutex);
 
 	priority_request_level_c *prl = &request_levels[level_index];
@@ -500,7 +500,7 @@ void unibusadapter_c::request_active_complete(unsigned level_index) {
 		return;
 	// DEBUG("request_active_complete") ; 
 
-	unsigned slot = prl->active->slot;
+	unsigned slot = prl->active->priority_slot;
 	//if (prl->slot_request[slot] != prl->active)
 	//	mailbox_execute(ARM2PRU_HALT) ; // LA: trigger on timeout REG_WRITE
 	// active not in table, if table cleared by  INIT	requests_cancel_scheduled()
@@ -516,11 +516,13 @@ void unibusadapter_c::request_active_complete(unsigned level_index) {
 	priority_request_c *tmprq = prl->active;
 	prl->active = NULL;
 
-	// signal to DMA() or INTR()
-	pthread_mutex_lock(&tmprq->complete_mutex);
-	tmprq->complete = true;
-	pthread_cond_signal(&tmprq->complete_cond);
-	pthread_mutex_unlock(&tmprq->complete_mutex);
+	if (signal_complete) {
+		// signal to DMA() or INTR()
+		pthread_mutex_lock(&tmprq->complete_mutex);
+		tmprq->complete = true;
+		pthread_cond_signal(&tmprq->complete_cond);
+		pthread_mutex_unlock(&tmprq->complete_mutex);
+	}
 
 }
 
@@ -534,25 +536,27 @@ void unibusadapter_c::request_active_complete(unsigned level_index) {
 
 void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t unibus_control,
 		uint32_t unibus_addr, uint16_t *buffer, uint32_t wordcount) {
-	assert(dma_request.slot < PRIORITY_SLOT_COUNT);
+	assert(dma_request.priority_slot < PRIORITY_SLOT_COUNT);
 	assert(dma_request.level_index == PRIORITY_LEVEL_INDEX_NPR);
 
 	// setup device request
 	assert(wordcount > 0);
 	assert((unibus_addr + 2*wordcount) <= 2*UNIBUS_WORDCOUNT);
+	// lowest priority reserved for CPU
+	assert(!dma_request.is_cpu_access || dma_request.priority_slot == 31);
+
 	// ignore calls if INIT cndition
 	if (line_INIT) {
 		dma_request.complete = true;
 		return;
 	}
-
 	pthread_mutex_lock(&requests_mutex); // lock schedule table operations
 
 	// In contrast to re-raised INTR, overlapping DMA requests from same board
 	// must not be ignored (different DATA situation) and are an device implementation error.
 	// If a device indeed has multiple DMA channels, it must use different pseudo-slots.
 	priority_request_level_c *prl = &request_levels[PRIORITY_LEVEL_INDEX_NPR];
-	assert(prl->slot_request[dma_request.slot] == NULL); // not scheduled or prev completed
+	assert(prl->slot_request[dma_request.priority_slot] == NULL); // not scheduled or prev completed
 
 	// 	dma_request.level-index, priority_slot in constructor
 	dma_request.complete = false;
@@ -582,8 +586,35 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 	pthread_mutex_unlock(&requests_mutex);
 
 	// DEBUG("device DMA start: %s @ %06o, len=%d", unibus->control2text(unibus_control), unibus_addr, wordcount);
-	if (blocking) {
-		pthread_mutex_lock(&dma_request.complete_mutex);
+
+	if (dma_request.is_cpu_access) {
+		// NO wait for PRU signal, instead busy waiting. CPU thread blocked.
+		// Reason: SPEED. CPU does high frequency single word accesses.
+		bool completed = false;
+// ARM_DEBUG_PIN1(1); // CPU20 performace
+		do {
+			// CPU thread is now spinning
+			// wait until CPU access scheduled and processed on PRU
+			// in parallel, other device threads call DMA()
+			pthread_mutex_lock(&requests_mutex);
+			dma_request_c *activereq = dynamic_cast<dma_request_c *>(prl->active);
+//if (activereq == &dma_request)
+//	printf("a\n") ;
+//if (DMA_STATE_IS_COMPLETE(mailbox->dma.cur_status))
+//	printf("b\n") ;
+			if ((activereq == &dma_request) && !EVENT_IS_ACKED(*mailbox, dma)) {
+				assert(activereq->is_cpu_access);
+				// transfer DATI data to buffer, set success flag, schedule next request
+				worker_device_dma_chunk_complete_event(); // do not signal, uses complete_mutex
+				EVENT_ACK(*mailbox, dma) ;
+				completed = true;
+			}
+			pthread_mutex_unlock(&requests_mutex);//&dma_request.complete_mutex);
+		} while (!completed);
+//ARM_DEBUG_PIN1(0); // CPU20 performace
+
+	} else if (blocking) {
+		pthread_mutex_lock(&dma_request.complete_mutex)  ;
 		// DMA() is blocking: Wait for request to finish.
 		//	pthread_mutex_lock(&dma_request.mutex);
 		while (!dma_request.complete) {
@@ -595,9 +626,25 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 	}
 }
 
+// do DATO/DATI as master CPU.
+// result: success, else BUS TIMEOUT
+void unibusadapter_c::cpu_DATA_transfer(dma_request_c& cpu_data_transfer_request,
+		uint8_t unibus_control, uint32_t unibus_addr, uint16_t *buffer) {
+	// no NPR/NPG/SACK arbitration
+	// no PRU->ARM signal on complete
+	cpu_data_transfer_request.is_cpu_access = true;
+	// CPU memory access is serialized with DMA,
+	// but less then all other device DMA requests
+	// so set "priority_slot to max=31, despite a CPU plugs into left most slot 0
+	// Also less then INTR, thats implementend in PRU statemachine_arbitration_master()
+	cpu_data_transfer_request.priority_slot = 31;
+	// "blocking" flag not used
+	DMA(cpu_data_transfer_request, true, unibus_control, unibus_addr, buffer, 1);
+}
+
 // A device raises an interrupt and simultaneously changes a value in
 // one of its registers, the "interrupt register".
-// ''interrupt_register' may be NULL if none.
+// interrupt_register' may be NULL if none.
 // INTR() is NOT BLOCKING: it returns immediately.
 // the actual interrupt vector is transfered when CPU interrupt level is lowered enough and
 // other arbitration rules apply, which may never be the case.
@@ -605,7 +652,7 @@ void unibusadapter_c::DMA(dma_request_c& dma_request, bool blocking, uint8_t uni
 
 void unibusadapter_c::INTR(intr_request_c& intr_request,
 		unibusdevice_register_t *interrupt_register, uint16_t interrupt_register_value) {
-	assert(intr_request.slot < PRIORITY_SLOT_COUNT);
+	assert(intr_request.priority_slot < PRIORITY_SLOT_COUNT);
 	assert(intr_request.level_index <= 3);
 	assert((intr_request.vector & 3) == 0); // multiple of 2 words
 
@@ -617,16 +664,16 @@ void unibusadapter_c::INTR(intr_request_c& intr_request,
 
 	priority_request_level_c *prl = &request_levels[intr_request.level_index];
 	pthread_mutex_lock(&requests_mutex); // lock schedule table operations
-
-	_DEBUG("INTR() req: dev %s, slot/level/vector= %d/%d/%03o",
-			intr_request.device->name.value.c_str(), (unsigned) intr_request.slot,
+//if (intr_request.device->log_level == LL_DEBUG)
+	DEBUG("INTR() req: dev %s, slot/level/vector= %d/%d/%03o",
+			intr_request.device->name.value.c_str(), (unsigned ) intr_request.priority_slot,
 			intr_request.level_index + 4, intr_request.vector);
 	// Is an INTR with same slot and level already executed on PRU
 	// or waiting in the schedule table?
 	// If yes: do not re-raise, will be completed at some time later.
-	if (prl->slot_request[intr_request.slot] != NULL) {
+	if (prl->slot_request[intr_request.priority_slot] != NULL) {
 		intr_request_c *scheduled_intr_req =
-				dynamic_cast<intr_request_c *>(prl->slot_request[intr_request.slot]);
+				dynamic_cast<intr_request_c *>(prl->slot_request[intr_request.priority_slot]);
 		assert(scheduled_intr_req);
 		// A device may re-raised a pending INTR again 
 		// (quite normal situation when other ISRs block, CPU overload)
@@ -643,12 +690,12 @@ void unibusadapter_c::INTR(intr_request_c& intr_request,
 		// scheduled and request_active_complete() not called
 		pthread_mutex_unlock(&requests_mutex);
 		if (interrupt_register) {
-			_DEBUG("INTR() delayed with IR");
+			DEBUG("INTR() delayed with IR");
 			// if device re-raises a blocked INTR, CSR must complete immediately
 			intr_request.device->set_register_dati_value(interrupt_register,
 					interrupt_register_value, __func__);
 		} else {
-			_DEBUG("INTR() delayed without IR");
+			DEBUG("INTR() delayed without IR");
 		}
 
 		return; // do not schedule a 2nd time
@@ -663,14 +710,14 @@ void unibusadapter_c::INTR(intr_request_c& intr_request,
 	// The associated device interrupt register (if any) should be updated
 	// atomically with raising the INTR signal line by PRU.
 	if (interrupt_register && request_is_blocking_active(intr_request.level_index)) {
-		_DEBUG("INTR() delayed, IR now");
+		DEBUG("INTR() delayed, IR now");
 		//	one or more another requests are handled by PRU: INTR signal delayed by Arbitrator,
 		// write intr register asynchronically here.
 		intr_request.device->set_register_dati_value(interrupt_register,
 				interrupt_register_value, __func__);
 		intr_request.interrupt_register = NULL; // don't do a 2nd  time
 	} else { // forward to PRU
-		_DEBUG("INTR() IR forward to PRU");
+		DEBUG("INTR() IR forward to PRU");
 		// 	intr_request.level_index, priority_slot, vector in constructor
 		intr_request.interrupt_register = interrupt_register;
 		intr_request.interrupt_register_value = interrupt_register_value;
@@ -708,7 +755,7 @@ void unibusadapter_c::INTR(intr_request_c& intr_request,
 void unibusadapter_c::cancel_INTR(intr_request_c& intr_request) {
 	uint8_t level_index = intr_request.level_index; // alias
 	priority_request_level_c *prl = &request_levels[level_index];
-	if (prl->slot_request[intr_request.slot] == NULL)
+	if (prl->slot_request[intr_request.priority_slot] == NULL)
 		return; // not scheduled or active
 
 	pthread_mutex_lock(&requests_mutex); // lock schedule table operations
@@ -718,7 +765,7 @@ void unibusadapter_c::cancel_INTR(intr_request_c& intr_request) {
 		mailbox->intr.priority_arbitration_bit =
 				priority_level_idx_to_arbitration_bit[level_index];
 		mailbox_execute(ARM2PRU_INTR_CANCEL);
-		request_active_complete(level_index);
+		request_active_complete(level_index, true);
 
 		// restart next request
 		request_activate_lowest_slot(level_index);
@@ -726,8 +773,8 @@ void unibusadapter_c::cancel_INTR(intr_request_c& intr_request) {
 			request_execute_active_on_PRU(level_index);
 	} else {
 		// not active on PRU: just remove from schedule table
-		prl->slot_request[intr_request.slot] = NULL; // clear slot from request
-		prl->slot_request_mask &= ~(1 << intr_request.slot); // mask out slot bit
+		prl->slot_request[intr_request.priority_slot] = NULL; // clear slot from request
+		prl->slot_request_mask &= ~(1 << intr_request.priority_slot); // mask out slot bit
 	}
 	// both empty, or both filled
 	assert((prl->slot_request_mask == 0) == (prl->active == NULL));
@@ -737,54 +784,6 @@ void unibusadapter_c::cancel_INTR(intr_request_c& intr_request) {
 	pthread_mutex_unlock(&intr_request.complete_mutex);
 
 	pthread_mutex_unlock(&requests_mutex); // lock schedule table operations
-
-}
-
-// do DATO/DATI as master CPU.
-// no NPR/NPG/SACK request, but waiting for BUS idle
-// result: success, else BUS TIMEOUT
-void unibusadapter_c::cpu_DATA_transfer(dma_request_c& dma_request, uint8_t unibus_control,
-		uint32_t unibus_addr, uint16_t *buffer) {
-	timeout_c timeout;
-	bool success;
-	cpu_data_transfer_request = &dma_request;
-
-	// request is not queued, so only request.mutex used
-
-	pthread_mutex_lock(&cpu_data_transfer_request->complete_mutex);
-	cpu_data_transfer_request->complete = false;
-
-	mailbox->dma.startaddr = unibus_addr;
-	mailbox->dma.control = unibus_control;
-	mailbox->dma.wordcount = 1;
-
-	// Copy outgoing data into mailbox device_DMA buffer
-	if (UNIBUS_CONTROL_ISDATO(unibus_control))
-		memcpy((void*) mailbox->dma.words, buffer, 2);
-
-	// do the transfer. Wait until concurrent device DMA/INTR complete
-	do {
-		while (mailbox->arbitrator.device_BBSY)
-			timeout.wait_us(100);
-		mailbox->arbitrator.cpu_BBSY = true; // mark as "initiated by CPU, not by device"
-		success = mailbox_execute(ARM2PRU_DMA);
-		// a device may have acquired the bus concurrently, 
-		// then ARM2PRU_DMA is answered with an error
-		// infinite time may have passed after that check above
-	} while (!success);
-	// wait for PRU complete event, no clear why that double lock() is working anyhow!
-	pthread_mutex_lock(&cpu_data_transfer_request->complete_mutex);
-	// DMA() is blocking: Wait for request to finish.
-	while (!cpu_data_transfer_request->complete) {
-		int res = pthread_cond_wait(&cpu_data_transfer_request->complete_cond,
-				&cpu_data_transfer_request->complete_mutex);
-		assert(!res);
-	}
-	pthread_mutex_unlock(&cpu_data_transfer_request->complete_mutex);
-
-	// Copy incoming data from mailbox DMA buffer
-	if (unibus_control == UNIBUS_CONTROL_DATI)
-		memcpy(buffer, (void *) mailbox->dma.words, 2);
 
 }
 
@@ -851,7 +850,7 @@ void unibusadapter_c::worker_deviceregister_event() {
 	 DATO: save written value into .active_write_val
 	 restore changed shared PRU register with .active_read_val for next read
 	 */
-	if (device_reg->active_on_dati && !UNIBUS_CONTROL_ISDATO(unibus_control)) {
+	if (device_reg->active_on_dati && !UNIBUS_CONTROL_IS_DATO(unibus_control)) {
 		// register is read with DATI, this changes the logic state
 		evt_addr &= ~1; // make even
 		assert(evt_addr == device->base_addr.value + 2 * evt_idx);
@@ -862,7 +861,7 @@ void unibusadapter_c::worker_deviceregister_event() {
 		device->log_register_event("DATI", device_reg);
 
 		device->on_after_register_access(device_reg, unibus_control);
-	} else if (device_reg->active_on_dato && UNIBUS_CONTROL_ISDATO(unibus_control)) {
+	} else if (device_reg->active_on_dato && UNIBUS_CONTROL_IS_DATO(unibus_control)) {
 		//		uint16_t reg_value_written = device_reg->shared_register->value;
 		//	restore value accessible by DATI
 		device_reg->shared_register->value = device_reg->active_dati_flipflops;
@@ -907,81 +906,70 @@ void unibusadapter_c::worker_deviceregister_event() {
 // called by PRU signal when DMA transmission complete
 // Called for device DMA() chunk,
 // or cpu_DATA_transfer()
-void unibusadapter_c::worker_dma_chunk_complete_event(bool cpu_DATA_transfer) {
-	if (cpu_DATA_transfer) {
-		// cpu_DATA_transfer() started independent of request_levels table,
-		// prl->active == NULL
-		cpu_data_transfer_request->success = (mailbox->dma.cur_status == DMA_STATE_READY);
+void unibusadapter_c::worker_device_dma_chunk_complete_event() {
+	priority_request_level_c *prl = &request_levels[PRIORITY_LEVEL_INDEX_NPR];
+	bool more_chunks;
+	// Must run under pthread_mutex_lock(&requests_mutex) ;
 
-		// signal to DMA() or INTR()
-		cpu_data_transfer_request->complete = true; // close to signal
-		pthread_mutex_unlock(&cpu_data_transfer_request->complete_mutex);
+	dma_request_c *dmareq = dynamic_cast<dma_request_c *>(prl->active);
 
-		// concurrent to this DATA transfer a device may have requested DMA.
+	assert(dmareq != NULL);
+	dmareq->unibus_end_addr = mailbox->dma.cur_addr; // track emnd of trasnmission, eror position
+	unsigned wordcount_transferred = dmareq->wordcount_completed_chunks()
+			+ mailbox->dma.wordcount;
+	assert(wordcount_transferred <= dmareq->wordcount);
+	assert(!dmareq->is_cpu_access || dmareq->wordcount == 1); // CPU accesses only single words
+	if (UNIBUS_CONTROL_IS_DATI(mailbox->dma.control)) {
+		// guard against buffer overrun
+		// PRU read chunk data from UNIBUS into mailbox
+		// copy result cur_DMA_wordcount from mailbox->DMA buffer to cur_DMA_buffer
+		memcpy(dmareq->chunk_buffer_start(), (void *) mailbox->dma.words,
+				2 * mailbox->dma.wordcount);
+	}
+	if (mailbox->dma.cur_status != DMA_STATE_READY) {
+		// failure: abort remaining chunks
+		dmareq->success = false;
+		more_chunks = false;
+	} else if (wordcount_transferred == dmareq->wordcount) {
+		// last chunk completed
+		dmareq->success = true;
+		more_chunks = false;
+	} else {
+		// more data to transfer: next chunk.
+		assert(!dmareq->is_cpu_access); // CPU accesses only single words
+		dmareq->chunk_unibus_start_addr = mailbox->dma.cur_addr + 2;
+		// dmarequest remains prl->active and ->busy
+
+		_DEBUG(
+				"DMA chunk complete: dev %s, %s @ %06o..%06o, wordcount %d, data=%06o, %06o, ... %s",
+				prl->active->device ? prl->active->device->name.value.c_str() : "none",
+				unibus->control2text(mailbox->dma.control), mailbox->dma.startaddr,
+				mailbox->dma.cur_addr, mailbox->dma.wordcount, mailbox->dma.words[0],
+				mailbox->dma.words[1], dmareq->success ? "OK" : "TIMEOUT");
+
+		// re-activate this request, or choose another with higher slot priority,
+		// inserted in parallel (interrupt this DMA)
+		prl->active = NULL;
+		request_activate_lowest_slot(PRIORITY_LEVEL_INDEX_NPR);
+
+		request_execute_active_on_PRU(PRIORITY_LEVEL_INDEX_NPR);
+		more_chunks = true;
+
+	}
+	if (!more_chunks) {
+		_DEBUG("DMA ready: %s @ %06o..%06o, wordcount %d, data=%06o, %06o, ... %s",
+				unibus->control2text(dmareq->unibus_control), dmareq->unibus_start_addr,
+				dmareq->unibus_end_addr, dmareq->wordcount, dmareq->buffer[0],
+				dmareq->buffer[1], dmareq->success ? "OK" : "TIMEOUT");
+
+		// clear from schedule table of this level
+		// CPu memory accesses are not signaled, but polled in DMA()
+		request_active_complete(PRIORITY_LEVEL_INDEX_NPR, /*signal*/!dmareq->is_cpu_access);
+
+		// check and execute DMA on other priority_slot
 		if (request_activate_lowest_slot(PRIORITY_LEVEL_INDEX_NPR))
 			request_execute_active_on_PRU(PRIORITY_LEVEL_INDEX_NPR);
-	} else {
-		priority_request_level_c *prl = &request_levels[PRIORITY_LEVEL_INDEX_NPR];
-		bool more_chunks;
-		// Must run under pthread_mutex_lock(&requests_mutex) ;
 
-		dma_request_c *dmareq = dynamic_cast<dma_request_c *>(prl->active);
-
-		assert(dmareq != NULL);
-		dmareq->unibus_end_addr = mailbox->dma.cur_addr; // track emnd of trasnmission, eror position
-		unsigned wordcount_transferred = dmareq->wordcount_completed_chunks()
-				+ mailbox->dma.wordcount;
-		assert(wordcount_transferred <= dmareq->wordcount);
-		if (mailbox->dma.control == UNIBUS_CONTROL_DATI) {
-			// guard against buffer overrun
-			// PRU read chunk data from UNIBUS into mailbox
-			// copy result cur_DMA_wordcount from mailbox->DMA buffer to cur_DMA_buffer
-			memcpy(dmareq->chunk_buffer_start(), (void *) mailbox->dma.words,
-					2 * mailbox->dma.wordcount);
-		}
-		if (mailbox->dma.cur_status != DMA_STATE_READY) {
-			// failure: abort remaining chunks
-			dmareq->success = false;
-			more_chunks = false;
-		} else if (wordcount_transferred == dmareq->wordcount) {
-			// last chunk completed
-			dmareq->success = true;
-			more_chunks = false;
-		} else {
-			// more data to transfer: next chunk.
-			dmareq->chunk_unibus_start_addr = mailbox->dma.cur_addr + 2;
-			// dmarequest remains prl->active and ->busy
-
-			_DEBUG(
-					"DMA chunk complete: dev %s, %s @ %06o..%06o, wordcount %d, data=%06o, %06o, ... %s",
-					prl->active->device ? prl->active->device->name.value.c_str() : "none",
-					unibus->control2text(mailbox->dma.control), mailbox->dma.startaddr,
-					mailbox->dma.cur_addr, mailbox->dma.wordcount, mailbox->dma.words[0],
-					mailbox->dma.words[1], dmareq->success ? "OK" : "TIMEOUT");
-
-			// re-activate this request, or choose another with higher slot priority,
-			// inserted in parallel (interrupt this DMA)
-			prl->active = NULL;
-			request_activate_lowest_slot(PRIORITY_LEVEL_INDEX_NPR);
-
-			request_execute_active_on_PRU(PRIORITY_LEVEL_INDEX_NPR);
-			more_chunks = true;
-
-		}
-		if (!more_chunks) {
-			_DEBUG("DMA ready: %s @ %06o..%06o, wordcount %d, data=%06o, %06o, ... %s",
-					unibus->control2text(dmareq->unibus_control), dmareq->unibus_start_addr,
-					dmareq->unibus_end_addr, dmareq->wordcount, dmareq->buffer[0],
-					dmareq->buffer[1], dmareq->success ? "OK" : "TIMEOUT");
-
-			// clear from schedule table of this level
-			request_active_complete(PRIORITY_LEVEL_INDEX_NPR);
-
-			// check and execute DMA on other priority_slot
-			if (request_activate_lowest_slot(PRIORITY_LEVEL_INDEX_NPR))
-				request_execute_active_on_PRU(PRIORITY_LEVEL_INDEX_NPR);
-
-		}
 	}
 }
 
@@ -998,7 +986,7 @@ void unibusadapter_c::worker_intr_complete_event(uint8_t level_index) {
 	//assert(prl->active);
 
 	// clear from schedule table of this level
-	request_active_complete(level_index);
+	request_active_complete(level_index, true);
 
 	// activate next request of this level on PRU for priority arbitration
 	request_activate_lowest_slot(level_index);
@@ -1067,7 +1055,6 @@ void unibusadapter_c::worker(unsigned instance) {
 			bool dclo_falling_edge = false;
 			bool aclo_raising_edge = false;
 			bool aclo_falling_edge = false;
-			// DEBUG("mailbox->events: mask=0x%x", mailbox->events.eventmask);
 			if (!EVENT_IS_ACKED(*mailbox, init)) {
 				any_event = true;
 				// robust: any change in ACLO/DCL=INIT updates state of all 3.
@@ -1126,13 +1113,17 @@ void unibusadapter_c::worker(unsigned instance) {
 				// ARM2PRU opcodes raised by device logic are processed in midst of bus cycle
 				EVENT_ACK(*mailbox, deviceregister); // PRU continues bus cycle with SSYN now
 			}
-			if (!EVENT_IS_ACKED(*mailbox, dma)) {
+
+			if (!EVENT_IS_ACKED(*mailbox, dma) && !mailbox->dma.cpu_access) {
+				// not called for CPU DATI/DATO
+				
 				any_event = true;
 				pthread_mutex_lock(&requests_mutex);
-				worker_dma_chunk_complete_event(mailbox->events.dma.cpu_transfer);
+				worker_device_dma_chunk_complete_event();
+				
 				pthread_mutex_unlock(&requests_mutex);
-				// rpu may have set again event_dma again, if this is called before EVENT signal??
-				// call this only on singal, not on timeout!
+				// PRU may have set again event_dma again, if this is called before EVENT signal??
+				// call this only on signal, not on timeout!
 
 				// this may clear reraised PRU event flag!
 				EVENT_ACK(*mailbox, dma); // PRU may re-raise and change mailbox now
@@ -1153,9 +1144,9 @@ void unibusadapter_c::worker(unsigned instance) {
 
 			if (!EVENT_IS_ACKED(*mailbox, intr_slave)) {
 				// If CPU emulation enabled: a device INTR was detected on bus, 
-				assert(the_cpu); // if INTR events are enabled, cpu must be instantiated
+				assert(registered_cpu); // if INTR events are enabled, cpu must be instantiated
 				// see register_device()
-				the_cpu->on_interrupt(mailbox->events.intr_slave.vector);
+				registered_cpu->on_interrupt(mailbox->events.intr_slave.vector);
 				// clear SSYN, INTR cycle completes
 				EVENT_ACK(*mailbox, intr_slave);
 				// mailbox->arbitrator.cpu_priority_level now CPU_PRIORITY_LEVEL_FETCHING
