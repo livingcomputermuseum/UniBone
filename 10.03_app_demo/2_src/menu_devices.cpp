@@ -52,6 +52,7 @@
 #include "rl11.hpp"
 #include "rk11.hpp"
 #include "uda.hpp"
+#include "rh11.hpp"
 #include "dl11w.hpp"
 #include "cpu.hpp"
 
@@ -156,6 +157,8 @@ void application_c::menu_devices(const char *menu_code, bool with_emulated_CPU) 
 	rk11_c *RK11 = new rk11_c();
 	// Create UDA50
 	uda_c *UDA50 = new uda_c();
+	// Create RH11
+	rh11_c *RH11 = new rh11_c();
 	// Create SLU+ LTC
 	slu_c *DL11 = new slu_c();
 	// to inject characters into DL11 receiver
@@ -566,6 +569,9 @@ void application_c::menu_devices(const char *menu_code, bool with_emulated_CPU) 
 
 	UDA50->enabled.set(false);
 	delete UDA50;
+
+	RH11->enabled.set(false);
+	delete RH11;
 
 	//test_controller->enabled.set(false);
 	//delete test_controller;

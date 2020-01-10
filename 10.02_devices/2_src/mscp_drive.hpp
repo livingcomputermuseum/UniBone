@@ -17,7 +17,8 @@
 //
 // Implements the backing store for MSCP disk images
 //
-class mscp_drive_c: public storagedrive_c {
+class mscp_drive_c: public storagedrive_c 
+{
 public:
 	mscp_drive_c(storagecontroller_c *controller, uint32_t driveNumber);
 	~mscp_drive_c(void);
@@ -55,7 +56,8 @@ public:
 
 private:
 
-	struct DriveInfo {
+	struct DriveInfo 
+    {
 		char TypeName[16];
 		size_t BlockCount;
 		uint32_t MediaID;

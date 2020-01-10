@@ -104,6 +104,8 @@ OBJECTS = $(OBJDIR)/application.o	\
 	$(OBJDIR)/uda.o         \
 	$(OBJDIR)/mscp_server.o \
 	$(OBJDIR)/mscp_drive.o \
+    $(OBJDIR)/rh11.o        \
+    $(OBJDIR)/massbus_rp.o  \
 	$(OBJDIR)/rs232.o \
 	$(OBJDIR)/rs232adapter.o \
 	$(OBJDIR)/dl11w.o \
@@ -237,6 +239,15 @@ $(OBJDIR)/mscp_server.o :   $(DEVICE_SRC_DIR)/mscp_server.cpp $(DEVICE_SRC_DIR)/
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/mscp_drive.o :   $(DEVICE_SRC_DIR)/mscp_drive.cpp $(DEVICE_SRC_DIR)/mscp_drive.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/rh11.o :   $(DEVICE_SRC_DIR)/rh11.cpp $(DEVICE_SRC_DIR)/rh11.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/massbus_device.o :   $(DEVICE_SRC_DIR)/massbus_device.cpp $(DEVICE_SRC_DIR)/massbus_device.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/massbus_rp.o :   $(DEVICE_SRC_DIR)/massbus_rp.cpp $(DEVICE_SRC_DIR)/massbus_rp.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/rs232.o :  $(DEVICE_SRC_DIR)/rs232.cpp $(DEVICE_SRC_DIR)/rs232.hpp
