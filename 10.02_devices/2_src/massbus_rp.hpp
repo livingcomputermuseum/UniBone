@@ -24,7 +24,7 @@ enum class Registers
     Error1 = 02,
     Maintenance = 03,
     AttentionSummary = 04,
-    DesiredAddress = 05,
+    DesiredSectorTrackAddress = 05,
     LookAhead = 07,
     DriveType = 06,
     SerialNo = 014,
@@ -67,6 +67,7 @@ enum class FunctionCode
 //
 struct rp_register_data
 {
+    char Name[16];
     bool ActiveOnDATI;
     bool ActiveOnDATO;
     uint16_t ResetValue;
@@ -84,6 +85,8 @@ public:
     virtual ~massbus_rp_c();
 
 public:
+    void Reset();
+
     bool ImplementsRegister(uint32_t register) override;
     std::string RegisterName(uint32_t register) override;
 
@@ -96,37 +99,90 @@ public:
     void WriteRegister(uint32_t unit, uint32_t register, uint16_t value) override;
     uint16_t ReadRegister(uint32_t unit, uint32_t register) override;
 
+    // Background worker function
+    void Worker();
 private:
-    void DoCommand(uint32_t unit, uint16_t command);
+    struct WorkerCommand
+    {
+        volatile uint32_t unit;  
+        volatile uint32_t bus_address;
+        volatile uint32_t word_count;
+        volatile FunctionCode function;
+        volatile bool     ready;
+    } _newCommand; 
 
-    // background worker function
-    void worker(unsigned instance) override;
+    enum WorkerState
+    {
+        Idle = 0,
+        Execute = 1,
+        Finish = 2,
+    } _workerState;
+
+    void DoCommand(uint32_t unit, uint16_t command);
 
     void on_power_changed(void) override;
     void on_init_changed(void) override;
+
+    void UpdateStatus();
+    void UpdateDesiredSectorTrack();
+    void UpdateDesiredCylinder();
+    void UpdateOffset();
+
+    rp_drive_c* SelectedDrive();
+
 private:
     rh11_c* _controller;
 
     rp_register_data _registerMetadata[16] =
     {
-        { false, false, 0, 0 },			// 0, not used
-        { false, false, 0, 0177700 },           // Status
-        { false, true , 0, 0177777 },           // Error #1 - writable by diagnostics
-        { false, true , 0, 0177777 },           // Maintenance 
-        { false, false, 0, 0 },                 // Attention summary
-        { false, false, 0, 0017437 },           // Desired Sector/Track
-        { false, false, 0, 0 },                 // Look Ahead 
-        { false, false, 0, 0 },                 // Drive Type
-        { false, false, 0, 0 },                 // Serial Number
-        { false, false, 0, 0177777 },           // Offset
-        { false, false, 0, 0001777 },           // Desired Cylinder
-        { false, false, 0, 0 },                 // Current Cylinder
-        { false, false, 0, 0 },                 // Error #2
-        { false, false, 0, 0 },                 // Error #3
-        { false, false, 0, 0 },                 // ECC Position
-        { false, false, 0, 0 },                 // ECC Pattern
+       // Name    DATI   DATO
+        { "INV",  false, false, 0, 0 },			// 0, not used
+        { "CS1",  false, 0, 0177700 },           // Status
+        { "ER1",  false, true , 0, 0177777 },           // Error #1 - writable by diagnostics
+        { "MR" ,  false, true , 0, 0177777 },           // Maintenance 
+        { "ATN",  false, false, 0, 0 },                 // Attention summary
+        { "DA" ,  false, true,  0, 0017437 },           // Desired Sector/Track
+        { "LA" ,  false, false, 0, 0 },                 // Look Ahead 
+        { "DT" ,  false, false, 0, 0 },                 // Drive Type
+        { "SN" ,  false, false, 0, 0 },                 // Serial Number
+        { "OFF",  false, false, 0, 0177777 },           // Offset
+        { "DCY",  false, true,  0, 0001777 },           // Desired Cylinder
+        { "CCY",  false, false, 0, 0 },                 // Current Cylinder
+        { "ER2",  false, false, 0, 0 },                 // Error #2
+        { "ER3",  false, false, 0, 0 },                 // Error #3
+        { "EPO",  false, false, 0, 0 },                 // ECC Position
+        { "EPA",  false, false, 0, 0 },                 // ECC Pattern
     };
 
+    // Unit selected by last command register write
+    uint32_t _selectedUnit;
+
+    // Register data
+    uint16_t _status;
+    uint16_t _error1;
+    uint16_t _maint;
+    uint16_t _attn;
+    uint16_t _desiredSector;
+    uint16_t _desiredTrack;
+    uint16_t _offset;
+    uint16_t _desiredCylinder;
+    uint16_t _currentCylinder;
+    uint16_t _error2;
+    uint16_t _error3;
+
+    // Status bits that we track
+    bool _vv;
+    bool _err;
+    bool _ata;
+
+    // RH11 ready signal (ugly: this should be in the rh11 code!)
+    bool _ready;
+    bool _ned;  // ditto
+
+    // Worker thread
+    pthread_t        _workerThread;
+    pthread_cond_t   _workerWakeupCond;
+    pthread_mutex_t  _workerMutex;  
 };
 
 #endif

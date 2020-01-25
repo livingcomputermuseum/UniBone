@@ -19,80 +19,9 @@ using namespace std;
 #include "unibusdevice.hpp"
 #include "storagecontroller.hpp"
 #include "massbus_device.hpp"
+#include "rp_drive.hpp"
 
-// Maps the unibus register index to the MASSBUS register number.
-// -1 entries are local to the rh11. 
-int32_t _unibusToMassbusRegisterMap[] =
-{
-    00,    // 776700
-    -1,    // 776702
-    -1,    // 776704
-    05,    // 776706
-    -1,    // 776710
-    01,    // 776712
-    02,    // 776714
-    04,    // 776716
-    07,    // 776720
-    -1,    // 776722
-    03,    // 776724
-    06,    // 776726
-    010,   // 776730
-    011,   // 776732
-    012,   // 776734
-    013,   // 776736
-    014,   // 776740
-    015,   // 776742
-    016,   // etc.
-    017,
-    020,
-    021,
-    022,
-    023,
-    024,
-    025,
-    026,
-    027,
-    030,
-    031,
-    032,
-    033
-};
-
-int32_t _massbusToUnibusRegisterMap[] =
-{
-    00,     // 0
-    05,
-    06,
-    012,
-    07,
-    03,    
-    013,
-    010,
-    014,   // 10
-    015,
-    016,   
-    017,
-    020,  
-    021,
-    022,
-    023,
-    024,    // 20
-    025,
-    026,
-    027,
-    030,
-    031,
-    032,
-    033,
-    034,    // 30
-    035,
-    036,
-    037,
-    -1,
-    -1,
-    -1,
-    -1, 
-};
+#define RH_DRIVE_COUNT 8
 
 class rh11_c: public storagecontroller_c
 {
@@ -113,7 +42,7 @@ private:
     dma_request_c dma_request = dma_request_c(this); // operated by unibusadapter
     intr_request_c intr_request = intr_request_c(this);
 
-    void invoke_interrupt(void);
+    void Interrupt(void);
     void reset_controller(void);
 
 private:
@@ -134,9 +63,18 @@ public:
     rh11_c();
     virtual ~rh11_c();   
 
+    void BusStatus(bool ready, bool attention, bool error, bool ned);
+
     // Unibus register access (for devices on massbus)
-    void write_register(uint32_t reg, uint16_t value);
-    uint16_t read_register(uint32_t reg);
+    void WriteRegister(uint32_t reg, uint16_t value);
+    uint16_t ReadRegister(uint32_t reg);
+
+    rp_drive_c* GetDrive(uint32_t driveNumber);
+    uint32_t GetBusAddress();
+    uint16_t GetWordCount();
+   
+    bool DMAWrite(uint32_t address, size_t lengthInWords, uint16_t* buffer);
+    uint16_t* DMARead(uint32_t address, size_t lengthInWords);
 
 public:
 

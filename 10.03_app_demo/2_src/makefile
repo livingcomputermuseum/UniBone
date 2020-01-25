@@ -106,6 +106,7 @@ OBJECTS = $(OBJDIR)/application.o	\
 	$(OBJDIR)/mscp_drive.o \
     $(OBJDIR)/rh11.o        \
     $(OBJDIR)/massbus_rp.o  \
+    $(OBJDIR)/rp_drive.o \
 	$(OBJDIR)/rs232.o \
 	$(OBJDIR)/rs232adapter.o \
 	$(OBJDIR)/dl11w.o \
@@ -248,6 +249,9 @@ $(OBJDIR)/massbus_device.o :   $(DEVICE_SRC_DIR)/massbus_device.cpp $(DEVICE_SRC
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/massbus_rp.o :   $(DEVICE_SRC_DIR)/massbus_rp.cpp $(DEVICE_SRC_DIR)/massbus_rp.hpp
+	$(CC) $(CCFLAGS) $< -o $@
+
+$(OBJDIR)/rp_drive.o :   $(DEVICE_SRC_DIR)/rp_drive.cpp $(DEVICE_SRC_DIR)/rp_drive.hpp
 	$(CC) $(CCFLAGS) $< -o $@
 
 $(OBJDIR)/rs232.o :  $(DEVICE_SRC_DIR)/rs232.cpp $(DEVICE_SRC_DIR)/rs232.hpp

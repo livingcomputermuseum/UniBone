@@ -17,6 +17,9 @@ class massbus_device_c
 {
 public:
 
+    // Resets the bus  
+    virtual void Reset() = 0;
+
     //
     // MASSBUS Register Metadata:
     //
