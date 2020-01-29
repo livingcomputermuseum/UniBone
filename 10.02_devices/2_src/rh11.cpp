@@ -107,7 +107,7 @@ rh11_c::rh11_c() :
     // base addr, intr-vector, intr level
     // TODO: make configurable based on type (fixed, tape, moving-head disk)
     //  right now it is hardcoded for moving-head disks.
-    set_default_bus_params(0776700, 11, 0254, 5);
+    set_default_bus_params(0776700, 21, 0254, 6);
 
     _massbus.reset(new massbus_rp_c(this));
 
@@ -146,7 +146,7 @@ rh11_c::rh11_c() :
             RH_reg[i]->active_on_dati = false;
             RH_reg[i]->active_on_dato = true; 
             RH_reg[i]->reset_value = 0;
-            RH_reg[i]->writable_bits = 0xffff;
+            RH_reg[i]->writable_bits = 0xfffe;
             break;
 
         case RHCS2:
@@ -212,11 +212,14 @@ rh11_c::~rh11_c()
 {
 }
 
+// TODO: RENAME!  This is invoked when the drive is finished with the given command.
 void
 rh11_c::BusStatus(
+    bool completion,
     bool ready,
     bool attention,
     bool error,
+    bool avail,
     bool ned)
 {
     INFO("Massbus status update attn %d, error %d, ned %d", attention, error, ned);
@@ -226,11 +229,18 @@ rh11_c::BusStatus(
     
     INFO("RHCS1 is currently o%o", currentStatus); 
 
-    currentStatus &= ~(0140200);  // move to constant 
+    currentStatus &= ~(0140300);  // clear status bits, IE, and GO bit : move to constant 
     currentStatus |=
         (attention ? 0100000 : 0) |   // check when this actually gets set?
         (error ?     0040000 : 0) |
+        (avail ?     0004000 : 0) |  // drive available
         (ready ?     0000200 : 0);   // controller ready bit (should clear when busy)
+
+    if (completion)
+    {
+        // clear the GO bit from the CS word if the drive is finished.
+        currentStatus &= ~(01);
+    }
 
     set_register_dati_value(
         RH_reg[RHCS1],
@@ -254,7 +264,7 @@ rh11_c::BusStatus(
 
     INFO("RHCS2 is now o%o", currentStatus);
  
-    if (attention)
+    if ((attention || ready) && completion)
     {
         Interrupt();
     }
@@ -294,10 +304,98 @@ rh11_c::GetBusAddress()
     return _busAddress;
 }
 
+//
+// Transfers data read from disk to the Unibus.
+// Updates RHBA and RHWC registers appropriately.
+//
+bool
+rh11_c::DiskReadTransfer(
+    uint32_t address,
+    size_t lengthInWords,
+    uint16_t* diskBuffer)
+{
+    // Write the disk data to memory
+    if (DMAWrite(
+            address,
+            lengthInWords,
+            diskBuffer))
+    {
+        IncrementBusAddress(lengthInWords);
+        DecrementWordCount(lengthInWords);
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+//
+// Transfers data from the Unibus to be written to disk.
+// Updates RHBA and RHWC registers appropriately.
+//
+uint16_t*
+rh11_c::DiskWriteTransfer(
+    uint32_t address,
+    size_t lengthInWords)
+{
+    uint16_t* buffer = DMARead(
+        address,
+        lengthInWords);
+
+    if (buffer)
+    {
+        IncrementBusAddress(lengthInWords);
+        DecrementWordCount(lengthInWords);
+    }
+
+    return buffer; 
+}
+
+void
+rh11_c::IncrementBusAddress(uint32_t delta)
+{
+    _busAddress += delta;
+
+    uint16_t currentStatus = get_register_dato_value(RH_reg[RHCS1]);
+
+    // Clear extended address bits
+    currentStatus &= ~(0x300);
+
+    currentStatus |= ((_busAddress & 0x30000) >> 8);
+    set_register_dati_value(
+        RH_reg[RHCS1],
+        currentStatus,
+        "SetBusAddress");
+
+    set_register_dati_value(
+        RH_reg[RHBA],
+        (_busAddress & 0xffff),
+        "IncrementBusAddress");
+
+    INFO("BA Reg incr:  o%o", _busAddress);
+}
+
 uint16_t
 rh11_c::GetWordCount()
 {
     return -get_register_dato_value(RH_reg[RHWC]);
+}
+
+void
+rh11_c::DecrementWordCount(uint16_t delta)
+{
+    uint16_t currentWordCount = get_register_dato_value(RH_reg[RHWC]);
+
+    currentWordCount += delta;
+
+    set_register_dati_value(
+        RH_reg[RHWC],
+        currentWordCount,
+        "DecrementWordCount");
+
+
+    INFO("WC Reg decr:  o%o", currentWordCount);
 }
 
 bool
@@ -323,6 +421,7 @@ rh11_c::DMAWrite(
         lengthInWords);
 
     INFO("Success: %d", dma_request.success);
+    assert(dma_request.success);
 
     return dma_request.success;
 }
@@ -339,8 +438,6 @@ rh11_c::DMARead(
     uint16_t* buffer = new uint16_t[lengthInWords];
     assert (buffer);
   
-    memset(reinterpret_cast<uint8_t*>(buffer), 0xc3, lengthInWords * 2);
-
     unibusadapter->DMA(
         dma_request,
         true,
@@ -355,6 +452,7 @@ rh11_c::DMARead(
     }
     else
     {
+        delete buffer;
         return nullptr;
     }
 }
@@ -412,8 +510,6 @@ void rh11_c::on_after_register_access(
     unibusdevice_register_t *device_reg,
     uint8_t unibus_control)
 {
-    UNUSED(unibus_control);
-
     uint16_t value = device_reg->active_dato_flipflops;
 
     switch(device_reg->index)
@@ -423,15 +519,15 @@ void rh11_c::on_after_register_access(
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
                 // IE bit
-                _interruptEnable = !!(value & 0x40);
+                _interruptEnable = ((value & 0x40) != 0);
 
                 // Extended bus address bits
                 _busAddress = (_busAddress & 0xffff) | ((value & 0x300) << 8);
 
-                // Let the massbus device take a crack at the shared bits
-                _massbus->WriteRegister(_unit, RHCS1, value & 0x3f);
+                INFO("RHCS1: IE %d BA 0%o", _interruptEnable, _busAddress);
 
-                INFO("RHCS1: IE %x BA 0%o", _interruptEnable, _busAddress);
+                // Let the massbus device take a crack at the shared bits
+                _massbus->WriteRegister(_unit, RHCS1, value & 0x3f); 
             }
         }
         break;
@@ -447,12 +543,16 @@ void rh11_c::on_after_register_access(
                 // TODO: handle System Register Clear (bit 5)     
                 if (value & 040) // controller clear
                 {
+                    INFO("Controller Clear");
                     // clear error bits
                     value &= ~(010040);
                     set_register_dati_value(
                         RH_reg[RHCS2],
                         value,
-                        "Reset"); 
+                        "Reset");
+
+                    _interruptEnable = false;
+                    _massbus->Reset(); 
                 }
                 INFO("RHCS2: unit %d", _unit); 
             }
@@ -489,6 +589,7 @@ void rh11_c::on_after_register_access(
                 }
                 else
                 {
+                    INFO("massbus reg read %o", device_reg->index);
                     set_register_dati_value(
                         device_reg,
                         _massbus->ReadRegister(_unit, _unibusToMassbusRegisterMap[device_reg->index]),
@@ -506,10 +607,15 @@ void rh11_c::on_after_register_access(
 
 void rh11_c::Interrupt(void)
 {
+    INFO("interrupt enable is %d", _interruptEnable);
     if(_interruptEnable)
     {
         INFO("Interrupt!");
         unibusadapter->INTR(intr_request, nullptr, 0);
+
+        // IE is cleared after the interrupt is raised
+        // Actual bit is cleared in BusStatus, this should be fixed.
+        _interruptEnable = false;
     }
 }
 

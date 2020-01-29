@@ -108,6 +108,9 @@ private:
         volatile uint32_t bus_address;
         volatile uint32_t word_count;
         volatile FunctionCode function;
+        volatile uint32_t cylinder;
+        volatile uint32_t track;
+        volatile uint32_t sector;
         volatile bool     ready;
     } _newCommand; 
 
@@ -123,10 +126,11 @@ private:
     void on_power_changed(void) override;
     void on_init_changed(void) override;
 
-    void UpdateStatus();
+    void UpdateStatus(bool completion);
     void UpdateDesiredSectorTrack();
     void UpdateDesiredCylinder();
     void UpdateOffset();
+    void UpdateCurrentCylinder();
 
     rp_drive_c* SelectedDrive();
 
@@ -140,7 +144,7 @@ private:
         { "CS1",  false, 0, 0177700 },           // Status
         { "ER1",  false, true , 0, 0177777 },           // Error #1 - writable by diagnostics
         { "MR" ,  false, true , 0, 0177777 },           // Maintenance 
-        { "ATN",  false, false, 0, 0 },                 // Attention summary
+        { "ATN",  false, true,  0, 0377 },              // Attention summary
         { "DA" ,  false, true,  0, 0017437 },           // Desired Sector/Track
         { "LA" ,  false, false, 0, 0 },                 // Look Ahead 
         { "DT" ,  false, false, 0, 0 },                 // Drive Type
@@ -155,29 +159,28 @@ private:
     };
 
     // Unit selected by last command register write
-    uint32_t _selectedUnit;
+    volatile uint32_t _selectedUnit;
 
     // Register data
-    uint16_t _status;
-    uint16_t _error1;
-    uint16_t _maint;
-    uint16_t _attn;
-    uint16_t _desiredSector;
-    uint16_t _desiredTrack;
-    uint16_t _offset;
-    uint16_t _desiredCylinder;
-    uint16_t _currentCylinder;
-    uint16_t _error2;
-    uint16_t _error3;
+    volatile uint16_t _status;
+    volatile uint16_t _error1;
+    volatile uint16_t _maint;
+    volatile uint16_t _attnSummary;
+    volatile uint16_t _desiredSector;
+    volatile uint16_t _desiredTrack;
+    volatile uint16_t _offset;
+    volatile uint16_t _desiredCylinder;
+    volatile uint16_t _currentCylinder;
+    volatile uint16_t _error2;
+    volatile uint16_t _error3;
 
     // Status bits that we track
-    bool _vv;
-    bool _err;
-    bool _ata;
+    volatile bool _err;
+    volatile bool _ata;
 
     // RH11 ready signal (ugly: this should be in the rh11 code!)
-    bool _ready;
-    bool _ned;  // ditto
+    volatile bool _ready;
+    volatile bool _ned;  // ditto
 
     // Worker thread
     pthread_t        _workerThread;

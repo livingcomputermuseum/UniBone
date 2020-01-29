@@ -34,11 +34,11 @@ massbus_rp_c::massbus_rp_c(
        _workerState(WorkerState::Idle),
        _workerWakeupCond(PTHREAD_COND_INITIALIZER),
        _workerMutex(PTHREAD_MUTEX_INITIALIZER),
-       _vv(false),
        _err(false),
        _ata(false),
        _ready(true),
-       _ned(false) 
+       _ned(false),
+       _attnSummary(0)
 {
     name.value="MASSBUS_RP";
     type_name.value = "massbus_rp_c";
@@ -135,7 +135,15 @@ massbus_rp_c::WriteRegister(
             UpdateDesiredCylinder();
 
             INFO("Desired Cylinder Address o%o (o%o)", _desiredCylinder, value);
-            break; 
+            break;
+
+        case Registers::AttentionSummary:
+            // Clear bits in the Attention Summary register specified in the
+            // written value:
+            _attnSummary &= ~(value & 0xff);
+            _controller->WriteRegister(static_cast<uint32_t>(Registers::AttentionSummary), _attnSummary);
+            INFO("Attention Summary write o%o, value is now o%o", value, _attnSummary); 
+            break;
 
         default:
             FATAL("Unimplemented RP register write.");
@@ -155,7 +163,7 @@ void massbus_rp_c::DoCommand(
 
     FunctionCode function = static_cast<FunctionCode>((command & RP_FUNC) >> 1);
     _selectedUnit = unit;
- 
+
     INFO("RP function 0%o, unit %o", function, _selectedUnit);
 
     if (!SelectedDrive()->IsAvailable())
@@ -163,9 +171,10 @@ void massbus_rp_c::DoCommand(
         // Early return for disconnected drives;
         // set NED and ERR bits
         _err = true;
+        _ata = true;
         _ned = true;  // TODO: should be done at RH11 level!
-        _vv = false;
-        UpdateStatus();
+        SelectedDrive()->ClearVolumeValid();
+        UpdateStatus(true);
         return;
     }
 
@@ -175,6 +184,8 @@ void massbus_rp_c::DoCommand(
     {
         case FunctionCode::Nop:
             // Nothing.
+            _ata = false;
+            UpdateStatus(true);
             break;
 
         case FunctionCode::ReadInPreset:
@@ -184,11 +195,14 @@ void massbus_rp_c::DoCommand(
             //  sector/track address register, and clears the FMT, HCI, and ECI
             //  bits in the offset register.  It is used to bootstrap the device."
             //
-            _vv = true;
+            SelectedDrive()->SetVolumeValid();
+            SelectedDrive()->SetDriveReady(); 
             _desiredSector = 0;
             _desiredTrack = 0;
             _offset = 0;
-            UpdateStatus();
+            _ata = false;
+            _ready = true;
+            UpdateStatus(true);
             UpdateDesiredSectorTrack();
             UpdateOffset(); 
             break;
@@ -199,17 +213,6 @@ void massbus_rp_c::DoCommand(
         case FunctionCode::ReadHeaderAndData:
         case FunctionCode::Search:
             INFO("RP Read/Write Data or Search");   
-
-            // Ensure the drive is ready, error if not
-            if (!SelectedDrive()->IsDriveReady())
-            {
-                _vv = false;
-                _err = true;
-                _ata = true;
-                _ready = true;
-                UpdateStatus();    
-            }
-            else
             {
                 // Clear the unit's DRY bit
                 SelectedDrive()->ClearDriveReady();
@@ -222,17 +225,19 @@ void massbus_rp_c::DoCommand(
                 // Clear ATA and READY
                 _ata = false;
                 _ready = false;
-                UpdateStatus();
+                UpdateStatus(false);
 
                 pthread_mutex_lock(&_workerMutex);
 
                 // Save a copy of command data for the worker to consume
                 _newCommand.unit = _selectedUnit;
                 _newCommand.function = function;
+                _newCommand.cylinder = _desiredCylinder;
+                _newCommand.track = _desiredTrack;
+                _newCommand.sector = _desiredSector;
                 _newCommand.bus_address = _controller->GetBusAddress();
                 _newCommand.word_count = _controller->GetWordCount();
                 _newCommand.ready = true;
-
 
                 // Wake the worker
                 pthread_cond_signal(&_workerWakeupCond);
@@ -252,9 +257,9 @@ massbus_rp_c::ReadRegister(
     uint32_t unit, 
     uint32_t reg)
 {
-    INFO("RP reg read: unit %d register 0%o", unit, reg);
+    INFO("*** RP reg read: unit %d register 0%o", unit, reg);
    
-    FATAL("Unimplemented RP register read.");
+    FATAL("Unimplemented register read %o", reg);
  
     return 0;
 }
@@ -263,7 +268,8 @@ massbus_rp_c::ReadRegister(
 // Register update functions
 //
 void
-massbus_rp_c::UpdateStatus()
+massbus_rp_c::UpdateStatus(
+   bool complete)
 {
 
    _error1 =
@@ -274,6 +280,7 @@ massbus_rp_c::UpdateStatus()
    if (_error1 != 0)
    {
        _err = true;
+       _ata = true;
    }
    else
    {
@@ -281,7 +288,7 @@ massbus_rp_c::UpdateStatus()
    }
 
    _status =
-        (_vv ? 0100 : 0) |
+        (SelectedDrive()->GetVolumeValid() ? 0100 : 0) |
         (SelectedDrive()->IsDriveReady() ? 0200 : 0) |
         (0400) |    // Drive preset -- always set for a single-controller disk
         (SelectedDrive()->GetReadLastSector() ? 02000 : 0) |   // Last sector read
@@ -291,11 +298,22 @@ massbus_rp_c::UpdateStatus()
         (_err ? 040000 : 0) |  // Composite error
         (_ata ? 0100000 : 0);
 
+   INFO("Unit %d Status: o%o", _selectedUnit, _status);
    _controller->WriteRegister(static_cast<uint32_t>(Registers::Status), _status);
    _controller->WriteRegister(static_cast<uint32_t>(Registers::Error1), _error1);
 
+   // Update the Attention Summary register if this disk is online:
+
+   if (_ata && SelectedDrive()->IsAvailable())
+   {
+       _attnSummary |= (0x1 << _selectedUnit);  // TODO: these only get set, and are latched until
+                                                // manually cleared?
+   }
+
+   _controller->WriteRegister(static_cast<uint32_t>(Registers::AttentionSummary), _attnSummary);
+
    // Inform controller of status update.
-   _controller->BusStatus(_ready, _ata, _err, _ned);
+   _controller->BusStatus(complete, _ready, _ata, _err, SelectedDrive()->IsAvailable(), _ned);
 }
 
 void
@@ -303,6 +321,10 @@ massbus_rp_c::UpdateDesiredSectorTrack()
 {
    uint16_t desiredSectorTrack = (_desiredSector | (_desiredTrack << 8));
    _controller->WriteRegister(static_cast<uint32_t>(Registers::DesiredSectorTrackAddress), desiredSectorTrack);
+
+   // Fudge: We update the look-ahead sector value to be the last-requested sector - 1
+   uint16_t lookAhead = (((_desiredSector - 5) % 22) << 6);
+   _controller->WriteRegister(static_cast<uint32_t>(Registers::LookAhead), lookAhead);
 }
 
 void
@@ -318,6 +340,13 @@ massbus_rp_c::UpdateOffset()
 }
 
 void
+massbus_rp_c::UpdateCurrentCylinder()
+{
+   _controller->WriteRegister(static_cast<uint32_t>(Registers::CurrentCylinderAddress), 
+       SelectedDrive()->GetCurrentCylinder());
+}
+
+void
 massbus_rp_c::Reset()
 {
     // TODO: reset all drives
@@ -325,7 +354,8 @@ massbus_rp_c::Reset()
     // Reset registers to their defaults
     _ata = false;
     _ready = true;
-    UpdateStatus();
+    _attnSummary = 0;
+    UpdateStatus(false);
 
     _desiredSector = 0;
     _desiredTrack = 0;
@@ -333,6 +363,8 @@ massbus_rp_c::Reset()
 
     _desiredCylinder = 0;
     UpdateDesiredCylinder();
+
+    UpdateCurrentCylinder();
 
     _offset = 0;
     UpdateOffset(); 
@@ -380,7 +412,6 @@ massbus_rp_c::Worker()
                 pthread_mutex_unlock(&_workerMutex);
 
                 _workerState = WorkerState::Execute;
-                INFO("worker awoken.");
                 break;
            
             case WorkerState::Execute:
@@ -389,24 +420,24 @@ massbus_rp_c::Worker()
                     case FunctionCode::ReadData:
                     {
                         INFO("READ CHS %d/%d/%d, %d words to address o%o",  
-                            _desiredCylinder, 
-                            _desiredTrack, 
-                            _desiredSector,
+                            _newCommand.cylinder, 
+                            _newCommand.track,
+                            _newCommand.sector,
                             _newCommand.word_count,
                             _newCommand.bus_address);
 
                         uint16_t* buffer = nullptr;
                         if (SelectedDrive()->Read(
-                                _desiredCylinder,
-                                _desiredTrack,
-                                _desiredSector,
+                                _newCommand.cylinder,
+                                _newCommand.track,
+                                _newCommand.sector,
                                 _newCommand.word_count,
                                 &buffer))
                         {
                             //
                             // Data read: do DMA transfer to memory.
                             //
-                            _controller->DMAWrite(
+                            _controller->DiskReadTransfer(
                                 _newCommand.bus_address,
                                 _newCommand.word_count,
                                 buffer);
@@ -418,15 +449,14 @@ massbus_rp_c::Worker()
                         {
                             // Read failed: 
                             INFO("Read failed.");
+                            _ata = true;
                         }
 
                         // Return drive to ready state
                         SelectedDrive()->SetDriveReady();
                        
-                        // Signal attention and update status. 
-                        _ata = true;
+                        // Signal ready status. 
                         _ready = true;
-                        UpdateStatus();
                         _workerState = WorkerState::Finish;
                     }
                     break;
@@ -434,25 +464,29 @@ massbus_rp_c::Worker()
                     case FunctionCode::WriteData:
                     {
                         INFO("WRITE CHS %d/%d/%d, %d words from address o%o",
-                            _desiredCylinder,
-                            _desiredTrack,
-                            _desiredSector,
+                            _newCommand.cylinder,
+                            _newCommand.track,
+                            _newCommand.sector,
                             _newCommand.word_count,
                             _newCommand.bus_address);
 
-                        
-                        uint16_t* buffer = new uint16_t[_newCommand.word_count];
-                        assert(buffer);
+                        //
+                        // Data write: do DMA transfer from memory.
+                        //
+                        uint16_t* buffer = _controller->DiskWriteTransfer(
+                            _newCommand.bus_address,
+                            _newCommand.word_count);
 
-                        if (!SelectedDrive()->Write(
-                                _desiredCylinder,
-                                _desiredTrack,
-                                _desiredSector,
+                        if (!buffer || !SelectedDrive()->Write(
+                                _newCommand.cylinder,
+                                _newCommand.track,
+                                _newCommand.sector,
                                 _newCommand.word_count,
                                 buffer))
                         {
                             // Write failed:
                             INFO("Write failed.");
+                            _ata = true;
                         }
 
                         delete buffer;
@@ -460,10 +494,8 @@ massbus_rp_c::Worker()
                         // Return drive to ready state
                         SelectedDrive()->SetDriveReady();
 
-                        // Signal attention and update status.
-                        _ata = true;
+                        // Signal ready status.
                         _ready = true;
-                        UpdateStatus();
                         _workerState = WorkerState::Finish;
                     }
                     break;
@@ -471,24 +503,24 @@ massbus_rp_c::Worker()
                     case FunctionCode::Search:
                     {
                         INFO("SEARCH CHS %d/%d/%d",
-                            _desiredCylinder,
-                            _desiredTrack,
-                            _desiredSector);
+                            _newCommand.cylinder,
+                            _newCommand.track,
+                            _newCommand.sector);
 
                         if (!SelectedDrive()->Search(
-                                 _desiredCylinder,
-                                 _desiredTrack,
-                                 _desiredSector))
+                                 _newCommand.cylinder,
+                                 _newCommand.track,
+                                 _newCommand.sector)) 
                         {
                             // Search failed
                             INFO("Search failed");
                         }
 
-                        // Return to ready state
+
+                        // Return to ready state, set attention bit.
                         SelectedDrive()->SetDriveReady();
                         _ata = true;
                         _ready = true;
-                        UpdateStatus();
                         _workerState = WorkerState::Finish;
                     }
                     break;
@@ -503,7 +535,8 @@ massbus_rp_c::Worker()
             case WorkerState::Finish:
                 _workerState = WorkerState::Idle;
                 SelectedDrive()->SetDriveReady();
-                UpdateStatus();
+                UpdateCurrentCylinder(); 
+                UpdateStatus(true);
                 break; 
                 
         }

@@ -39,7 +39,10 @@ public:
     bool GetWriteLockError(void) { return _wle; }
     void SetDriveReady(void) { _ready = true; }
     void ClearDriveReady(void) { _ready = false; }
-
+    void SetVolumeValid(void) { _vv = true; }
+    void ClearVolumeValid(void) { _vv = false; }
+    bool GetVolumeValid(void) { return _vv; }
+  
     bool SeekTo(uint32_t cylinder);
     uint32_t GetCurrentCylinder();
 
@@ -60,6 +63,7 @@ private:
     bool _iae;
     bool _wle;
     bool _pip;
+    bool _vv;
 
     bool ValidateCHS(uint32_t cylinder, uint32_t track, uint32_t sector);
     uint32_t GetSectorForCHS(uint32_t cylinder, uint32_t track, uint32_t sector);

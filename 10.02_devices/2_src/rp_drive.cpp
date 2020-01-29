@@ -23,7 +23,8 @@ rp_drive_c::rp_drive_c(storagecontroller_c *controller, uint32_t driveNumber) :
      _aoe(false),
      _iae(false),
      _wle(false),
-     _pip(false)
+     _pip(false),
+     _vv(false) 
 {
     set_workers_count(0) ; // needs no worker()
     log_label = "RP";
@@ -142,6 +143,7 @@ rp_drive_c::Write(
     }
     else
     {
+        _currentCylinder = cylinder;
         uint32_t offset = GetSectorForCHS(cylinder, track, sector);
         file_write(reinterpret_cast<uint8_t*>(buffer), offset * GetSectorSize(), countInWords * 2);
         return true;
@@ -173,6 +175,8 @@ rp_drive_c::Read(
     }
     else
     {
+        _currentCylinder = cylinder;
+
         *buffer = new uint16_t[countInWords];
 
         assert(nullptr != *buffer);
@@ -180,6 +184,7 @@ rp_drive_c::Read(
         uint32_t offset = GetSectorForCHS(cylinder, track, sector);
         INFO("Read from sector offset o%o", offset);
         file_read(reinterpret_cast<uint8_t*>(*buffer), offset * GetSectorSize(), countInWords * 2);
+
         return true;
     }
 }
@@ -205,8 +210,10 @@ rp_drive_c::Search(
         INFO("Search commencing.");
         _pip = true;
 
-        timeout.wait_ms(50);
+        timeout.wait_ms(500);
         _pip = false;
+
+        _currentCylinder = cylinder;
 
         return true;
     }

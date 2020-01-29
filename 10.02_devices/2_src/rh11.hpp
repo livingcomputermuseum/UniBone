@@ -45,25 +45,31 @@ private:
     void Interrupt(void);
     void reset_controller(void);
 
+    void IncrementBusAddress(uint32_t delta);
+    void DecrementWordCount(uint16_t delta);
+   
+    bool DMAWrite(uint32_t address, size_t lengthInWords, uint16_t* buffer);
+    uint16_t* DMARead(uint32_t address, size_t lengthInWords);
+
 private:
 
     std::unique_ptr<massbus_device_c> _massbus;
 
     // Control & Status reg 1 bits
-    bool _interruptEnable;
-    uint32_t _busAddress;
+    volatile bool _interruptEnable;
+    volatile uint32_t _busAddress;
 
     // Control & Status reg 2 bits
-    uint16_t _unit;
-    bool _busAddressIncrementProhibit; 
-    bool _parityTest;
+    volatile uint16_t _unit;
+    volatile bool _busAddressIncrementProhibit; 
+    volatile bool _parityTest;
 	
 public:
 
     rh11_c();
     virtual ~rh11_c();   
 
-    void BusStatus(bool ready, bool attention, bool error, bool ned);
+    void BusStatus(bool completion, bool ready, bool attention, bool error, bool avail, bool ned);
 
     // Unibus register access (for devices on massbus)
     void WriteRegister(uint32_t reg, uint16_t value);
@@ -73,9 +79,9 @@ public:
     uint32_t GetBusAddress();
     uint16_t GetWordCount();
    
-    bool DMAWrite(uint32_t address, size_t lengthInWords, uint16_t* buffer);
-    uint16_t* DMARead(uint32_t address, size_t lengthInWords);
-
+    bool DiskReadTransfer(uint32_t address, size_t lengthInWords, uint16_t* buffer);
+    uint16_t* DiskWriteTransfer(uint32_t address, size_t lengthInWords);
+ 
 public:
 
     // background worker function
