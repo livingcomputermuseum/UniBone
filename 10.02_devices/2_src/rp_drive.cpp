@@ -208,11 +208,9 @@ rp_drive_c::Search(
         timeout_c timeout;
          
         INFO("Search commencing.");
-        _pip = true;
-
-        timeout.wait_ms(500);
+        timeout.wait_ms(30);
         _pip = false;
-
+        INFO("Search completed.");
         _currentCylinder = cylinder;
 
         return true;

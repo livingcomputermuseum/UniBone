@@ -23,6 +23,11 @@ public:
     //
     // MASSBUS Register Metadata:
     //
+
+    // The total number of registers (including RH11 registers) exposed
+    // by this device.  
+    virtual uint32_t GetRegisterCount() = 0;
+
     // Indicates whether this device implements the specified register.
     virtual bool ImplementsRegister(uint32_t register) = 0;
 

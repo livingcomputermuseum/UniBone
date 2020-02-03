@@ -36,9 +36,9 @@ massbus_rp_c::massbus_rp_c(
        _workerMutex(PTHREAD_MUTEX_INITIALIZER),
        _err(false),
        _ata(false),
-       _ready(true),
        _ned(false),
-       _attnSummary(0)
+       _attnSummary(0),
+       _rmr(false)
 {
     name.value="MASSBUS_RP";
     type_name.value = "massbus_rp_c";
@@ -114,6 +114,20 @@ massbus_rp_c::WriteRegister(
 {
     INFO("RP reg write: unit %d register 0%o value 0%o", unit, reg, value);
 
+    if (!SelectedDrive()->IsDriveReady() && 
+        reg != 0 &&    // CS1 is allowed as long as GO isn't set (will be checked in DoCommand) 
+        reg != (uint32_t)Registers::AttentionSummary)
+    {
+        // Any attempt to modify a drive register other than Attention Summary
+        // while the drive is busy is invalid.
+        INFO("Register modification while drive busy.");
+        _rmr = true;
+        UpdateStatus(false);
+        return;
+    }
+
+    static uint32_t frup = 0;
+
     switch(static_cast<Registers>(reg))
     {
         case Registers::Control:
@@ -141,9 +155,17 @@ massbus_rp_c::WriteRegister(
             // Clear bits in the Attention Summary register specified in the
             // written value:
             _attnSummary &= ~(value & 0xff);
-            _controller->WriteRegister(static_cast<uint32_t>(Registers::AttentionSummary), _attnSummary);
+            _controller->WriteRegister(reg, _attnSummary);
             INFO("Attention Summary write o%o, value is now o%o", value, _attnSummary); 
             break;
+
+        case Registers::Error1:
+            // Clear any bits in the Error 1 Register specified in the
+            // written value:
+            _error1 &= ~(value & 0xff);
+            _controller->WriteRegister(reg, _error1);
+            INFO("Error 1 Reg write o%o, value is now o%o", value, _error1);
+            break;            
 
         default:
             FATAL("Unimplemented RP register write.");
@@ -178,13 +200,19 @@ void massbus_rp_c::DoCommand(
         return;
     }
 
+    if (!SelectedDrive()->IsDriveReady())
+    {
+        // This should never happen.
+        FATAL("Command sent while not ready!");
+    }
+
     _ned = false;
+    _ata = false;
 
     switch(static_cast<FunctionCode>(function))
     {
         case FunctionCode::Nop:
             // Nothing.
-            _ata = false;
             UpdateStatus(true);
             break;
 
@@ -200,11 +228,9 @@ void massbus_rp_c::DoCommand(
             _desiredSector = 0;
             _desiredTrack = 0;
             _offset = 0;
-            _ata = false;
-            _ready = true;
-            UpdateStatus(true);
             UpdateDesiredSectorTrack();
-            UpdateOffset(); 
+            UpdateOffset();
+            UpdateStatus(false);  /* do not interrupt */
             break;
 
         case FunctionCode::ReadData:
@@ -222,9 +248,7 @@ void massbus_rp_c::DoCommand(
                      SelectedDrive()->SetPositioningInProgress();
                 }
  
-                // Clear ATA and READY
-                _ata = false;
-                _ready = false;
+                // Clear READY 
                 UpdateStatus(false);
 
                 pthread_mutex_lock(&_workerMutex);
@@ -273,6 +297,7 @@ massbus_rp_c::UpdateStatus(
 {
 
    _error1 =
+       (_rmr ? 04 : 0) |
        (SelectedDrive()->GetAddressOverflow() ? 01000 : 0) |
        (SelectedDrive()->GetInvalidAddress()  ? 02000 : 0) |
        (SelectedDrive()->GetWriteLockError()  ? 04000 : 0);
@@ -308,12 +333,13 @@ massbus_rp_c::UpdateStatus(
    {
        _attnSummary |= (0x1 << _selectedUnit);  // TODO: these only get set, and are latched until
                                                 // manually cleared?
+       INFO("Attention Summary is now o%o", _attnSummary); 
    }
 
    _controller->WriteRegister(static_cast<uint32_t>(Registers::AttentionSummary), _attnSummary);
 
    // Inform controller of status update.
-   _controller->BusStatus(complete, _ready, _ata, _err, SelectedDrive()->IsAvailable(), _ned);
+   _controller->BusStatus(complete, SelectedDrive()->IsDriveReady(), _ata, _err, SelectedDrive()->IsAvailable(), _ned);
 }
 
 void
@@ -323,7 +349,7 @@ massbus_rp_c::UpdateDesiredSectorTrack()
    _controller->WriteRegister(static_cast<uint32_t>(Registers::DesiredSectorTrackAddress), desiredSectorTrack);
 
    // Fudge: We update the look-ahead sector value to be the last-requested sector - 1
-   uint16_t lookAhead = (((_desiredSector - 5) % 22) << 6);
+   uint16_t lookAhead = (((_desiredSector - 1) % 22) << 6);
    _controller->WriteRegister(static_cast<uint32_t>(Registers::LookAhead), lookAhead);
 }
 
@@ -353,8 +379,9 @@ massbus_rp_c::Reset()
 
     // Reset registers to their defaults
     _ata = false;
-    _ready = true;
     _attnSummary = 0;
+    _error1 = 0;
+    _rmr = false;
     UpdateStatus(false);
 
     _desiredSector = 0;
@@ -455,8 +482,6 @@ massbus_rp_c::Worker()
                         // Return drive to ready state
                         SelectedDrive()->SetDriveReady();
                        
-                        // Signal ready status. 
-                        _ready = true;
                         _workerState = WorkerState::Finish;
                     }
                     break;
@@ -494,8 +519,6 @@ massbus_rp_c::Worker()
                         // Return drive to ready state
                         SelectedDrive()->SetDriveReady();
 
-                        // Signal ready status.
-                        _ready = true;
                         _workerState = WorkerState::Finish;
                     }
                     break;
@@ -520,7 +543,6 @@ massbus_rp_c::Worker()
                         // Return to ready state, set attention bit.
                         SelectedDrive()->SetDriveReady();
                         _ata = true;
-                        _ready = true;
                         _workerState = WorkerState::Finish;
                     }
                     break;

@@ -107,14 +107,14 @@ rh11_c::rh11_c() :
     // base addr, intr-vector, intr level
     // TODO: make configurable based on type (fixed, tape, moving-head disk)
     //  right now it is hardcoded for moving-head disks.
-    set_default_bus_params(0776700, 21, 0254, 6);
+    set_default_bus_params(0776700, 5, 0254, 6);
 
     _massbus.reset(new massbus_rp_c(this));
 
     // The RH11 controller exposes up to 32 registers, not all are used
     // and use depends on the devices attached to the MASSBUS.
     // TODO: What does an RH11 do when an unimplemented register is accessed?
-    register_count = 32;
+    register_count = _massbus->GetRegisterCount();
 
     for (int i=0; i<register_count; i++)
     {
@@ -127,8 +127,8 @@ rh11_c::rh11_c() :
             strcpy(RH_reg[i]->name, "RHCS1");
             RH_reg[i]->active_on_dati = false;
             RH_reg[i]->active_on_dato = true;
-            RH_reg[i]->reset_value = 0x0080; 
-            RH_reg[i]->writable_bits = 0x037f;
+            RH_reg[i]->reset_value = 0000200; 
+            RH_reg[i]->writable_bits = 041577;
             break;
 
         case RHWC:
@@ -137,7 +137,7 @@ rh11_c::rh11_c() :
             RH_reg[i]->active_on_dati = false;
             RH_reg[i]->active_on_dato = true;
             RH_reg[i]->reset_value = 0;
-            RH_reg[i]->writable_bits = 0xffff;
+            RH_reg[i]->writable_bits = 0177777;
             break;
 
         case RHBA:
@@ -146,7 +146,7 @@ rh11_c::rh11_c() :
             RH_reg[i]->active_on_dati = false;
             RH_reg[i]->active_on_dato = true; 
             RH_reg[i]->reset_value = 0;
-            RH_reg[i]->writable_bits = 0xfffe;
+            RH_reg[i]->writable_bits = 0177776;
             break;
 
         case RHCS2:
@@ -155,7 +155,7 @@ rh11_c::rh11_c() :
             RH_reg[i]->active_on_dati = false;
             RH_reg[i]->active_on_dato = true;
             RH_reg[i]->reset_value = 0;
-            RH_reg[i]->writable_bits = 0x223f;
+            RH_reg[i]->writable_bits = 0021077;
             break;
 
         case RHDB:
@@ -164,7 +164,7 @@ rh11_c::rh11_c() :
             RH_reg[i]->active_on_dati = false;
             RH_reg[i]->active_on_dato = false;
             RH_reg[i]->reset_value = 0;
-            RH_reg[i]->writable_bits = 0xffff;
+            RH_reg[i]->writable_bits = 0177777;
             break;
 
         default:
@@ -229,17 +229,17 @@ rh11_c::BusStatus(
     
     INFO("RHCS1 is currently o%o", currentStatus); 
 
-    currentStatus &= ~(0140300);  // clear status bits, IE, and GO bit : move to constant 
+    currentStatus &= ~(0144300);  // clear status bits, IE, and GO bit : move to constant 
     currentStatus |=
         (attention ? 0100000 : 0) |   // check when this actually gets set?
         (error ?     0040000 : 0) |
         (avail ?     0004000 : 0) |  // drive available
-        (ready ?     0000200 : 0);   // controller ready bit (should clear when busy)
+        (ready ?     0000200 : 0);   // controller ready bit 
 
     if (completion)
     {
         // clear the GO bit from the CS word if the drive is finished.
-        currentStatus &= ~(01);
+        currentStatus &= ~(01); 
     }
 
     set_register_dati_value(
@@ -326,6 +326,8 @@ rh11_c::DiskReadTransfer(
     }
     else
     {
+        // TODO: raise errors, etc.
+        FATAL("DMA Write failed!");
         return false;
     }
 }
@@ -347,6 +349,11 @@ rh11_c::DiskWriteTransfer(
     {
         IncrementBusAddress(lengthInWords);
         DecrementWordCount(lengthInWords);
+    }
+    else
+    {
+        // TODO: raise errors, etc.
+        FATAL("DMA Read failed!"); 
     }
 
     return buffer; 
@@ -607,7 +614,6 @@ void rh11_c::on_after_register_access(
 
 void rh11_c::Interrupt(void)
 {
-    INFO("interrupt enable is %d", _interruptEnable);
     if(_interruptEnable)
     {
         INFO("Interrupt!");

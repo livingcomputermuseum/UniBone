@@ -87,6 +87,12 @@ public:
 public:
     void Reset();
 
+    uint32_t GetRegisterCount() override
+    {
+        // Total registers for RH11 + RP06:
+        return 20;
+    }
+
     bool ImplementsRegister(uint32_t register) override;
     std::string RegisterName(uint32_t register) override;
 
@@ -141,9 +147,9 @@ private:
     {
        // Name    DATI   DATO
         { "INV",  false, false, 0, 0 },			// 0, not used
-        { "CS1",  false, 0, 0177700 },           // Status
-        { "ER1",  false, true , 0, 0177777 },           // Error #1 - writable by diagnostics
-        { "MR" ,  false, true , 0, 0177777 },           // Maintenance 
+        { "CS1",  false, true,  0, 0401477 },           // Status
+        { "ER1",  false, true,  0, 0177777 },           // Error #1 - writable by diagnostics
+        { "MR" ,  false, true,  0, 0177777 },           // Maintenance 
         { "ATN",  false, true,  0, 0377 },              // Attention summary
         { "DA" ,  false, true,  0, 0017437 },           // Desired Sector/Track
         { "LA" ,  false, false, 0, 0 },                 // Look Ahead 
@@ -177,9 +183,9 @@ private:
     // Status bits that we track
     volatile bool _err;
     volatile bool _ata;
+    volatile bool _rmr;
 
     // RH11 ready signal (ugly: this should be in the rh11 code!)
-    volatile bool _ready;
     volatile bool _ned;  // ditto
 
     // Worker thread
