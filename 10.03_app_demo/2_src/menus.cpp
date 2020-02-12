@@ -121,12 +121,14 @@ void application_c::print_arbitration_info(const char *indent) {
 /*
  * read character string from stdin
  */
-char *application_c::getchoice(void) {
+char *application_c::getchoice(const char *menu_code) {
+	char	prompt[256] ;
 	static char s_choice[255];
 
+	sprintf(prompt, "%s>>>", menu_code) ;
 	do {
 		printf("\n");
-		inputline.readline(s_choice, (int) sizeof(s_choice), ">>>");
+		inputline.readline(s_choice, (int) sizeof(s_choice), prompt);
 		//char *s;
 		// do {
 		// s_choice[0] = '\0'; //  empty buffer.
@@ -192,7 +194,8 @@ bool application_c::emulate_memory() {
 /**********************************************
  * Print info()
  * */
-void application_c::menu_info(void) {
+void application_c::menu_info(const char *menu_code) {
+	UNUSED(menu_code) ;
 	printf("Build timestamp: " __DATE__ " " __TIME__ "\n\n");
 	printf("Test setup:\n");
 	printf("UniBone must be plugged into SPC slots C-F on a DD11-CK backplane.\n");
@@ -294,7 +297,7 @@ void application_c::menu_main(void) {
 				"m           Full memory slave emulation with DMA bus master functions by PDP-11 CPU.\n");
 		printf("i           Info, help\n");
 		printf("q           Quit\n");
-		s_choice = getchoice();
+		s_choice = getchoice("");
 
 		n_fields = sscanf(s_choice, "%s %d", opcode, &numarg);
 		if (n_fields > 0) {
@@ -303,31 +306,31 @@ void application_c::menu_main(void) {
 				// } else if (!strcasecmp(opcode, "a")) {
 				//	unibus->arbitrator_client = !!numarg;
 			} else if (!strcasecmp(opcode, "tg")) {
-				menu_gpio();
+				menu_gpio("TG");
 			} else if (!strcasecmp(opcode, "tp")) {
-				menu_panel();
+				menu_panel("TP");
 				//} else if (!strcasecmp(opcode, "tx")) {
 				//	menu_mailbox();
 			} else if (!strcasecmp(opcode, "tl")) {
-				menu_buslatches();
+				menu_buslatches("TL");
 			} else if (!strcasecmp(opcode, "us")) {
-				menu_unibus_signals();
+				menu_unibus_signals("US");
 			} else if (!strcasecmp(opcode, "tm")) {
-				menu_masterslave(/*with_CPU*/false);
+				menu_masterslave("TM",/*with_CPU*/false);
 			} else if (!strcasecmp(opcode, "ts")) {
-				menu_ddrmem_slave_only();
+				menu_ddrmem_slave_only("TS");
 			} else if (!strcasecmp(opcode, "ti")) {
-				menu_interrupts();
+				menu_interrupts("TI");
 			} else if (!strcasecmp(opcode, "d")) {
-				menu_devices(false);
+				menu_devices("D", false);
 			} else if (!strcasecmp(opcode, "dc")) {
-				menu_devices(true);
+				menu_devices("DC", true);
 			} else if (!strcasecmp(opcode, "de")) {
-				menu_device_exercisers();
+				menu_device_exercisers("DE");
 			} else if (!strcasecmp(opcode, "m")) {
-				menu_masterslave(/*with_CPU*/true);
+				menu_masterslave("M", /*with_CPU*/true);
 			} else if (!strcasecmp(opcode, "i")) {
-				menu_info();
+				menu_info("I");
 			}
 		}
 	} while (!ready);

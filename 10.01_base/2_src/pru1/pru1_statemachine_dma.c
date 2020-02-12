@@ -348,6 +348,8 @@ static statemachine_state_func sm_dma_state_99() {
 			PRU2ARM_INTERRUPT
 			;
 		}
+//		PRU_DEBUG_PIN0_PULSE(50) ;  // CPU20 performace
+		
 		return NULL; // now stopped
 	}
 }

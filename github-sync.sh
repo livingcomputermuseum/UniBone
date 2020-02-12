@@ -22,6 +22,9 @@ sudo apt install subversion
 svn export --force ${GITURL}/trunk  .
 # This will not clear outdated files, they will remain as junk.
 
+# Generating shortcuts for demo scripts in ~ home directory
+find 10.03_app_demo/5* -name \*.sh -exec ln -sf {} $HOME \;
+
 # Assure all shell scripts are executable
 find . -name '*.sh' -exec chmod +x '{}' \;
 

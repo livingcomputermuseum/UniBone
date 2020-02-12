@@ -78,7 +78,7 @@ public:
 	uint32_t emulated_memory_end_addr;
 
 	void print_arbitration_info(		const char *indent);
-	char *getchoice(void);
+	char *getchoice(const char *menu_code);
 	bool emulate_memory(void);
 	void print_params(parameterized_c *parameterized, parameter_c *p);
 
@@ -88,17 +88,17 @@ public:
 			char *txt, uint8_t *level);bool parse_vector(char *txt, uint16_t max_vector,
 			uint16_t *vector);bool parse_slot(char *txt, uint8_t *priority_slot);
 
-	void menu_info(void);
-	void menu_gpio(void);
-	void menu_panel(void);
-	void menu_mailbox(void);
-	void menu_buslatches(void);
-	void menu_unibus_signals(void);
-	void menu_ddrmem_slave_only(void);
-	void menu_masterslave(bool with_CPU);
-	void menu_interrupts(void);
-	void menu_devices(bool with_CPU);
-	void menu_device_exercisers(void);
+	void menu_info(const char *menu_code);
+	void menu_gpio(const char *menu_code);
+	void menu_panel(const char *menu_code);
+	void menu_mailbox(const char *menu_code);
+	void menu_buslatches(const char *menu_code);
+	void menu_unibus_signals(const char *menu_code);
+	void menu_ddrmem_slave_only(const char *menu_code);
+	void menu_masterslave(const char *menu_code, bool with_CPU);
+	void menu_interrupts(const char *menu_code);
+	void menu_devices(const char *menu_code, bool with_CPU);
+	void menu_device_exercisers(const char *menu_code);
 
 	void menu_main(void);
 

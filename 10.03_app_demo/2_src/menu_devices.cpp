@@ -52,6 +52,7 @@
 #include "rl11.hpp"
 #include "rk11.hpp"
 #include "uda.hpp"
+#include "rh11.hpp"
 #include "dl11w.hpp"
 #include "cpu.hpp"
 
@@ -105,7 +106,7 @@ static void print_device(device_c *device) {
 				device->type_name.value.c_str());
 }
 
-void application_c::menu_devices(bool with_emulated_CPU) {
+void application_c::menu_devices(const char *menu_code, bool with_emulated_CPU) {
 	/** list of usable devices ***/
 	bool with_storage_file_test = false;
 
@@ -156,6 +157,8 @@ void application_c::menu_devices(bool with_emulated_CPU) {
 	rk11_c *RK11 = new rk11_c();
 	// Create UDA50
 	uda_c *UDA50 = new uda_c();
+	// Create RH11
+	rh11_c *RH11 = new rh11_c();
 	// Create SLU+ LTC
 	slu_c *DL11 = new slu_c();
 	// to inject characters into DL11 receiver
@@ -250,7 +253,7 @@ void application_c::menu_devices(bool with_emulated_CPU) {
 			printf("pwr                  Simulate UNIBUS power cycle (ACLO/DCLO)\n");
 			printf("q                    Quit\n");
 		}
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 
 		printf("\n");
 		try {
@@ -566,6 +569,9 @@ void application_c::menu_devices(bool with_emulated_CPU) {
 
 	UDA50->enabled.set(false);
 	delete UDA50;
+
+	RH11->enabled.set(false);
+	delete RH11;
 
 	//test_controller->enabled.set(false);
 	//delete test_controller;

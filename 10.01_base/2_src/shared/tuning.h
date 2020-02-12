@@ -26,6 +26,7 @@
 
 #define TUNING_PCB_LEGACY_SECURE
 //#define TUNING_PCB_2018_12_OPTIMIZED
+//#define TUNING_PCB_2019_12_OPTIMIZED
 //#define TUNING_PCB_TEST
 
 /*** Wait cycles for buslatch access. Depends on PCB, used chips and alofirth ***/
@@ -34,9 +35,9 @@
 // #define BUSLATCHES_GETBYTE_DELAY	10	// Standard
 #if defined(TUNING_PCB_TEST)
 // experimental to test error rates
-#define BUSLATCHES_GETBYTE_DELAY	10
-#define BUSLATCHES_SETBITS_DELAY	4
-#define BUSLATCHES_SETBYTE_DELAY	6
+#define BUSLATCHES_GETBYTE_DELAY	7
+#define BUSLATCHES_SETBITS_DELAY	0
+#define BUSLATCHES_SETBYTE_DELAY	0
 
 #elif defined(TUNING_PCB_LEGACY_SECURE)
 /* Secure setting for PCBs <= 2018-12, delivered before June 2019.
@@ -71,6 +72,20 @@
 //#define BUSLATCHES_GETBYTE_DELAY	8
 //#define BUSLATCHES_SETBITS_DELAY	3
 //#define BUSLATCHES_SETBYTE_DELAY	5
+#elif defined(TUNING_PCB_2019_12_OPTIMIZED)
+/* Setting for PCB v2018_12 with optimized timing (ticket 21, June 2019)
+ BeagleBone: BBB (no BBG)
+ U2 (REGSEL): 74AC138 -> 74AHC138
+ RN8,9 (DATIN) :   47 -> 68 Ohm
+ RN10 <1:6>(REGADR):   33->0 Ohm
+ RN10 <7:8>(REGWRITE): 33->0 Ohm
+ R6,R7 (REGWRITE TERM): none
+ RN6,RN7 (DATOUT inline): 22 -> 27
+ RN4,RN5 [[/DATOUT]] end) -> 180/-
+ */
+#define BUSLATCHES_GETBYTE_DELAY	7
+#define BUSLATCHES_SETBITS_DELAY	0
+#define BUSLATCHES_SETBYTE_DELAY	0
 #endif
 
 // UNIBUS timing: Wait to stabilize DATA before MSYN asserted

@@ -11,6 +11,9 @@
 	serial = 177560 	; base addr of DL11
 
 
+	.=0			; incomplete
+	jmp	@#start
+
 	.=2000
 
 start:

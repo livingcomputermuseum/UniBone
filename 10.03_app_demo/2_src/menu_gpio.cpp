@@ -39,7 +39,7 @@
  * and high speed toggle
  * no PRU activity
  * */
-void application_c::menu_gpio() {
+void application_c::menu_gpio(const char *menu_code) {
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	mcout_t mcout; // Multi Column OUTput
 	unsigned name_len;
@@ -79,7 +79,7 @@ void application_c::menu_gpio() {
 			printf("a       Show all\n");
 			printf("q       Quit\n");
 		}
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 		printf("\n");
 		n_fields = sscanf(s_choice, "%s %s", s_id, s_opcode);
 		if (strlen(s_choice) == 0) {

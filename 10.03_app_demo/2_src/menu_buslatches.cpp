@@ -222,7 +222,7 @@ static void buslatches_m9302_sack_test() {
 	printf("\n");
 }
 
-void application_c::menu_buslatches(void) {
+void application_c::menu_buslatches(const char *menu_code) {
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	bool show_inputs = true; // query and show state of all latches
 	bool ready;
@@ -274,7 +274,7 @@ void application_c::menu_buslatches(void) {
 					"t           High speed timing test by PRU. PRU1.12 is error signal. Stop with ^C\n");
 			printf("q           Quit\n");
 		}
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 		printf("\n");
 		n_fields = sscanf(s_choice, "%s %s", s_opcode, s_param);
 		if (strlen(s_choice) == 0) {

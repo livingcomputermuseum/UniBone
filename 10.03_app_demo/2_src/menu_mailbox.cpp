@@ -36,7 +36,7 @@
 /**********************************************
  * Function and performance test of ARM-PRU1 mailbox
  * */
-void application_c::menu_mailbox() {
+void application_c::menu_mailbox(const char *menu_code) {
 	bool show_help = true; // show cmds on first screen, then only on error or request
 	// mcout_t mcout; // Multi Column OUTput
 	bool ready;
@@ -57,7 +57,7 @@ void application_c::menu_mailbox() {
 			printf("a      Send opcode + single value, verify result\n");
 			printf("q      Quit\n");
 		}
-		s_choice = getchoice();
+		s_choice = getchoice(menu_code);
 		printf("\n");
 		sscanf(s_choice, "%s %s", s_id, s_opcode);
 		if (!strcasecmp(s_choice, "q")) {
