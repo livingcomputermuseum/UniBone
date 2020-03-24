@@ -28,7 +28,8 @@ public:
     uint32_t GetSectorSize(void);
     uint32_t GetType(void);
 
-    bool IsAvailable(void);
+    bool IsConnected(void) { return _driveNumber == 0; /* todo: make config. parameter */ }
+    bool IsPackLoaded(void);
     bool IsDriveReady(void) { return _ready; }
     bool IsWriteLocked(void) { return false; /* for now */ }
     bool IsPositioningInProgress(void) { return _pip; }
@@ -42,6 +43,8 @@ public:
     void SetVolumeValid(void) { _vv = true; }
     void ClearVolumeValid(void) { _vv = false; }
     bool GetVolumeValid(void) { return _vv; }
+    uint16_t GetDriveType(void) { return _driveInfo.TypeNumber; }
+    uint16_t GetSerialNumber(void) { return 012345; }  // TODO: Make configurable parameter
   
     bool SeekTo(uint32_t cylinder);
     uint32_t GetCurrentCylinder();

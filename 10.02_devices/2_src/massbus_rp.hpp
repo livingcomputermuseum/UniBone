@@ -132,7 +132,7 @@ private:
     void on_power_changed(void) override;
     void on_init_changed(void) override;
 
-    void UpdateStatus(bool completion);
+    void UpdateStatus(bool completion, bool diagForceError);
     void UpdateDesiredSectorTrack();
     void UpdateDesiredCylinder();
     void UpdateOffset();
@@ -147,21 +147,21 @@ private:
     {
        // Name    DATI   DATO
         { "INV",  false, false, 0, 0 },			// 0, not used
-        { "CS1",  false, true,  0, 0401477 },           // Status
-        { "ER1",  false, true,  0, 0177777 },           // Error #1 - writable by diagnostics
-        { "MR" ,  false, true,  0, 0177777 },           // Maintenance 
-        { "ATN",  false, true,  0, 0377 },              // Attention summary
-        { "DA" ,  false, true,  0, 0017437 },           // Desired Sector/Track
-        { "LA" ,  false, false, 0, 0 },                 // Look Ahead 
-        { "DT" ,  false, false, 0, 0 },                 // Drive Type
-        { "SN" ,  false, false, 0, 0 },                 // Serial Number
-        { "OFF",  false, false, 0, 0177777 },           // Offset
-        { "DCY",  false, true,  0, 0001777 },           // Desired Cylinder
-        { "CCY",  false, false, 0, 0 },                 // Current Cylinder
-        { "ER2",  false, false, 0, 0 },                 // Error #2
-        { "ER3",  false, false, 0, 0 },                 // Error #3
-        { "EPO",  false, false, 0, 0 },                 // ECC Position
-        { "EPA",  false, false, 0, 0 },                 // ECC Pattern
+        { "CS1",  false, true,  0, 0041577 },           // 1, Status
+        { "ER1",  false, true,  0, 0177777 },           // 2, Error #1 - writable by diagnostics
+        { "MR" ,  false, true,  0, 0177777 },           // 3, Maintenance 
+        { "ATN",  true,  true,  0, 0377 },              // 4, Attention summary
+        { "DA" ,  false, true,  0, 0017437 },           // 5, Desired Sector/Track
+        { "DT" ,  true,  true,  0, 0 },                 // 6, Drive Type
+        { "LA" ,  false, false, 0, 0 },                 // 7, Look Ahead 
+        { "ER2",  false, false, 0, 0 },                 // 10, Error #2 
+        { "OFF",  false, false, 0, 0177777 },           // 11, Offset
+        { "DCY",  false, true,  0, 0001777 },           // 12, Desired Cylinder
+        { "CCY",  false, false, 0, 0 },                 // 13, Current Cylinder
+        { "SN" ,  true,  true,  0, 0 },                 // 14, Serial Number
+        { "ER3",  false, false, 0, 0 },                 // 15, Error #3
+        { "EPO",  false, false, 0, 0 },                 // 16, ECC Position
+        { "EPA",  false, false, 0, 0 },                 // 17, ECC Pattern
     };
 
     // Unit selected by last command register write

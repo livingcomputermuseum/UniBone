@@ -34,11 +34,11 @@ int32_t _unibusToMassbusRegisterMap[] =
     -1,    // 776722
     03,    // 776724
     06,    // 776726
-    010,   // 776730
+    014,   // 776730
     011,   // 776732
     012,   // 776734
     013,   // 776736
-    014,   // 776740
+    010,   // 776740
     015,   // 776742
     016,   // etc.
     017,
@@ -95,7 +95,23 @@ int32_t _massbusToUnibusRegisterMap[] =
 rh11_c::rh11_c() :
     storagecontroller_c(),
     _massbus(nullptr),
+    _attention(false),
+    _error(false),
+    _mcbParityError(false),
+    _avail(false),
+    _ready(false),
     _interruptEnable(false),
+    _function(0),
+    _go(false),
+    _parityError(false), 
+    _ned(false),
+    _nxm(false),
+    _progError(false),
+    _outputReady(false),
+    _inputReady(false),
+    _controllerClear(false),
+    _busAddressIncrementProhibit(false),
+    _parityTest(false),
     _busAddress(0),
     _unit(0)
 {
@@ -224,50 +240,72 @@ rh11_c::BusStatus(
 {
     INFO("Massbus status update attn %d, error %d, ned %d", attention, error, ned);
 
-    uint16_t currentStatus = get_register_dato_value(
-        RH_reg[RHCS1]);
-    
-    INFO("RHCS1 is currently o%o", currentStatus); 
-
-    currentStatus &= ~(0144300);  // clear status bits, IE, and GO bit : move to constant 
-    currentStatus |=
-        (attention ? 0100000 : 0) |   // check when this actually gets set?
-        (error ?     0040000 : 0) |
-        (avail ?     0004000 : 0) |  // drive available
-        (ready ?     0000200 : 0);   // controller ready bit 
+    _attention = attention;
+    _error = error;
+    _avail = avail;
+    _ready = ready;
 
     if (completion)
     {
         // clear the GO bit from the CS word if the drive is finished.
-        currentStatus &= ~(01); 
+        _go = false; 
     }
 
-    set_register_dati_value(
-        RH_reg[RHCS1],
-        currentStatus,
-        "BusStatus");
-  
-    INFO("RHCS1 is now o%o", currentStatus);
- 
-    currentStatus = get_register_dato_value(RH_reg[RHCS2]);
+    UpdateCS1();
 
-    INFO("RHCS2 is currently o%o", currentStatus);
-
-    currentStatus &= ~(010000);
-    currentStatus |=
-        (ned ? 010000 : 0);  // non-existent drive
-
-    set_register_dati_value(
-        RH_reg[RHCS2],
-        currentStatus,
-        "BusStatus");
-
-    INFO("RHCS2 is now o%o", currentStatus);
+    if (!_controllerClear)
+    { 
+        _ned = ned;
+        UpdateCS2();
+    }
  
     if ((attention || ready) && completion)
     {
         Interrupt();
     }
+}
+
+void
+rh11_c::UpdateCS1()
+{
+    uint16_t newStatus =
+        (_attention ?         0100000 : 0) |   
+        (_error ?             0040000 : 0) |
+        (_mcbParityError ?    0020000 : 0) |
+        (_avail ?             0004000 : 0) |  // drive available
+        ((_busAddress & 0600000) >> 8) |
+        (_ready ?             0000200 : 0) |  // controller ready bit
+        (_interruptEnable ?   0000100 : 0) | 
+        (_function << 1) |
+        (_go ?                0000001 : 0);
+
+    INFO("RHCS1 is now o%o", newStatus);
+ 
+    set_register_dati_value(
+        RH_reg[RHCS1],
+        newStatus,
+        "UpdateCS1");
+}
+
+void rh11_c::UpdateCS2()
+{
+    uint16_t newStatus =
+        (_parityError ?                   0020000 : 0) |
+        (_ned ?                           0010000 : 0) |
+        (_nxm ?                           0004000 : 0) |
+        (_progError ?                     0002000 : 0) |
+        (_outputReady ?                   0000200 : 0) |
+        (_inputReady ?                    0000100 : 0) |
+        (_parityTest ?                    0000020 : 0) |
+        (_busAddressIncrementProhibit ?   0000010 : 0) |
+        (_unit);
+
+    INFO("RHCS2 is now o%o", newStatus);
+
+    set_register_dati_value(
+        RH_reg[RHCS2],
+        newStatus,
+        "UpdateCS2");
 }
 
 void
@@ -525,16 +563,35 @@ void rh11_c::on_after_register_access(
         {
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
-                // IE bit
-                _interruptEnable = ((value & 0x40) != 0);
+                INFO("RHCS1: DATO o%o", value);
+                _error = !!(value & 0040000);
+                _busAddress = (_busAddress & 0177777) | ((value & 01400) << 8);
+                _interruptEnable = !!(value & 0100);
+                _function = (value & 076) >> 1;
+                _go = (value & 01);
 
-                // Extended bus address bits
-                _busAddress = (_busAddress & 0xffff) | ((value & 0x300) << 8);
-
-                INFO("RHCS1: IE %d BA 0%o", _interruptEnable, _busAddress);
-
+                // Bit 14 (Transfer Error) is writeable; the function of this is not documented
+                // In the handbook or engineering manuals.  The schematics are eluding me as well.
+                // 2.11bsd writes this bit, as do diagnostics (and they expect it to be read back..)
+                // SIMH suggests this is used to clear error bits, so we'll do that here.
+                if (_error)
+                {
+                    _error = false;
+                    _parityError = false;
+                    _mcbParityError = false;
+                    _ned = false;
+                    _nxm = false;
+                }
+               
+                INFO("RHCS1: IE %d BA o%o func o%o go %d", _interruptEnable, _busAddress, _function, _go); 
                 // Let the massbus device take a crack at the shared bits
-                _massbus->WriteRegister(_unit, RHCS1, value & 0x3f); 
+                _massbus->WriteRegister(_unit, RHCS1, value & 077);
+
+                // TODO:  Per RH11-AB_OptionDescr.pdf (p 4-17):
+                // "The program can force an interrupt by loading bits D06 H (IE) and D07 H (RDY) in the CS1
+                //  register which direct sets the INTR flip-flop."
+                //
+                UpdateCS1(); 
             }
         }
         break;
@@ -543,25 +600,33 @@ void rh11_c::on_after_register_access(
         {
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
-                _unit = (value & 0x7);
-                _busAddressIncrementProhibit = !!(value & 0x8);
-                _parityTest = !!(value & 0x10);
-                
+                _unit = (value & 07);
+                _busAddressIncrementProhibit = !!(value & 010);
+                _parityTest = !!(value & 020); 
+                _controllerClear = !!(value & 040);
+                _parityError = !!(value & 0020000);
+ 
+                INFO("RHCS2 write: o%o", value); 
+                INFO("RHCS2: perror %d, unit %d inc %d ptest %d clear %d", 
+                    _parityError, _unit, _busAddressIncrementProhibit, _parityTest, _controllerClear);
+ 
                 // TODO: handle System Register Clear (bit 5)     
-                if (value & 040) // controller clear
+                if (_controllerClear)
                 {
                     INFO("Controller Clear");
-                    // clear error bits
-                    value &= ~(010040);
-                    set_register_dati_value(
-                        RH_reg[RHCS2],
-                        value,
-                        "Reset");
-
                     _interruptEnable = false;
-                    _massbus->Reset(); 
+
+                    _massbus->Reset();
+
+                    // clear error and the clear bits
+                    _ned = false;
+                    _nxm = false;
+
+                    INFO("RHCS2: is now o%o", value);
+                    _controllerClear = false;
                 }
-                INFO("RHCS2: unit %d", _unit); 
+
+                UpdateCS2();
             }
         }
         break;
@@ -571,8 +636,12 @@ void rh11_c::on_after_register_access(
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
                 INFO("RHWC: o%o", value);
-            }
 
+                set_register_dati_value(
+                    RH_reg[RHWC],
+                    value,
+                    "HACK");
+            }
         }
         break;
 
@@ -582,6 +651,11 @@ void rh11_c::on_after_register_access(
             {
                _busAddress = (_busAddress & 0x30000) | value;
                INFO("RHBA: o%o", _busAddress);
+ 
+               set_register_dati_value(
+                   RH_reg[RHWC],
+                   value,
+                   "HACK");
             }
         }
         break;
@@ -593,6 +667,7 @@ void rh11_c::on_after_register_access(
                 if (UNIBUS_CONTROL_DATO == unibus_control)
                 {
                     _massbus->WriteRegister(_unit, _unibusToMassbusRegisterMap[device_reg->index], value);
+                    // Massbus is responsible for writing back the appropriate dati value.
                 }
                 else
                 {
@@ -622,6 +697,7 @@ void rh11_c::Interrupt(void)
         // IE is cleared after the interrupt is raised
         // Actual bit is cleared in BusStatus, this should be fixed.
         _interruptEnable = false;
+        UpdateCS1();
     }
 }
 

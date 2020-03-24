@@ -79,12 +79,12 @@ rp_drive_c::GetSectorSize()
 }
 
 //
-// IsAvailable():
-//  Indicates whether this drive is available (i.e. has an image
-//  assigned to it and can thus be used by the controller.)
+// IsPackLoaded():
+//  Indicates whether this drive has a pack loaded (i.e. has an image
+//  assigned to it)
 //
 bool 
-rp_drive_c::IsAvailable() 
+rp_drive_c::IsPackLoaded()
 {
     return file_is_open();
 }
@@ -97,7 +97,7 @@ rp_drive_c::SeekTo(
 
     _iae = !(destinationCylinder < _driveInfo.Cylinders);
 
-    if (IsAvailable() && !_iae)
+    if (IsConnected() && IsPackLoaded() && !_iae)
     {
         _currentCylinder = destinationCylinder;
         return true;
@@ -137,7 +137,7 @@ rp_drive_c::Write(
     
     // TODO: handle address overflow
 
-    if (!IsAvailable() || _iae || _wle)
+    if (!IsConnected() || !IsPackLoaded() || _iae || _wle)
     {
         return false;
     }
@@ -167,10 +167,10 @@ rp_drive_c::Read(
     _iae = !ValidateCHS(cylinder, track, sector);
     _wle = false;
 
-    if (!IsAvailable() || _iae)
+    if (!IsConnected() || !IsPackLoaded() || _iae)
     {
         *buffer = nullptr;
-        INFO("Failure: avail %d valid %d", IsAvailable(), ValidateCHS(cylinder, track, sector));
+        INFO("Failure: connected %d loaded %d valid %d", IsConnected(), IsPackLoaded(), ValidateCHS(cylinder, track, sector));
         return false;
     }
     else
@@ -197,9 +197,9 @@ rp_drive_c::Search(
 {
     _iae = !ValidateCHS(cylinder, track, sector);
 
-    if (!IsAvailable() || _iae)
+    if (!IsConnected() || !IsPackLoaded() || _iae)
     {
-        INFO("Failure: avail %d valid %d", IsAvailable(), ValidateCHS(cylinder, track, sector));
+        INFO("Failure: connected &d loaded %d valid %d", IsConnected(), IsPackLoaded(), ValidateCHS(cylinder, track, sector));
         return false; 
     }
     else
@@ -208,7 +208,7 @@ rp_drive_c::Search(
         timeout_c timeout;
          
         INFO("Search commencing.");
-        timeout.wait_ms(30);
+        timeout.wait_ms(250);
         _pip = false;
         INFO("Search completed.");
         _currentCylinder = cylinder;

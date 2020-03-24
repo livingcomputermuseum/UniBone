@@ -51,18 +51,36 @@ private:
     bool DMAWrite(uint32_t address, size_t lengthInWords, uint16_t* buffer);
     uint16_t* DMARead(uint32_t address, size_t lengthInWords);
 
+    void UpdateCS1();
+    void UpdateCS2();
+
 private:
 
     std::unique_ptr<massbus_device_c> _massbus;
 
     // Control & Status reg 1 bits
+    volatile bool _attention;
+    volatile bool _error;
+    volatile bool _mcbParityError;
+    volatile bool _avail;
+    volatile bool _ready;
     volatile bool _interruptEnable;
+    volatile uint16_t _function;
+    volatile bool _go;
+
     volatile uint32_t _busAddress;
 
     // Control & Status reg 2 bits
+    volatile bool _parityError;
+    volatile bool _ned;
+    volatile bool _nxm;
+    volatile bool _progError;
+    volatile bool _outputReady;
+    volatile bool _inputReady;
     volatile uint16_t _unit;
     volatile bool _busAddressIncrementProhibit; 
     volatile bool _parityTest;
+    volatile bool _controllerClear;
 	
 public:
 

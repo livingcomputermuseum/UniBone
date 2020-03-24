@@ -122,7 +122,7 @@ massbus_rp_c::WriteRegister(
         // while the drive is busy is invalid.
         INFO("Register modification while drive busy.");
         _rmr = true;
-        UpdateStatus(false);
+        UpdateStatus(false, false);
         return;
     }
 
@@ -160,11 +160,14 @@ massbus_rp_c::WriteRegister(
             break;
 
         case Registers::Error1:
-            // Clear any bits in the Error 1 Register specified in the
-            // written value:
-            _error1 &= ~(value & 0xff);
-            _controller->WriteRegister(reg, _error1);
+            // Pg. 2-20 of EK-RP056-MM-01:
+            // "The register can also be written by the controller for diagnostic purposes.
+            // Setting any bit in this register sets the composite error bit in the status register."
+            //
+            // Based on diagnostic (ZRJGE0) behavior, writing ANY value here forces an error.
+            //
             INFO("Error 1 Reg write o%o, value is now o%o", value, _error1);
+            UpdateStatus(false, true);  // Force composite error.
             break;            
 
         default:
@@ -188,7 +191,7 @@ void massbus_rp_c::DoCommand(
 
     INFO("RP function 0%o, unit %o", function, _selectedUnit);
 
-    if (!SelectedDrive()->IsAvailable())
+    if (!SelectedDrive()->IsConnected())
     {
         // Early return for disconnected drives;
         // set NED and ERR bits
@@ -196,7 +199,7 @@ void massbus_rp_c::DoCommand(
         _ata = true;
         _ned = true;  // TODO: should be done at RH11 level!
         SelectedDrive()->ClearVolumeValid();
-        UpdateStatus(true);
+        UpdateStatus(true, false);
         return;
     }
 
@@ -213,7 +216,7 @@ void massbus_rp_c::DoCommand(
     {
         case FunctionCode::Nop:
             // Nothing.
-            UpdateStatus(true);
+            UpdateStatus(true, false);
             break;
 
         case FunctionCode::ReadInPreset:
@@ -230,7 +233,7 @@ void massbus_rp_c::DoCommand(
             _offset = 0;
             UpdateDesiredSectorTrack();
             UpdateOffset();
-            UpdateStatus(false);  /* do not interrupt */
+            UpdateStatus(false, false);  /* do not interrupt */
             break;
 
         case FunctionCode::ReadData:
@@ -249,7 +252,7 @@ void massbus_rp_c::DoCommand(
                 }
  
                 // Clear READY 
-                UpdateStatus(false);
+                UpdateStatus(false, false);
 
                 pthread_mutex_lock(&_workerMutex);
 
@@ -282,9 +285,28 @@ massbus_rp_c::ReadRegister(
     uint32_t reg)
 {
     INFO("*** RP reg read: unit %d register 0%o", unit, reg);
-   
-    FATAL("Unimplemented register read %o", reg);
+  
+    switch(static_cast<Registers>(reg))
+    {
+
+        case Registers::DriveType:
+            return SelectedDrive()->GetDriveType() | 020000;    // Moving head (MOVE TO CONSTANT)
+            break;
+
+        case Registers::SerialNo:
+            return SelectedDrive()->GetSerialNumber();
+            break;
+
+        case Registers::AttentionSummary:
+            INFO("attn: o%o", _attnSummary);
+            return _attnSummary;
+            break;
  
+        default: 
+            FATAL("Unimplemented register read %o", reg);
+            break;
+
+    } 
     return 0;
 }
 
@@ -293,7 +315,8 @@ massbus_rp_c::ReadRegister(
 //
 void
 massbus_rp_c::UpdateStatus(
-   bool complete)
+   bool complete,
+   bool diagForceError)
 {
 
    _error1 =
@@ -307,6 +330,11 @@ massbus_rp_c::UpdateStatus(
        _err = true;
        _ata = true;
    }
+   else if (diagForceError)
+   {
+       _err = false;
+       _ata = true;
+   }
    else
    {
        _err = false;
@@ -318,7 +346,7 @@ massbus_rp_c::UpdateStatus(
         (0400) |    // Drive preset -- always set for a single-controller disk
         (SelectedDrive()->GetReadLastSector() ? 02000 : 0) |   // Last sector read
         (SelectedDrive()->IsWriteLocked() ? 04000 : 0) |   // Write lock
-        (SelectedDrive()->IsAvailable() ? 010000 : 0) | // Medium online
+        (SelectedDrive()->IsPackLoaded() ? 010000 : 0) | // Medium online
         (SelectedDrive()->IsPositioningInProgress() ? 020000 : 0) |  // PIP
         (_err ? 040000 : 0) |  // Composite error
         (_ata ? 0100000 : 0);
@@ -329,7 +357,7 @@ massbus_rp_c::UpdateStatus(
 
    // Update the Attention Summary register if this disk is online:
 
-   if (_ata && SelectedDrive()->IsAvailable())
+   if (_ata && SelectedDrive()->IsConnected())
    {
        _attnSummary |= (0x1 << _selectedUnit);  // TODO: these only get set, and are latched until
                                                 // manually cleared?
@@ -339,7 +367,7 @@ massbus_rp_c::UpdateStatus(
    _controller->WriteRegister(static_cast<uint32_t>(Registers::AttentionSummary), _attnSummary);
 
    // Inform controller of status update.
-   _controller->BusStatus(complete, SelectedDrive()->IsDriveReady(), _ata, _err, SelectedDrive()->IsAvailable(), _ned);
+   _controller->BusStatus(complete, SelectedDrive()->IsDriveReady(), _ata, _err, SelectedDrive()->IsConnected(), _ned);
 }
 
 void
@@ -382,7 +410,7 @@ massbus_rp_c::Reset()
     _attnSummary = 0;
     _error1 = 0;
     _rmr = false;
-    UpdateStatus(false);
+    UpdateStatus(false, false);
 
     _desiredSector = 0;
     _desiredTrack = 0;
@@ -558,7 +586,7 @@ massbus_rp_c::Worker()
                 _workerState = WorkerState::Idle;
                 SelectedDrive()->SetDriveReady();
                 UpdateCurrentCylinder(); 
-                UpdateStatus(true);
+                UpdateStatus(true, false);
                 break; 
                 
         }
