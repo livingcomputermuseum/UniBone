@@ -144,7 +144,7 @@ rh11_c::rh11_c() :
             RH_reg[i]->active_on_dati = false;
             RH_reg[i]->active_on_dato = true;
             RH_reg[i]->reset_value = 0000200; 
-            RH_reg[i]->writable_bits = 041577;
+            RH_reg[i]->writable_bits = 041777;
             break;
 
         case RHWC:
@@ -238,7 +238,7 @@ rh11_c::BusStatus(
     bool avail,
     bool ned)
 {
-    INFO("Massbus status update attn %d, error %d, ned %d", attention, error, ned);
+    DEBUG("Massbus status update attn %d, error %d, ned %d", attention, error, ned);
 
     _attention = attention;
     _error = error;
@@ -279,7 +279,7 @@ rh11_c::UpdateCS1()
         (_function << 1) |
         (_go ?                0000001 : 0);
 
-    INFO("RHCS1 is now o%o", newStatus);
+    DEBUG("RHCS1 is now o%o", newStatus);
  
     set_register_dati_value(
         RH_reg[RHCS1],
@@ -300,7 +300,7 @@ void rh11_c::UpdateCS2()
         (_busAddressIncrementProhibit ?   0000010 : 0) |
         (_unit);
 
-    INFO("RHCS2 is now o%o", newStatus);
+    DEBUG("RHCS2 is now o%o", newStatus);
 
     set_register_dati_value(
         RH_reg[RHCS2],
@@ -402,23 +402,14 @@ rh11_c::IncrementBusAddress(uint32_t delta)
 {
     _busAddress += delta;
 
-    uint16_t currentStatus = get_register_dato_value(RH_reg[RHCS1]);
-
-    // Clear extended address bits
-    currentStatus &= ~(0x300);
-
-    currentStatus |= ((_busAddress & 0x30000) >> 8);
-    set_register_dati_value(
-        RH_reg[RHCS1],
-        currentStatus,
-        "SetBusAddress");
+    UpdateCS1();
 
     set_register_dati_value(
         RH_reg[RHBA],
         (_busAddress & 0xffff),
         "IncrementBusAddress");
 
-    INFO("BA Reg incr:  o%o", _busAddress);
+    DEBUG("BA Reg incr:  o%o", _busAddress);
 }
 
 uint16_t
@@ -440,7 +431,7 @@ rh11_c::DecrementWordCount(uint16_t delta)
         "DecrementWordCount");
 
 
-    INFO("WC Reg decr:  o%o", currentWordCount);
+    DEBUG("WC Reg decr:  o%o", currentWordCount);
 }
 
 bool
@@ -451,12 +442,7 @@ rh11_c::DMAWrite(
 {
     assert (address < 0x40000);
 
-    for(size_t i=0;i<lengthInWords;i++)
-    {
-        printf("o%o ", buffer[i]);
-    }
-
-    INFO("DMA Write o%o, length %d", address, lengthInWords);
+    DEBUG("DMA Write o%o, length %d", address, lengthInWords);
     unibusadapter->DMA(
         dma_request,
         true,
@@ -465,7 +451,7 @@ rh11_c::DMAWrite(
         buffer,
         lengthInWords);
 
-    INFO("Success: %d", dma_request.success);
+    DEBUG("Success: %d", dma_request.success);
     assert(dma_request.success);
 
     return dma_request.success;
@@ -478,7 +464,7 @@ rh11_c::DMARead(
 {
     assert (address < 0x40000);
 
-    INFO("DMA Read o%o, length %d", address, lengthInWords);
+    DEBUG("DMA Read o%o, length %d", address, lengthInWords);
 
     uint16_t* buffer = new uint16_t[lengthInWords];
     assert (buffer);
@@ -553,7 +539,8 @@ void rh11_c::worker(unsigned instance)
 //      do not read back dati_flipflops.
 void rh11_c::on_after_register_access(
     unibusdevice_register_t *device_reg,
-    uint8_t unibus_control)
+    uint8_t unibus_control,
+    uint16_t dato_mask)
 {
     uint16_t value = device_reg->active_dato_flipflops;
 
@@ -563,35 +550,65 @@ void rh11_c::on_after_register_access(
         {
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
-                INFO("RHCS1: DATO o%o", value);
-                _error = !!(value & 0040000);
-                _busAddress = (_busAddress & 0177777) | ((value & 01400) << 8);
-                _interruptEnable = !!(value & 0100);
-                _function = (value & 076) >> 1;
-                _go = (value & 01);
-
-                // Bit 14 (Transfer Error) is writeable; the function of this is not documented
-                // In the handbook or engineering manuals.  The schematics are eluding me as well.
-                // 2.11bsd writes this bit, as do diagnostics (and they expect it to be read back..)
-                // SIMH suggests this is used to clear error bits, so we'll do that here.
-                if (_error)
-                {
-                    _error = false;
-                    _parityError = false;
-                    _mcbParityError = false;
-                    _ned = false;
-                    _nxm = false;
-                }
-               
-                INFO("RHCS1: IE %d BA o%o func o%o go %d", _interruptEnable, _busAddress, _function, _go); 
-                // Let the massbus device take a crack at the shared bits
-                _massbus->WriteRegister(_unit, RHCS1, value & 077);
-
-                // TODO:  Per RH11-AB_OptionDescr.pdf (p 4-17):
-                // "The program can force an interrupt by loading bits D06 H (IE) and D07 H (RDY) in the CS1
-                //  register which direct sets the INTR flip-flop."
                 //
-                UpdateCS1(); 
+                // Byte-oriented writes are allowed to RH11 registers; thus far
+                // CS1 is the only one where distinguishing DATO from DATOB actually
+                // makes any difference: if the MSB is written separately from the
+                // LSB and the GO bit is in play, unintended operations may ensue.
+                // We thus update only the affected bits, and only send the function
+                // code to the Massbus when the LSB is written.
+
+                DEBUG("RHCS1: DATO o%o MASK o%o", value, dato_mask);
+
+                if ((dato_mask & 0xff00) == 0xff00)
+                {
+                    // MSB
+                    _error = !!(value & 0040000);
+                    _busAddress = (_busAddress & 0177777) | ((value & 01400) << 8);
+
+                    // Bit 14 (Transfer Error) is writeable; the function of this is not documented
+                    // In the handbook or engineering manuals.  The schematics are eluding me as well.
+                    // 2.11bsd writes this bit.
+                    // SIMH suggests this is used to clear error bits, so we'll do that here.
+                    if (_error)
+                    {
+                        _error = false;
+                        _parityError = false;
+                        _mcbParityError = false;
+                        _ned = false;
+                        _nxm = false;
+                    }
+
+                }
+
+                if ((dato_mask & 0x00ff) == 0x00ff)
+                {
+                    bool ready = !!(value & 0200);
+                    _interruptEnable = !!(value & 0100);
+                    _function = (value & 076) >> 1;
+                    _go = (value & 01);
+
+                    // 
+                    // Per RH11-AB_OptionDescr.pdf (p 4-17):
+                    // "The program can force an interrupt by loading bits D06 H (IE) and D07 H (RDY) in the CS1
+                    //  register which direct sets the INTR flip-flop."
+                    // 2.11bsd's autoconfig routines do this.
+                    // 
+                    if (ready && _interruptEnable)
+                    {
+                        DEBUG("Forced interrupt.");
+                        unibusadapter->INTR(intr_request, nullptr, 0);
+                    } 
+                }
+
+                DEBUG("RHCS1: IE %d BA o%o func o%o go %d", _interruptEnable, _busAddress, _function, _go); 
+                UpdateCS1();
+
+                if ((dato_mask & 0x00ff) == 0x00ff)
+                {
+                    // Let the massbus device take a crack at the shared bits.
+                    _massbus->WriteRegister(_unit, RHCS1, value & 077);
+                } 
             }
         }
         break;
@@ -606,14 +623,14 @@ void rh11_c::on_after_register_access(
                 _controllerClear = !!(value & 040);
                 _parityError = !!(value & 0020000);
  
-                INFO("RHCS2 write: o%o", value); 
-                INFO("RHCS2: perror %d, unit %d inc %d ptest %d clear %d", 
+                DEBUG("RHCS2 write: o%o", value); 
+                DEBUG("RHCS2: perror %d, unit %d inc %d ptest %d clear %d", 
                     _parityError, _unit, _busAddressIncrementProhibit, _parityTest, _controllerClear);
  
                 // TODO: handle System Register Clear (bit 5)     
                 if (_controllerClear)
                 {
-                    INFO("Controller Clear");
+                    DEBUG("Controller Clear");
                     _interruptEnable = false;
 
                     _massbus->Reset();
@@ -622,7 +639,7 @@ void rh11_c::on_after_register_access(
                     _ned = false;
                     _nxm = false;
 
-                    INFO("RHCS2: is now o%o", value);
+                    DEBUG("RHCS2: is now o%o", value);
                     _controllerClear = false;
                 }
 
@@ -635,7 +652,7 @@ void rh11_c::on_after_register_access(
         {
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
-                INFO("RHWC: o%o", value);
+                DEBUG("RHWC: o%o", value);
 
                 set_register_dati_value(
                     RH_reg[RHWC],
@@ -650,7 +667,7 @@ void rh11_c::on_after_register_access(
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
                _busAddress = (_busAddress & 0x30000) | value;
-               INFO("RHBA: o%o", _busAddress);
+               DEBUG("RHBA: o%o", _busAddress);
  
                set_register_dati_value(
                    RH_reg[RHWC],
@@ -671,7 +688,7 @@ void rh11_c::on_after_register_access(
                 }
                 else
                 {
-                    INFO("massbus reg read %o", device_reg->index);
+                    DEBUG("massbus reg read %o", device_reg->index);
                     set_register_dati_value(
                         device_reg,
                         _massbus->ReadRegister(_unit, _unibusToMassbusRegisterMap[device_reg->index]),
@@ -680,7 +697,7 @@ void rh11_c::on_after_register_access(
             }
             else
             {
-                INFO("Unhandled register write o%o", device_reg->index);
+                DEBUG("Unhandled register write o%o", device_reg->index);
             }
             break;
     }   
@@ -691,13 +708,13 @@ void rh11_c::Interrupt(void)
 {
     if(_interruptEnable)
     {
-        INFO("Interrupt!");
-        unibusadapter->INTR(intr_request, nullptr, 0);
+        DEBUG("Interrupt!");
 
-        // IE is cleared after the interrupt is raised
-        // Actual bit is cleared in BusStatus, this should be fixed.
+        // IE is cleared after the interrupt is raised (probably should be at the same time.)
         _interruptEnable = false;
         UpdateCS1();
+
+        unibusadapter->INTR(intr_request, nullptr, 0);
     }
 }
 

@@ -67,7 +67,7 @@ public:
 	void worker(unsigned instance) override;
 
 	// called by unibusadapter on emulated register access
-	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control)
+	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control, uint16_t dato_mask)
 			override;
 
 	void on_interrupt(uint16_t vector);

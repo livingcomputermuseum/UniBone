@@ -114,7 +114,7 @@ public:
 
 	// called by unibusadapter after DATI/DATO access to active emulated register
 	// Runs at 100% RT priority, UNIBUS is stopped by SSYN while this is running.
-	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control)
+	void on_after_register_access(unibusdevice_register_t *device_reg, uint8_t unibus_control, uint16_t dato_mask)
 			override;
 
 	void on_power_changed(void) override;

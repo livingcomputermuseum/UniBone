@@ -95,10 +95,14 @@ rp_drive_c::SeekTo(
 {
     // TODO: delay by appropriate amount
 
+    timeout_c timeout;
+  
     _iae = !(destinationCylinder < _driveInfo.Cylinders);
 
     if (IsConnected() && IsPackLoaded() && !_iae)
     {
+        timeout.wait_ms(50);
+
         _currentCylinder = destinationCylinder;
         return true;
     }   
@@ -170,7 +174,7 @@ rp_drive_c::Read(
     if (!IsConnected() || !IsPackLoaded() || _iae)
     {
         *buffer = nullptr;
-        INFO("Failure: connected %d loaded %d valid %d", IsConnected(), IsPackLoaded(), ValidateCHS(cylinder, track, sector));
+        DEBUG("Failure: connected %d loaded %d valid %d", IsConnected(), IsPackLoaded(), ValidateCHS(cylinder, track, sector));
         return false;
     }
     else
@@ -182,9 +186,8 @@ rp_drive_c::Read(
         assert(nullptr != *buffer);
 
         uint32_t offset = GetSectorForCHS(cylinder, track, sector);
-        INFO("Read from sector offset o%o", offset);
+        DEBUG("Read from sector offset o%o", offset);
         file_read(reinterpret_cast<uint8_t*>(*buffer), offset * GetSectorSize(), countInWords * 2);
-
         return true;
     }
 }
@@ -199,7 +202,7 @@ rp_drive_c::Search(
 
     if (!IsConnected() || !IsPackLoaded() || _iae)
     {
-        INFO("Failure: connected &d loaded %d valid %d", IsConnected(), IsPackLoaded(), ValidateCHS(cylinder, track, sector));
+        DEBUG("Failure: connected &d loaded %d valid %d", IsConnected(), IsPackLoaded(), ValidateCHS(cylinder, track, sector));
         return false; 
     }
     else
@@ -207,10 +210,10 @@ rp_drive_c::Search(
         // This is just a no-op, as we don't emulate read errors.  We just delay a tiny bit.
         timeout_c timeout;
          
-        INFO("Search commencing.");
-        timeout.wait_ms(250);
+        DEBUG("Search commencing.");
+        timeout.wait_ms(20);
         _pip = false;
-        INFO("Search completed.");
+        DEBUG("Search completed.");
         _currentCylinder = cylinder;
 
         return true;

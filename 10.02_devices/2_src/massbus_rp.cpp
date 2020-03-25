@@ -23,6 +23,14 @@ void* WorkerInit(
     return nullptr;
 }
 
+void* SpinInit(
+    void* context)
+{
+    massbus_rp_c* rp = reinterpret_cast<massbus_rp_c*>(context);
+    rp->Spin();
+    return nullptr;
+}
+
 massbus_rp_c::massbus_rp_c(
    rh11_c* controller) :
        device_c(),
@@ -55,6 +63,16 @@ massbus_rp_c::massbus_rp_c(
         &attribs,
         &WorkerInit,
         reinterpret_cast<void*>(this));
+
+    pthread_attr_t attribs2;
+    pthread_attr_init(&attribs2);
+    status = pthread_create(
+        &_spinThread,
+        &attribs2,   
+        &SpinInit,
+        reinterpret_cast<void*>(this));
+
+       
 }
 
 massbus_rp_c::~massbus_rp_c()
@@ -112,7 +130,7 @@ massbus_rp_c::WriteRegister(
     uint32_t reg, 
     uint16_t value)
 {
-    INFO("RP reg write: unit %d register 0%o value 0%o", unit, reg, value);
+    DEBUG("RP reg write: unit %d register 0%o value 0%o", unit, reg, value);
 
     if (!SelectedDrive()->IsDriveReady() && 
         reg != 0 &&    // CS1 is allowed as long as GO isn't set (will be checked in DoCommand) 
@@ -120,13 +138,11 @@ massbus_rp_c::WriteRegister(
     {
         // Any attempt to modify a drive register other than Attention Summary
         // while the drive is busy is invalid.
-        INFO("Register modification while drive busy.");
+        DEBUG("Register modification while drive busy.");
         _rmr = true;
         UpdateStatus(false, false);
         return;
     }
-
-    static uint32_t frup = 0;
 
     switch(static_cast<Registers>(reg))
     {
@@ -139,7 +155,7 @@ massbus_rp_c::WriteRegister(
             _desiredSector = (value & 0x1f);
             UpdateDesiredSectorTrack();
 
-            INFO("Desired Sector Track Address: track %d, sector %d",
+            DEBUG("Desired Sector Track Address: track %d, sector %d",
                 _desiredTrack,
                 _desiredSector);
             break;
@@ -148,7 +164,7 @@ massbus_rp_c::WriteRegister(
             _desiredCylinder = value & 0x3ff;
             UpdateDesiredCylinder();
 
-            INFO("Desired Cylinder Address o%o (o%o)", _desiredCylinder, value);
+            DEBUG("Desired Cylinder Address o%o (o%o)", _desiredCylinder, value);
             break;
 
         case Registers::AttentionSummary:
@@ -156,7 +172,7 @@ massbus_rp_c::WriteRegister(
             // written value:
             _attnSummary &= ~(value & 0xff);
             _controller->WriteRegister(reg, _attnSummary);
-            INFO("Attention Summary write o%o, value is now o%o", value, _attnSummary); 
+            DEBUG("Attention Summary write o%o, value is now o%o", value, _attnSummary); 
             break;
 
         case Registers::Error1:
@@ -166,7 +182,7 @@ massbus_rp_c::WriteRegister(
             //
             // Based on diagnostic (ZRJGE0) behavior, writing ANY value here forces an error.
             //
-            INFO("Error 1 Reg write o%o, value is now o%o", value, _error1);
+            DEBUG("Error 1 Reg write o%o, value is now o%o", value, _error1);
             UpdateStatus(false, true);  // Force composite error.
             break;            
 
@@ -189,7 +205,7 @@ void massbus_rp_c::DoCommand(
     FunctionCode function = static_cast<FunctionCode>((command & RP_FUNC) >> 1);
     _selectedUnit = unit;
 
-    INFO("RP function 0%o, unit %o", function, _selectedUnit);
+    DEBUG("RP function 0%o, unit %o", function, _selectedUnit);
 
     if (!SelectedDrive()->IsConnected())
     {
@@ -220,7 +236,7 @@ void massbus_rp_c::DoCommand(
             break;
 
         case FunctionCode::ReadInPreset:
-            INFO("RP Read-In Preset");
+            DEBUG("RP Read-In Preset");
             //
             // "This command sets the VV (volume valid) bit, clears the desired
             //  sector/track address register, and clears the FMT, HCI, and ECI
@@ -241,7 +257,7 @@ void massbus_rp_c::DoCommand(
         case FunctionCode::WriteHeaderAndData:
         case FunctionCode::ReadHeaderAndData:
         case FunctionCode::Search:
-            INFO("RP Read/Write Data or Search");   
+            DEBUG("RP Read/Write Data or Search");   
             {
                 // Clear the unit's DRY bit
                 SelectedDrive()->ClearDriveReady();
@@ -284,7 +300,7 @@ massbus_rp_c::ReadRegister(
     uint32_t unit, 
     uint32_t reg)
 {
-    INFO("*** RP reg read: unit %d register 0%o", unit, reg);
+    DEBUG("RP reg read: unit %d register 0%o", unit, reg);
   
     switch(static_cast<Registers>(reg))
     {
@@ -297,11 +313,6 @@ massbus_rp_c::ReadRegister(
             return SelectedDrive()->GetSerialNumber();
             break;
 
-        case Registers::AttentionSummary:
-            INFO("attn: o%o", _attnSummary);
-            return _attnSummary;
-            break;
- 
         default: 
             FATAL("Unimplemented register read %o", reg);
             break;
@@ -351,7 +362,7 @@ massbus_rp_c::UpdateStatus(
         (_err ? 040000 : 0) |  // Composite error
         (_ata ? 0100000 : 0);
 
-   INFO("Unit %d Status: o%o", _selectedUnit, _status);
+   DEBUG("Unit %d Status: o%o", _selectedUnit, _status);
    _controller->WriteRegister(static_cast<uint32_t>(Registers::Status), _status);
    _controller->WriteRegister(static_cast<uint32_t>(Registers::Error1), _error1);
 
@@ -361,7 +372,7 @@ massbus_rp_c::UpdateStatus(
    {
        _attnSummary |= (0x1 << _selectedUnit);  // TODO: these only get set, and are latched until
                                                 // manually cleared?
-       INFO("Attention Summary is now o%o", _attnSummary); 
+       DEBUG("Attention Summary is now o%o", _attnSummary); 
    }
 
    _controller->WriteRegister(static_cast<uint32_t>(Registers::AttentionSummary), _attnSummary);
@@ -375,10 +386,6 @@ massbus_rp_c::UpdateDesiredSectorTrack()
 {
    uint16_t desiredSectorTrack = (_desiredSector | (_desiredTrack << 8));
    _controller->WriteRegister(static_cast<uint32_t>(Registers::DesiredSectorTrackAddress), desiredSectorTrack);
-
-   // Fudge: We update the look-ahead sector value to be the last-requested sector - 1
-   uint16_t lookAhead = (((_desiredSector - 1) % 22) << 6);
-   _controller->WriteRegister(static_cast<uint32_t>(Registers::LookAhead), lookAhead);
 }
 
 void
@@ -446,7 +453,7 @@ massbus_rp_c::Worker()
 
     timeout_c timeout;
 
-    INFO("massbus worker started.");
+    DEBUG("massbus worker started.");
     while (!workers_terminate)
     {
         switch(_workerState) 
@@ -474,7 +481,7 @@ massbus_rp_c::Worker()
                 {
                     case FunctionCode::ReadData:
                     {
-                        INFO("READ CHS %d/%d/%d, %d words to address o%o",  
+                        DEBUG("READ CHS %d/%d/%d, %d words to address o%o",  
                             _newCommand.cylinder, 
                             _newCommand.track,
                             _newCommand.sector,
@@ -503,7 +510,7 @@ massbus_rp_c::Worker()
                         else
                         {
                             // Read failed: 
-                            INFO("Read failed.");
+                            DEBUG("Read failed.");
                             _ata = true;
                         }
 
@@ -516,7 +523,7 @@ massbus_rp_c::Worker()
 
                     case FunctionCode::WriteData:
                     {
-                        INFO("WRITE CHS %d/%d/%d, %d words from address o%o",
+                        DEBUG("WRITE CHS %d/%d/%d, %d words from address o%o",
                             _newCommand.cylinder,
                             _newCommand.track,
                             _newCommand.sector,
@@ -538,7 +545,7 @@ massbus_rp_c::Worker()
                                 buffer))
                         {
                             // Write failed:
-                            INFO("Write failed.");
+                            DEBUG("Write failed.");
                             _ata = true;
                         }
 
@@ -553,7 +560,7 @@ massbus_rp_c::Worker()
                   
                     case FunctionCode::Search:
                     {
-                        INFO("SEARCH CHS %d/%d/%d",
+                        DEBUG("SEARCH CHS %d/%d/%d",
                             _newCommand.cylinder,
                             _newCommand.track,
                             _newCommand.sector);
@@ -564,7 +571,7 @@ massbus_rp_c::Worker()
                                  _newCommand.sector)) 
                         {
                             // Search failed
-                            INFO("Search failed");
+                            DEBUG("Search failed");
                         }
 
 
@@ -590,6 +597,31 @@ massbus_rp_c::Worker()
                 break; 
                 
         }
+    }
+}
+
+void
+massbus_rp_c::Spin(void)
+{
+    // 
+    // All this worker does is simulate the spinning of the disk by
+    // updating the LookAhead register periodically.  In reality there'd be a
+    // different value for every drive but also in reality there'd be a gigantic
+    // washing-machine-sized drive spinning aluminum disks plated with rust, so...
+    //
+   
+    uint16_t lookAhead = 0;
+    timeout_c timer;
+
+
+    timer.wait_ms(2500);
+    while(true)
+    {
+        timer.wait_ms(10);
+
+        // We update only the sector count portion of the register.
+        lookAhead = (lookAhead + 1) % 22;
+        _controller->WriteRegister(static_cast<uint32_t>(Registers::LookAhead), lookAhead << 6);
     }
 }
 

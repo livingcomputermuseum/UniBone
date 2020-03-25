@@ -105,8 +105,10 @@ public:
     void WriteRegister(uint32_t unit, uint32_t register, uint16_t value) override;
     uint16_t ReadRegister(uint32_t unit, uint32_t register) override;
 
-    // Background worker function
+    // Background worker functions
     void Worker();
+    void Spin();
+
 private:
     struct WorkerCommand
     {
@@ -147,10 +149,10 @@ private:
     {
        // Name    DATI   DATO
         { "INV",  false, false, 0, 0 },			// 0, not used
-        { "CS1",  false, true,  0, 0041577 },           // 1, Status
+        { "CS1",  false, true,  0, 0041777 },           // 1, Status
         { "ER1",  false, true,  0, 0177777 },           // 2, Error #1 - writable by diagnostics
         { "MR" ,  false, true,  0, 0177777 },           // 3, Maintenance 
-        { "ATN",  true,  true,  0, 0377 },              // 4, Attention summary
+        { "ATN",  false, true,  0, 0377 },              // 4, Attention summary
         { "DA" ,  false, true,  0, 0017437 },           // 5, Desired Sector/Track
         { "DT" ,  true,  true,  0, 0 },                 // 6, Drive Type
         { "LA" ,  false, false, 0, 0 },                 // 7, Look Ahead 
@@ -192,6 +194,9 @@ private:
     pthread_t        _workerThread;
     pthread_cond_t   _workerWakeupCond;
     pthread_mutex_t  _workerMutex;  
+
+    // Spin thread
+    pthread_t        _spinThread;
 };
 
 #endif

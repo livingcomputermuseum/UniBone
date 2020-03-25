@@ -156,7 +156,7 @@ public:
 	// INTR/DMA as task to separate INTR/DMA scheduler
 	// -> orders INTR/DMA of different devices, wait for UNIBUS idle.
 	virtual void on_after_register_access(unibusdevice_register_t *device_reg,
-			uint8_t unibus_control) = 0;
+			uint8_t unibus_control, uint16_t dato_mask) = 0;
 	// communication between on_after_register_access() and device_c::worker()
 	// see pthread_cond_wait()* examples
 	pthread_cond_t on_after_register_access_cond = PTHREAD_COND_INITIALIZER;

@@ -260,7 +260,7 @@ void cpu_c::worker(unsigned instance) {
 // UNIBUS DATO cycles let dati_flipflops "flicker" outside of this proc:
 //      do not read back dati_flipflops.
 void cpu_c::on_after_register_access(unibusdevice_register_t *device_reg,
-		uint8_t unibus_control) {
+		uint8_t unibus_control, uint16_t dato_mask) {
 	// nothing todo
 	UNUSED(device_reg);
 	UNUSED(unibus_control);

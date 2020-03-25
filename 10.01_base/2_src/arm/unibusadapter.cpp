@@ -841,6 +841,7 @@ void unibusadapter_c::worker_deviceregister_event() {
 	uint16_t evt_data = mailbox->events.deviceregister.data;
 	unibusdevice_register_t *device_reg = &(device->registers[evt_idx]);
 	uint8_t unibus_control = mailbox->events.deviceregister.unibus_control;
+        uint16_t dato_mask = 0xffff;
 
 	/* call device event callback
 
@@ -860,7 +861,7 @@ void unibusadapter_c::worker_deviceregister_event() {
 		// signal: changed by UNIBUS
 		device->log_register_event("DATI", device_reg);
 
-		device->on_after_register_access(device_reg, unibus_control);
+		device->on_after_register_access(device_reg, unibus_control, 0);
 	} else if (device_reg->active_on_dato && UNIBUS_CONTROL_IS_DATO(unibus_control)) {
 		//		uint16_t reg_value_written = device_reg->shared_register->value;
 		//	restore value accessible by DATI
@@ -882,18 +883,24 @@ void unibusadapter_c::worker_deviceregister_event() {
 			evt_data &= device_reg->writable_bits; // clear unused bits
 			// save written value
 			if (evt_addr & 1) // odd address: bits 15:8 written
+			{
 				device_reg->active_dato_flipflops = (device_reg->active_dato_flipflops & 0x00ff)
 						| (evt_data & 0xff00);
+				dato_mask = 0xff00;
+                        }
 			else
+			{
 				// even address : bits 7:0 written
 				device_reg->active_dato_flipflops = (device_reg->active_dato_flipflops & 0xff00)
 						| (evt_data & 0x00ff);
+				dato_mask = 0x00ff;
+			}
 			unibus_control = UNIBUS_CONTROL_DATO; // simulate 16 bit access
 			// signal: changed by UNIBUS
 			device->log_register_event("DATOB", device_reg);
 			break;
 		}
-		device->on_after_register_access(device_reg, unibus_control);
+		device->on_after_register_access(device_reg, unibus_control, dato_mask);
 		/*
 		 DEBUG(LL_DEBUG, LC_UNIBUS, "dev.reg=%d.%d, %s, addr %06o, data %06o->%06o",
 		 device_handle, evt_idx,

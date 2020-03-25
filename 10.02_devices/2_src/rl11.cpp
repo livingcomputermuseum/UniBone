@@ -345,7 +345,9 @@ void RL11_c::set_MP_dati_silo(const char *debug_info) {
 // UNIBUS DATO cycles let dati_flipflops "flicker" outside of this proc:
 //      do not read back dati_flipflops.
 void RL11_c::on_after_register_access(unibusdevice_register_t *device_reg,
-		uint8_t unibus_control) {
+		uint8_t unibus_control, uint16_t dato_mask) {
+	UNUSED(dato_mask);
+
 	// on drive select:
 	// move  status of new drive to controller status register
 	// on command: signal worker thread
