@@ -26,8 +26,8 @@ rk11_c::rk11_c() :
     type_name.value = "RK11";
     log_label = "rk";
 
-	// base addr, intr-vector, intr level
-	set_default_bus_params(0777400, 10, 0220, 5) ;
+    // base addr, intr-vector, intr level
+    set_default_bus_params(0777400, 10, 0220, 5) ;
 
     // The RK11 controller has seven registers,
     // We allocate 8 because one address in the address space is unused.
@@ -118,17 +118,24 @@ rk11_c::~rk11_c()
 
 // return false, if illegal parameter value.
 // verify "new_value", must output error messages
-bool rk11_c::on_param_changed(parameter_c *param) {
-	// no own parameter or "enable" logic
-	if (param == &priority_slot) {
-		dma_request.set_priority_slot(priority_slot.new_value);
-		intr_request.set_priority_slot(priority_slot.new_value);
-	}  else if (param == &intr_level) {
-		intr_request.set_level(intr_level.new_value);
-	} else if (param == &intr_vector) {
-		intr_request.set_vector(intr_vector.new_value);
-	}	
-	return storagecontroller_c::on_param_changed(param) ; // more actions (for enable)
+bool rk11_c::on_param_changed(parameter_c *param) 
+{
+    // no own parameter or "enable" logic
+    if (param == &priority_slot) 
+    {
+        dma_request.set_priority_slot(priority_slot.new_value);
+        intr_request.set_priority_slot(priority_slot.new_value);
+    }
+    else if (param == &intr_level) 
+    {
+        intr_request.set_level(intr_level.new_value);
+    } 
+    else if (param == &intr_vector) 
+    {
+        intr_request.set_vector(intr_vector.new_value);
+    }	
+
+    return storagecontroller_c::on_param_changed(param) ; // more actions (for enable)
 }
 
 
@@ -148,12 +155,12 @@ void rk11_c::dma_transfer(DMARequest &request)
         {
             // Write FROM buffer TO unibus memory, IBA on:
             // We only need to write the last word in the buffer to memory.
-				unibusadapter->DMA(dma_request, true,
+            unibusadapter->DMA(dma_request, true,
                 UNIBUS_CONTROL_DATO,
                 request.address,
                 request.buffer + request.count - 1,
                 1);
-            request.timeout = !dma_request.success ;
+            request.timeout = !dma_request.success;
         }
         else
         {
@@ -209,7 +216,7 @@ void rk11_c::dma_transfer(DMARequest &request)
 // Handle device operations.
 void rk11_c::worker(unsigned instance) 
 {
-	UNUSED(instance) ; // only one
+    UNUSED(instance) ; // only one
 
     worker_init_realtime_priority(rt_device);
 
@@ -223,41 +230,41 @@ void rk11_c::worker(unsigned instance)
         switch (_worker_state)
         {
             case Worker_Idle:
+            {
+                pthread_mutex_lock(&on_after_register_access_mutex);
+
+                while (!_new_command_ready)
                 {
-                	pthread_mutex_lock(&on_after_register_access_mutex);
-
-                    while (!_new_command_ready)
-                    {
-                        pthread_cond_wait(
-                           &on_after_register_access_cond,
-                           &on_after_register_access_mutex); 
-                    }
-                     
-                    //
-                    // Make a local copy of the new command to execute.
-                    //
-                    command = _new_command;
-                    _new_command_ready = false;
-                    pthread_mutex_unlock(&on_after_register_access_mutex);
-
-                    //
-                    // Clear GO now that we've accepted the command.
-                    //
-                    _go = false;
-                    update_RKCS();
-
-                    //
-                    // We will interrupt after completion of a command except
-                    // in certain error cases.
-                    //
-                    do_interrupt = true;
-
-                    //
-                    // Move to the execution state to start executing the command.
-                    //
-                    _worker_state = Worker_Execute;
+                    pthread_cond_wait(
+                       &on_after_register_access_cond,
+                       &on_after_register_access_mutex); 
                 }
-                break;
+                     
+                //
+                // Make a local copy of the new command to execute.
+                //
+                command = _new_command;
+                _new_command_ready = false;
+                pthread_mutex_unlock(&on_after_register_access_mutex);
+
+                //
+                // Clear GO now that we've accepted the command.
+                //
+                _go = false;
+                update_RKCS();
+
+                //
+                // We will interrupt after completion of a command except
+                // in certain error cases.
+                //
+                do_interrupt = true;
+
+                //
+                // Move to the execution state to start executing the command.
+                //
+                _worker_state = Worker_Execute;
+            }
+            break;
 
             case Worker_Execute:
                 switch(command.function)
@@ -265,197 +272,190 @@ void rk11_c::worker(unsigned instance)
                     case Write:
                     case Read:
                     case Write_Check:
-                        {
-                            bool write = command.function == Write;
-                            bool read_format = command.function == Read && command.format;
-                            bool read = command.function == Read && !command.format;
-                            bool write_check = command.function == Write_Check;
+                    {
+                        bool write = command.function == Write;
+                        bool read_format = command.function == Read && command.format;
+                        bool read = command.function == Read && !command.format;
+                        bool write_check = command.function == Write_Check;
 
-                            // We loop over the requested address range
-                            // and submit DMA requests one at a time, waiting for
-                            // their completion. 
+                        // We loop over the requested address range
+                        // and submit DMA requests one at a time, waiting for
+                        // their completion. 
                           
-                            uint16_t sectorBuffer[256];
-                            uint16_t checkBuffer[256];
+                        uint16_t sectorBuffer[256];
+                        uint16_t checkBuffer[256];
  
-                            uint32_t current_address = command.address;
-                            int16_t current_count = -(int16_t)(get_register_dato_value(RKWC_reg));
-                            bool abort = false;
-                            while(current_count > 0 && !abort)
+                        uint32_t current_address = command.address;
+                        int16_t current_count = -(int16_t)(get_register_dato_value(RKWC_reg));
+                        bool abort = false;
+                        while(current_count > 0 && !abort)
+                        {
+                            // If a new command has been written in the CS register, abandon
+                            // this one ASAP.
+                            if (_new_command_ready)
                             {
-                                // If a new command has been written in the CS register, abandon
-                                // this one ASAP.
-                                if (_new_command_ready)
-                                {
-                                    DEBUG("Command canceled.");
-                                    abort = true;
-                                    continue;
-                                }
+                                DEBUG("Command canceled.");
+                                abort = true;
+                                continue;
+                            }
 
-                                // Validate that the current disk address is valid.
-                                if (!validate_seek())
+                            // Validate that the current disk address is valid.
+                            if (!validate_seek())
+                            {
+                                // The above check set error bits accordingly.
+                                // Just abort the transfer now.
+                                // Set OVR if we've gone off the end of the disk.
+                                if (_rkda_cyl > 202)
                                 {
-                                    // The above check set error bits accordingly.
-                                    // Just abort the transfer now.
-                                    // Set OVR if we've gone off the end of the disk.
-                                    if (_rkda_cyl > 202)
-                                    {
-                                        _ovr = true;
-                                        // update_RKER();
-                                    }
-                                    abort = true;
-                                    continue;
-                                }
+                                    _ovr = true;
+                                }    
+                                abort = true;
+                                continue;
+                            }
 
-                                //
-                                // Clear the buffer.  This is only necessary because short writes
-                                // and reads expect the rest of the sector to be filled with zeroes.
-                                //
-                                memset(sectorBuffer, 0, sizeof(sectorBuffer));
+                            //
+                            // Clear the buffer.  This is only necessary because short writes
+                            // and reads expect the rest of the sector to be filled with zeroes.
+                            //
+                            memset(sectorBuffer, 0, sizeof(sectorBuffer));
                                 
-                                if (read)
+                            if (read)
+                            {
+                                // Doing a normal read from disk:  Grab the sector data and then
+                                // DMA it into memory.
+                                selected_drive()->read_sector(
+                                    _rkda_cyl,
+                                    _rkda_surface,
+                                    _rkda_sector,
+                                    sectorBuffer);
+                            }
+                            else if (read_format)
+                            {
+                                // Doing a Read Format:  Read only the header word from the disk
+                                // and DMA that single word into memory.  
+                                // We don't actually read the header word from disk since we don't
+                                // store header data in the disk image; we just fake it up --
+                                // since we always seek correctly this is all that is required.
+                                //
+                                // The header is just the cylinder address, as in RKDA 05-12 (p. 3-9)   
+                                sectorBuffer[0] = (_rkda_cyl << 5);
+                            }
+                            else if (write_check)
+                            {
+                                // Doing a Write Check:  Grab the sector data from the disk into
+                                // the check buffer.
+                                selected_drive()->read_sector(
+                                    _rkda_cyl,
+                                    _rkda_surface,
+                                    _rkda_sector,
+                                    checkBuffer); 
+                            }
+
+                            //
+                            // Normal Read, or Write/Write Format: DMA the data to/from memory,
+                            // etc.
+                            // 
+                            // build the DMA transfer request:
+                            DMARequest request = { 0 };
+                            request.address = current_address; 
+                            request.count = (!read_format) ? 
+                                min(static_cast<int16_t>(256) , current_count) : 1;
+                            
+                            request.write = !(write || write_check);  // Inverted sense from disk action
+                            request.timeout = false;
+                            request.buffer = sectorBuffer;
+                            request.iba = command.iba;
+
+                            // And actually do the transfer.   
+                            dma_transfer(request);
+
+                            // Check completion status -- if there was an error,
+                            // we'll abort and set the appropriate flags.
+                            if (request.timeout)
+                            {
+                                _nxm = true; 
+                                _he = true;
+                                _err = true;
+                                abort = true;
+                            }
+                            else
+                            {
+                                if (write)
                                 {
-                                    // Doing a normal read from disk:  Grab the sector data and then
-                                    // DMA it into memory.
-                                    selected_drive()->read_sector(
+                                    // Doing a write to disk:  Write the buffer DMA'd from
+                                    // memory to the disk.
+                                    selected_drive()->write_sector(
                                         _rkda_cyl,
                                         _rkda_surface,
                                         _rkda_sector,
                                         sectorBuffer);
                                 }
-                                else if (read_format)
-                                {
-                                    // Doing a Read Format:  Read only the header word from the disk
-                                    // and DMA that single word into memory.  
-                                    // We don't actually read the header word from disk since we don't
-                                    // store header data in the disk image; we just fake it up --
-                                    // since we always seek correctly this is all that is required.
-                                    //
-                                    // The header is just the cylinder address, as in RKDA 05-12 (p. 3-9)   
-                                    sectorBuffer[0] = (_rkda_cyl << 5);
-                                }
                                 else if (write_check)
                                 {
-                                    // Doing a Write Check:  Grab the sector data from the disk into
-                                    // the check buffer.
-                                    selected_drive()->read_sector(
-                                        _rkda_cyl,
-                                        _rkda_surface,
-                                        _rkda_sector,
-                                        checkBuffer); 
-                                }
-
-                                //
-                                // Normal Read, or Write/Write Format: DMA the data to/from memory,
-                                // etc.
-                                // 
-                                // build the DMA transfer request:
-                                DMARequest request = { 0 };
-                                request.address = current_address; 
-                                request.count = (!read_format) ? 
-                                    min(static_cast<int16_t>(256) , current_count) : 
-                                    1;
-                                request.write = !(write || write_check);  // Inverted sense from disk action
-                                request.timeout = false;
-                                request.buffer = sectorBuffer;
-                                request.iba = command.iba;
-
-                                // And actually do the transfer.   
-                                dma_transfer(request);
-
-                                // Check completion status -- if there was an error,
-                                // we'll abort and set the appropriate flags.
-                                if (request.timeout)
-                                {
-                                    _nxm = true; 
-                                    _he = true;
-                                    _err = true;
-                                    // update_RKCS();
-                                    // update_RKER(); 
-                                    abort = true;
-                                }
-                                else
-                                {
-                                    if (write)
+                                    // Compare check buffer with sector buffer, if there are
+                                    // any discrepancies, set WCE and interrupt as necessary.
+                                    for (int i = 0; i < request.count; i++)
                                     {
-                                        // Doing a write to disk:  Write the buffer DMA'd from
-                                        // memory to the disk.
-                                        selected_drive()->write_sector(
-                                            _rkda_cyl,
-                                            _rkda_surface,
-                                            _rkda_sector,
-                                            sectorBuffer);
-                                    }
-                                    else if (write_check)
-                                    {
-                                        // Compare check buffer with sector buffer, if there are
-                                        // any discrepancies, set WCE and interrupt as necessary.
-                                        for (int i = 0; i < request.count; i++)
+                                        if (sectorBuffer[i] != checkBuffer[i])
                                         {
-                                            if (sectorBuffer[i] != checkBuffer[i])
+                                            _wce = true;
+                                            _err = true;
+
+                                            if (_sse)
                                             {
-                                                _wce = true;
-                                                _err = true;
-                                                // update_RKER();
-                                                // update_RKCS();
-
-                                                if (_sse)
-                                                {
-                                                    // Finish this transfer and abort.
-                                                    abort = true;
-                                                    break;
-                                                }
-                                            } 
-                                        }
-
-                                        if (_wce && _sse)
-                                        {
-                                            // Control action stops on error after this transfer
-                                            //  if SSE (Stop on Soft Error) is set.
-                                            abort = true; 
+                                                // Finish this transfer and abort.
+                                                abort = true;
+                                                break;
+                                            }
                                         } 
                                     }
-                                    else  // Read
+
+                                    if (_wce && _sse)
                                     {
-                                        // After read complete, set RKDB to the last word
-                                        // read (this satisfies ZRKK):
-                                        set_register_dati_value(
-                                            RKDB_reg, 
-                                            sectorBuffer[request.count - 1],
-                                            "RK11 READ");
-                                    }
+                                        // Control action stops on error after this transfer
+                                        // if SSE (Stop on Soft Error) is set.
+                                        abort = true; 
+                                    } 
                                 }
-
-                                // Transfer completed.  Move to next and update registers.
-                                current_count -= request.count;
-
-                                set_register_dati_value(
-                                    RKWC_reg,
-                                    (uint16_t)(-current_count),
-                                    __func__);
-
-                                if (!command.iba)
+                                else  // Read
                                 {
-                                    current_address += (request.count * 2);  // Byte address
+                                    // After read complete, set RKDB to the last word
+                                    // read (this satisfies ZRKK):
                                     set_register_dati_value(
-                                        RKBA_reg, 
-                                        (uint16_t)current_address,
-                                        __func__); 
-                                    _mex = ((current_address) >> 16) & 0x3;
-                                    // update_RKCS();    
+                                        RKDB_reg, 
+                                        sectorBuffer[request.count - 1],
+                                        "RK11 READ");
                                 }
-
-                                // Move to next disk address
-                                increment_RKDA();
-
-                                // And go around, do it again. 
                             }
 
-                            // timeout.wait_us(100);
-                            DEBUG("R/W: Complete.");
-                            _worker_state = Worker_Finish;
+                            // Transfer completed.  Move to next and update registers.
+                            current_count -= request.count;
+
+                            set_register_dati_value(
+                                RKWC_reg,
+                                (uint16_t)(-current_count),
+                                __func__);
+
+                            if (!command.iba)
+                            {
+                                current_address += (request.count * 2);  // Byte address
+                                set_register_dati_value(
+                                    RKBA_reg, 
+                                    (uint16_t)current_address,
+                                    __func__); 
+                                _mex = ((current_address) >> 16) & 0x3;
+                            }
+
+                            // Move to next disk address
+                            increment_RKDA();
+
+                            // And go around, do it again. 
                         }
-                        break;
+
+                        DEBUG("R/W: Complete.");
+                        _worker_state = Worker_Finish;
+                    }
+                    break;
 
                     case Read_Check:
                         //
@@ -488,7 +488,6 @@ void rk11_c::worker(unsigned instance)
                                         (uint16_t)(-current_count),
                                         __func__);
                                     _mex = ((current_address) >> 16) & 0x3;
-                                    // update_RKCS();
                                 }
 
                                 // Move to next disk address.
@@ -542,7 +541,7 @@ void rk11_c::worker(unsigned instance)
                         _worker_state = Worker_Finish;
                         break;
                 }
-                break;
+             break;
 
              case Worker_Finish:
                 // Set RDY, interrupt (if enabled) and go back to the Idle state.
@@ -563,7 +562,7 @@ void rk11_c::worker(unsigned instance)
                     }
                 pthread_mutex_unlock(&on_after_register_access_mutex);
                 _worker_state = Worker_Idle;
-                break; 
+             break; 
         }
     }
 }
@@ -598,11 +597,9 @@ bool rk11_c::validate_seek(void)
         // Set the Control/Status register HE and ERR registers.
         _he = true;
         _err = true;
-        // update_RKCS();
  
         // Do not interrupt here, caller will do so based on
         // our return value.
-        // invoke_interrupt(); 
     }
 
     return !error;
@@ -679,100 +676,84 @@ void rk11_c::on_after_register_access(
  
                    // GO gets cleared
                    _go = false;
-                   // update_RKER();
-                   // update_RKCS();
-                   // error = true; 
                 }
                 else
                 {
-                switch(_function)
-                {
-                    case Control_Reset:
-                        //
-                        // "The Control Reset function initializes all internal registers and flip-flops
-                        //  and clears all the bits of the seven programmable registers except RKCS 07 (RDY)
-                        //  which it sets, and RKDS 01 through 11, which are not affected.
-                        //
-                        reset_controller();
-                        break;
-
-                    case Write_Lock:
-                        //
-                        // "Write-protects a selected disk drive until the condition is overridden by the
-                        //  operation of the corresponding WT PROT switch on the disk drive..."
-                        //
-                        selected_drive()->set_write_protect(true);
-                        _scp = false;
-                        // update_RKCS();
-                        break;
-
-                    default:
-                        // All other commands take significant time and happen on the worker thread.
-                        // First check: 
-                        // If this is not a Drive Reset command and the drive is not ready or has taken
-                        // a fault, we will abort, set the appropriate error bits and interrupt.
-                        //
-                        if (_function != Drive_Reset && !check_drive_ready())
-                        {
-                            _dre = true;
-                            // update_RKER();
-                            _he = true;
-                            _err = true;
-                            _scp = false;
-                            _go = false;
-                            // update_RKCS();
-                        //    INFO("setting DRE, fn %o dr rdy %d rws rdy %d", _function,
-                        //        selected_drive()->get_drive_ready(),
-                        //        selected_drive()->get_rws_ready());
-
-                            // invoke_interrupt();
-                            error = true;
+                    switch(_function)
+                    {
+                        case Control_Reset:
+                            //
+                            // "The Control Reset function initializes all internal registers and flip-flops
+                            //  and clears all the bits of the seven programmable registers except RKCS 07 (RDY)
+                            //  which it sets, and RKDS 01 through 11, which are not affected.
+                            //
+                            reset_controller();
                             break;
-                        }
- 
-                        // If this is an attempt to address a nonexistent (not present or not
-                        // loaded) drive, this triggers an NXD error.
-                        if (!check_drive_present())
-                        {
-                            _nxd = true;
-                            _he = true;
-                            _err = true;
+
+                        case Write_Lock:
+                            //
+                            // "Write-protects a selected disk drive until the condition is overridden by the
+                            //  operation of the corresponding WT PROT switch on the disk drive..."
+                            //
+                            selected_drive()->set_write_protect(true);
                             _scp = false;
-                            _go = false;
-                            // update_RKCS();
-                            // update_RKER();
- 
-                            // invoke_interrupt();
-                            error = true;
                             break;
-                        } 
+
+                        default:
+                            // All other commands take significant time and happen on the worker thread.
+                            // First check: 
+                            // If this is not a Drive Reset command and the drive is not ready or has taken
+                            // a fault, we will abort, set the appropriate error bits and interrupt.
+                            //
+                            if (_function != Drive_Reset && !check_drive_ready())
+                            {
+                                _dre = true;
+                                _he = true;
+                                _err = true;
+                                _scp = false;
+                                _go = false;
+                                error = true;
+                                break;
+                            }
+ 
+                            // If this is an attempt to address a nonexistent (not present or not
+                            // loaded) drive, this triggers an NXD error.
+                            if (!check_drive_present())
+                            {
+                                _nxd = true;
+                                _he = true;
+                                _err = true;
+                                _scp = false;
+                                _go = false;
+                                error = true;
+                                break;
+                            } 
         
-                        // Clear RDY, SCP bits:
-                        pthread_mutex_lock(&on_after_register_access_mutex); 
-                        _rdy = false;
-                        _scp = false;
-                        // update_RKCS();
+                            // Clear RDY, SCP bits:
+                            pthread_mutex_lock(&on_after_register_access_mutex); 
+                            _rdy = false;
+                            _scp = false;
 
-                        //
-                        // Stow command data for this operation so that if RKCS gets changed
-                        // mid-op weird things won't happen.
-                        //
-                        _new_command.address = get_register_dato_value(RKBA_reg) | (_mex << 16);
-                        _new_command.drive = selected_drive();
-                        _new_command.function = _function;
-                        _new_command.interrupt = _ide;
-                        _new_command.stop_on_soft_error = _sse;
-                        _new_command.format = _fmt;
-                        _new_command.iba = _iba;
-                        _new_command_ready = true;
+                            //
+                            // Stow command data for this operation so that if RKCS gets changed
+                            // mid-op weird things won't happen.
+                            //
+                            _new_command.address = get_register_dato_value(RKBA_reg) | (_mex << 16);
+                            _new_command.drive = selected_drive();
+                            _new_command.function = _function;
+                            _new_command.interrupt = _ide;
+                            _new_command.stop_on_soft_error = _sse;
+                            _new_command.format = _fmt;
+                            _new_command.iba = _iba;
+                            _new_command_ready = true;
 
-                        //
-                        // Wake the worker.
-                        //
-                        pthread_cond_signal(&on_after_register_access_cond);
-                        pthread_mutex_unlock(&on_after_register_access_mutex);
-                        break;
-                }
+                            //
+                            // Wake the worker.
+                            //
+                            pthread_cond_signal(&on_after_register_access_cond);
+                            pthread_mutex_unlock(&on_after_register_access_mutex);
+                            break;
+                    }
                 }
 
                 update_RKER();
@@ -860,8 +841,7 @@ void rk11_c::on_drive_status_changed(storagedrive_c *drive)
     // interrupt now.  Note that the call to get_search_complete() has
     // the side effect (eww) of resetting the drive's SCP bit, so we do it
     // first (so it always gets cleared even if we're not interrupting.)
-    if (dynamic_cast<rk05_c*>(drive)->get_search_complete() &&
-        _ide)
+    if (dynamic_cast<rk05_c*>(drive)->get_search_complete() && _ide)
     {
         // Set SCP to indicate that this interrupt was due to a previous
         // Seek or Drive Reset function.

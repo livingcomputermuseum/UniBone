@@ -63,7 +63,7 @@ private:
         uint32_t MediaID;
         uint8_t Model;
         uint16_t RCTSize;bool Removable;bool ReadOnly;
-	};
+    };
 
     //
     // TODO: add a lot more drive types.
@@ -80,7 +80,7 @@ private:
         { "RC25F",  50902,    0x20643319, 3,     0,       true,      false }, 
         { "RD52",   60480,    0x25644034, 8,     4,       false,     false }, 
         { "RD32",   83236,    0x25641047, 15,    4,       false,     false },
-		{ "RD53",   138672,   0x25644035, 9,     5,       false,     false }, 
+	{ "RD53",   138672,   0x25644035, 9,     5,       false,     false }, 
         { "RA80",   237212,   0x20643019, 1,     0,       false,     false }, 
         { "RD54",   311200,   0x25644036, 13,    7,       false,     false }, 
         { "RA60",   400176,   0x22a4103c, 4,     1008,    true,      false },

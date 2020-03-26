@@ -123,7 +123,7 @@ rh11_c::rh11_c() :
     // base addr, intr-vector, intr level
     // TODO: make configurable based on type (fixed, tape, moving-head disk)
     //  right now it is hardcoded for moving-head disks.
-    set_default_bus_params(0776700, 5, 0254, 6);
+    set_default_bus_params(0776700, 5, 0254, 5);
 
     _massbus.reset(new massbus_rp_c(this));
 
@@ -251,7 +251,7 @@ rh11_c::BusStatus(
         _go = false; 
     }
 
-    UpdateCS1();
+    UpdateCS1(false /* no interrupt, yet */);
 
     if (!_controllerClear)
     { 
@@ -259,14 +259,15 @@ rh11_c::BusStatus(
         UpdateCS2();
     }
  
-    if ((attention || ready) && completion)
+    if ((attention || ready) && completion && _interruptEnable)
     {
-        Interrupt();
+        _interruptEnable = false;
+        UpdateCS1(true /* interrupt & clear IE bit */);
     }
 }
 
 void
-rh11_c::UpdateCS1()
+rh11_c::UpdateCS1(bool interrupt)
 {
     uint16_t newStatus =
         (_attention ?         0100000 : 0) |   
@@ -280,11 +281,18 @@ rh11_c::UpdateCS1()
         (_go ?                0000001 : 0);
 
     DEBUG("RHCS1 is now o%o", newStatus);
- 
-    set_register_dati_value(
-        RH_reg[RHCS1],
-        newStatus,
-        "UpdateCS1");
+
+    if (interrupt)
+    {
+        unibusadapter->INTR(intr_request, RH_reg[RHCS1], newStatus);
+    }
+    else
+    { 
+        set_register_dati_value(
+            RH_reg[RHCS1],
+            newStatus,
+            "UpdateCS1");
+    }
 }
 
 void rh11_c::UpdateCS2()
@@ -402,7 +410,7 @@ rh11_c::IncrementBusAddress(uint32_t delta)
 {
     _busAddress += delta;
 
-    UpdateCS1();
+    UpdateCS1(false /* no interrupt */);
 
     set_register_dati_value(
         RH_reg[RHBA],
@@ -602,7 +610,7 @@ void rh11_c::on_after_register_access(
                 }
 
                 DEBUG("RHCS1: IE %d BA o%o func o%o go %d", _interruptEnable, _busAddress, _function, _go); 
-                UpdateCS1();
+                UpdateCS1(false /* no interrupt */);
 
                 if ((dato_mask & 0x00ff) == 0x00ff)
                 {
@@ -702,20 +710,6 @@ void rh11_c::on_after_register_access(
             break;
     }   
     
-}
-
-void rh11_c::Interrupt(void)
-{
-    if(_interruptEnable)
-    {
-        DEBUG("Interrupt!");
-
-        // IE is cleared after the interrupt is raised (probably should be at the same time.)
-        _interruptEnable = false;
-        UpdateCS1();
-
-        unibusadapter->INTR(intr_request, nullptr, 0);
-    }
 }
 
 void rh11_c::reset_controller(void)

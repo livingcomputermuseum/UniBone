@@ -621,7 +621,7 @@ massbus_rp_c::Spin(void)
 
         // We update only the sector count portion of the register.
         lookAhead = (lookAhead + 1) % 22;
-        _controller->WriteRegister(static_cast<uint32_t>(Registers::LookAhead), lookAhead << 6);
+    //    _controller->WriteRegister(static_cast<uint32_t>(Registers::LookAhead), lookAhead << 6);
     }
 }
 

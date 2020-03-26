@@ -101,7 +101,7 @@ rp_drive_c::SeekTo(
 
     if (IsConnected() && IsPackLoaded() && !_iae)
     {
-        timeout.wait_ms(50);
+        timeout.wait_ms(20);
 
         _currentCylinder = destinationCylinder;
         return true;
@@ -150,6 +150,9 @@ rp_drive_c::Write(
         _currentCylinder = cylinder;
         uint32_t offset = GetSectorForCHS(cylinder, track, sector);
         file_write(reinterpret_cast<uint8_t*>(buffer), offset * GetSectorSize(), countInWords * 2);
+        //timeout_c timeout;
+        //timeout.wait_ms(20);
+ 
         return true;
     }
 }
@@ -188,6 +191,9 @@ rp_drive_c::Read(
         uint32_t offset = GetSectorForCHS(cylinder, track, sector);
         DEBUG("Read from sector offset o%o", offset);
         file_read(reinterpret_cast<uint8_t*>(*buffer), offset * GetSectorSize(), countInWords * 2);
+        //timeout_c timeout;
+        //timeout.wait_ms(20);
+
         return true;
     }
 }

@@ -96,14 +96,20 @@ uda_c::~uda_c()
 
 bool uda_c::on_param_changed(parameter_c *param) {
     // no own parameter or "enable" logic
-	if (param == &priority_slot) {
-		dma_request.set_priority_slot(priority_slot.new_value);
-		intr_request.set_priority_slot(priority_slot.new_value);
-	}  else if (param == &intr_level) {
-		intr_request.set_level(intr_level.new_value);
-	} else if (param == &intr_vector) {
-		intr_request.set_vector(intr_vector.new_value);
-	}	
+    if (param == &priority_slot) 
+    {
+        dma_request.set_priority_slot(priority_slot.new_value);
+        intr_request.set_priority_slot(priority_slot.new_value);
+    }
+    else if (param == &intr_level) 
+    {
+        intr_request.set_level(intr_level.new_value);
+    }
+    else if (param == &intr_vector) 
+    {
+        intr_request.set_vector(intr_vector.new_value);
+    }	
+   
     return storagecontroller_c::on_param_changed(param) ; // more actions (for enable)
 }
 
@@ -968,8 +974,6 @@ uda_c::DMAWrite(
     uint8_t* buffer)
 {
     assert ((lengthInBytes % 2) == 0);
-//    if (address >= 0x40000)
-//    	logger->dump(logger->default_filepath) ;
     assert (address < 0x40000);
 
     unibusadapter->DMA(dma_request, true,
@@ -977,7 +981,7 @@ uda_c::DMAWrite(
             address,
             reinterpret_cast<uint16_t*>(buffer),
             lengthInBytes >> 1);
-	return dma_request.success ;
+    return dma_request.success ;
 }
 
 //

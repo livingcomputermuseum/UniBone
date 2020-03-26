@@ -42,7 +42,6 @@ private:
     dma_request_c dma_request = dma_request_c(this); // operated by unibusadapter
     intr_request_c intr_request = intr_request_c(this);
 
-    void Interrupt(void);
     void reset_controller(void);
 
     void IncrementBusAddress(uint32_t delta);
@@ -51,7 +50,7 @@ private:
     bool DMAWrite(uint32_t address, size_t lengthInWords, uint16_t* buffer);
     uint16_t* DMARead(uint32_t address, size_t lengthInWords);
 
-    void UpdateCS1();
+    void UpdateCS1(bool interrupt);
     void UpdateCS2();
 
 private:

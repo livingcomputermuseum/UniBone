@@ -58,26 +58,25 @@ void* polling_worker(
     return nullptr;
 }
 
-mscp_server::mscp_server(
-    uda_c *port) :
-        device_c(),
-        _hostTimeout(0),
-        _controllerFlags(0),
-        _abort_polling(false),
-        _pollState(PollingState::Wait),
-        polling_cond(PTHREAD_COND_INITIALIZER),
-        polling_mutex(PTHREAD_MUTEX_INITIALIZER),
-        _credits(INIT_CREDITS) 
+mscp_server::mscp_server(uda_c *port) :
+    device_c(),
+    _hostTimeout(0),
+    _controllerFlags(0),
+    _abort_polling(false),
+    _pollState(PollingState::Wait),
+    polling_cond(PTHREAD_COND_INITIALIZER),
+    polling_mutex(PTHREAD_MUTEX_INITIALIZER),
+    _credits(INIT_CREDITS) 
 {
-	set_workers_count(0) ; // no std worker()
-	name.value = "mscp_server" ;
-	type_name.value = "mscp_server_c" ;
-	log_label = "MSSVR" ;
+    set_workers_count(0); // no std worker()
+    name.value = "mscp_server";
+    type_name.value = "mscp_server_c";
+    log_label = "MSSVR";
     // Alias the port pointer.  We do not own the port, we merely reference it.
     _port = port;
 
-	enabled.set(true) ; 
-	enabled.readonly = true ; // always active
+    enabled.set(true); 
+    enabled.readonly = true; // always active
 
     StartPollingThread();
 }
@@ -89,15 +88,17 @@ mscp_server::~mscp_server()
 }
 
 
-bool mscp_server::on_param_changed(parameter_c *param) {
-	// no own parameter or "enable" logic
-	if (param == &enabled) {
-		// accpet, but do not react on enable/disable, always active
-		return true ;
-	}
-	return device_c::on_param_changed(param) ; // more actions (for enable)
-}
+bool mscp_server::on_param_changed(parameter_c *param) 
+{
+    // no own parameter or "enable" logic
+    if (param == &enabled) 
+    {
+        // accept, but do not react on enable/disable, always active
+        return true;
+    }
 
+    return device_c::on_param_changed(param); // more actions (for enable)
+}
 
 
 //
@@ -1070,7 +1071,7 @@ mscp_server::GetParameterPointer(
     shared_ptr<Message> message)
 {
     // We silence a strict aliasing warning here; this is safe (if perhaps not recommended
-    // the general case.)
+    // in the general case.)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
     return reinterpret_cast<ControlMessageHeader*>(message->Message)->Parameters;
