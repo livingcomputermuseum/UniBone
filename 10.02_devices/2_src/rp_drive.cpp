@@ -55,6 +55,12 @@ rp_drive_c::on_param_changed(parameter_c *param)
         if (file_open(image_filepath.new_value, true)) 
         {
             image_filepath.value = image_filepath.new_value;
+
+            // New image; this is analogous to a new pack being spun up.
+            // Set the Volume Valid bit so software knows things have changed.
+            // TODO: should alert massbus_rp so that it can update status regs immediately. 
+            SetVolumeValid();
+
             return true;
         }
         

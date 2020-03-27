@@ -140,7 +140,7 @@ massbus_rp_c::WriteRegister(
         // while the drive is busy is invalid.
         DEBUG("Register modification while drive busy.");
         _rmr = true;
-        UpdateStatus(false, false);
+        UpdateStatus(_selectedUnit, false, false);
         return;
     }
 
@@ -183,7 +183,7 @@ massbus_rp_c::WriteRegister(
             // Based on diagnostic (ZRJGE0) behavior, writing ANY value here forces an error.
             //
             DEBUG("Error 1 Reg write o%o, value is now o%o", value, _error1);
-            UpdateStatus(false, true);  // Force composite error.
+            UpdateStatus(_selectedUnit, false, true);  // Force composite error.
             break;            
 
         default:
@@ -196,14 +196,16 @@ void massbus_rp_c::DoCommand(
     uint32_t unit,
     uint16_t command)
 {
-    // check for GO bit; if unset we have nothing to do here.
-    if ((command & RP_GO) == 0)
-    {
-        return;
-    }
-
     FunctionCode function = static_cast<FunctionCode>((command & RP_FUNC) >> 1);
     _selectedUnit = unit;
+
+    // check for GO bit; if unset we have nothing to do here,
+    // but we will update status in case the drive unit has changed.
+    if ((command & RP_GO) == 0)
+    {
+        UpdateStatus(_selectedUnit, false, false);
+        return;
+    }
 
     DEBUG("RP function 0%o, unit %o", function, _selectedUnit);
 
@@ -215,7 +217,7 @@ void massbus_rp_c::DoCommand(
         _ata = true;
         _ned = true;  // TODO: should be done at RH11 level!
         SelectedDrive()->ClearVolumeValid();
-        UpdateStatus(true, false);
+        UpdateStatus(_selectedUnit, true, false);
         return;
     }
 
@@ -232,9 +234,51 @@ void massbus_rp_c::DoCommand(
     {
         case FunctionCode::Nop:
             // Nothing.
-            UpdateStatus(true, false);
+            UpdateStatus(_selectedUnit, true, false);
             break;
 
+        case FunctionCode::Unload:
+            // Unsure how best to implement this:
+            // This puts the drive in STANDBY state, meaning the heads are
+            // retracted and the spindle powers down.  The command doesn't actually *finish*
+            // until the pack is manually spun back up.  This could be implemented
+            // by unloading the disk image and waiting until a new one is loaded.
+            // Right now I'm just treating it as a no-op, at least until I can find a good
+            // way to test it using real software.
+            DEBUG("RP Unload");
+            _ata = true;
+            UpdateStatus(_selectedUnit, true, false); 
+            break;
+
+
+        case FunctionCode::DriveClear:
+            // p. 2-11 of EK-RP056-MM-01:
+            // "The following registers and conditions within the DCL are cleared
+            //  by this command:
+            //   - Status Register (ATA and ERR status bits)
+            //   - All three Error registers
+            //   - Attention Summary Register
+            //   - ECC Position and Pattern Registers
+            //   - The Diagnostic Mode Bit
+
+            DEBUG("RP Drive Clear");
+            _ata = false;
+            _attnSummary = 0;
+            _error1 = 0;
+            _error2 = 0;
+            _error3 = 0;
+            _rmr = false;
+            _ned = false;
+            _maint = false;
+            UpdateStatus(_selectedUnit, false, false);
+            break;
+   
+        case FunctionCode::Release:
+            DEBUG("RP Release"); 
+            // This is a no-op, this only applies to dual-ported configurations,
+            // which we are not.
+            break;
+ 
         case FunctionCode::ReadInPreset:
             DEBUG("RP Read-In Preset");
             //
@@ -249,7 +293,13 @@ void massbus_rp_c::DoCommand(
             _offset = 0;
             UpdateDesiredSectorTrack();
             UpdateOffset();
-            UpdateStatus(false, false);  /* do not interrupt */
+            UpdateStatus(_selectedUnit, false, false);  /* do not interrupt */
+            break;
+
+        case FunctionCode::PackAcknowledge:
+            DEBUG("RP Pack Acknowledge");
+            SelectedDrive()->SetVolumeValid();
+            UpdateStatus(_selectedUnit, false, false);
             break;
 
         case FunctionCode::ReadData:
@@ -257,23 +307,31 @@ void massbus_rp_c::DoCommand(
         case FunctionCode::WriteHeaderAndData:
         case FunctionCode::ReadHeaderAndData:
         case FunctionCode::Search:
-            DEBUG("RP Read/Write Data or Search");   
+        case FunctionCode::Seek:
+        case FunctionCode::Recalibrate:
+        case FunctionCode::Offset:
+        case FunctionCode::ReturnToCenterline:
+            DEBUG("RP Read/Write Data or head-motion command");
             {
                 // Clear the unit's DRY bit
                 SelectedDrive()->ClearDriveReady();
 
-                if (function == FunctionCode::Search)
+                if (function == FunctionCode::Search ||
+                    function == FunctionCode::Seek ||
+                    function == FunctionCode::Recalibrate ||
+                    function == FunctionCode::Offset ||
+                    function == FunctionCode::ReturnToCenterline)
                 {     
                      SelectedDrive()->SetPositioningInProgress();
                 }
  
-                // Clear READY 
-                UpdateStatus(false, false);
+                UpdateStatus(_selectedUnit, false, false);
 
                 pthread_mutex_lock(&_workerMutex);
 
                 // Save a copy of command data for the worker to consume
                 _newCommand.unit = _selectedUnit;
+                _newCommand.drive = SelectedDrive();
                 _newCommand.function = function;
                 _newCommand.cylinder = _desiredCylinder;
                 _newCommand.track = _desiredTrack;
@@ -326,15 +384,20 @@ massbus_rp_c::ReadRegister(
 //
 void
 massbus_rp_c::UpdateStatus(
+   uint16_t unit,
    bool complete,
    bool diagForceError)
 {
 
+   // Most of these status bits (except possibly ATTN)
+   // are for the currently selected drive.
+   rp_drive_c* drive = SelectedDrive();
+
    _error1 =
        (_rmr ? 04 : 0) |
-       (SelectedDrive()->GetAddressOverflow() ? 01000 : 0) |
-       (SelectedDrive()->GetInvalidAddress()  ? 02000 : 0) |
-       (SelectedDrive()->GetWriteLockError()  ? 04000 : 0);
+       (drive->GetAddressOverflow() ? 01000 : 0) |
+       (drive->GetInvalidAddress()  ? 02000 : 0) |
+       (drive->GetWriteLockError()  ? 04000 : 0);
 
    if (_error1 != 0)
    {
@@ -352,13 +415,13 @@ massbus_rp_c::UpdateStatus(
    }
 
    _status =
-        (SelectedDrive()->GetVolumeValid() ? 0100 : 0) |
-        (SelectedDrive()->IsDriveReady() ? 0200 : 0) |
+        (drive->GetVolumeValid() ? 0100 : 0) |
+        (drive->IsDriveReady() ? 0200 : 0) |
         (0400) |    // Drive preset -- always set for a single-controller disk
-        (SelectedDrive()->GetReadLastSector() ? 02000 : 0) |   // Last sector read
-        (SelectedDrive()->IsWriteLocked() ? 04000 : 0) |   // Write lock
-        (SelectedDrive()->IsPackLoaded() ? 010000 : 0) | // Medium online
-        (SelectedDrive()->IsPositioningInProgress() ? 020000 : 0) |  // PIP
+        (drive->GetReadLastSector() ? 02000 : 0) |   // Last sector read
+        (drive->IsWriteLocked() ? 04000 : 0) |   // Write lock
+        (drive->IsPackLoaded() ? 010000 : 0) | // Medium online
+        (drive->IsPositioningInProgress() ? 020000 : 0) |  // PIP
         (_err ? 040000 : 0) |  // Composite error
         (_ata ? 0100000 : 0);
 
@@ -366,11 +429,11 @@ massbus_rp_c::UpdateStatus(
    _controller->WriteRegister(static_cast<uint32_t>(Registers::Status), _status);
    _controller->WriteRegister(static_cast<uint32_t>(Registers::Error1), _error1);
 
-   // Update the Attention Summary register if this disk is online:
-
-   if (_ata && SelectedDrive()->IsConnected())
+   // Update the Attention Summary register if the requested disk is online:
+   // Note that we may be setting ATTN for a drive other than the currently selected one.
+   if (_ata && GetDrive(unit)->IsConnected())
    {
-       _attnSummary |= (0x1 << _selectedUnit);  // TODO: these only get set, and are latched until
+       _attnSummary |= (0x1 << unit);           // TODO: these only get set, and are latched until
                                                 // manually cleared?
        DEBUG("Attention Summary is now o%o", _attnSummary); 
    }
@@ -378,7 +441,7 @@ massbus_rp_c::UpdateStatus(
    _controller->WriteRegister(static_cast<uint32_t>(Registers::AttentionSummary), _attnSummary);
 
    // Inform controller of status update.
-   _controller->BusStatus(complete, SelectedDrive()->IsDriveReady(), _ata, _err, SelectedDrive()->IsConnected(), _ned);
+   _controller->BusStatus(complete, drive->IsDriveReady(), _ata, _err, drive->IsConnected(), _ned);
 }
 
 void
@@ -416,8 +479,9 @@ massbus_rp_c::Reset()
     _ata = false;
     _attnSummary = 0;
     _error1 = 0;
-    _rmr = false;
-    UpdateStatus(false, false);
+    _rmr = false; 
+    _selectedUnit = 0;
+    UpdateStatus(_selectedUnit, false, false);
 
     _desiredSector = 0;
     _desiredTrack = 0;
@@ -440,6 +504,13 @@ rp_drive_c*
 massbus_rp_c::SelectedDrive()
 {
     return _controller->GetDrive(_selectedUnit);
+}
+
+rp_drive_c*
+massbus_rp_c::GetDrive(uint16_t unit)
+{
+    assert(unit < 8);
+    return _controller->GetDrive(unit);
 }
 
 // Background worker function
@@ -489,7 +560,7 @@ massbus_rp_c::Worker()
                             _newCommand.bus_address);
 
                         uint16_t* buffer = nullptr;
-                        if (SelectedDrive()->Read(
+                        if (_newCommand.drive->Read(
                                 _newCommand.cylinder,
                                 _newCommand.track,
                                 _newCommand.sector,
@@ -515,7 +586,7 @@ massbus_rp_c::Worker()
                         }
 
                         // Return drive to ready state
-                        SelectedDrive()->SetDriveReady();
+                        _newCommand.drive->SetDriveReady();
                        
                         _workerState = WorkerState::Finish;
                     }
@@ -537,7 +608,7 @@ massbus_rp_c::Worker()
                             _newCommand.bus_address,
                             _newCommand.word_count);
 
-                        if (!buffer || !SelectedDrive()->Write(
+                        if (!buffer || !_newCommand.drive->Write(
                                 _newCommand.cylinder,
                                 _newCommand.track,
                                 _newCommand.sector,
@@ -552,7 +623,7 @@ massbus_rp_c::Worker()
                         delete buffer;
 
                         // Return drive to ready state
-                        SelectedDrive()->SetDriveReady();
+                        _newCommand.drive->SetDriveReady();
 
                         _workerState = WorkerState::Finish;
                     }
@@ -565,7 +636,7 @@ massbus_rp_c::Worker()
                             _newCommand.track,
                             _newCommand.sector);
 
-                        if (!SelectedDrive()->Search(
+                        if (!_newCommand.drive->Search(
                                  _newCommand.cylinder,
                                  _newCommand.track,
                                  _newCommand.sector)) 
@@ -576,11 +647,36 @@ massbus_rp_c::Worker()
 
 
                         // Return to ready state, set attention bit.
-                        SelectedDrive()->SetDriveReady();
+                        _newCommand.drive->SetDriveReady();
                         _ata = true;
                         _workerState = WorkerState::Finish;
                     }
                     break;
+
+                    case FunctionCode::Seek:
+                        DEBUG("SEEK Cylinder %d", _newCommand.cylinder);
+                        if (!_newCommand.drive->SeekTo(_newCommand.cylinder))
+                        {
+                            // Seek failed
+                            DEBUG("Seek failed");
+                        }
+                        _newCommand.drive->SetDriveReady();
+                        _ata = true;
+                        _workerState = WorkerState::Finish;
+                        break; 
+
+                    case FunctionCode::Offset:
+                    case FunctionCode::ReturnToCenterline:
+                        // We don't support adjusting the head position between
+                        // cylinders so these are both effectively no-ops, but
+                        // they're no-ops that need to take a small amount of time
+                        // to complete.
+                        DEBUG("OFFSET/RETURN TO CL");
+                        timeout.wait_ms(10);
+                        _newCommand.drive->SetDriveReady();
+                        _ata = true;
+                        _workerState = WorkerState::Finish;  
+                        break;
 
                     default:
                         FATAL("Unimplemented drive function %d", command.function);
@@ -591,9 +687,9 @@ massbus_rp_c::Worker()
 
             case WorkerState::Finish:
                 _workerState = WorkerState::Idle;
-                SelectedDrive()->SetDriveReady();
+                _newCommand.drive->SetDriveReady();
                 UpdateCurrentCylinder(); 
-                UpdateStatus(true, false);
+                UpdateStatus(_newCommand.unit, true, false);
                 break; 
                 
         }

@@ -112,7 +112,8 @@ public:
 private:
     struct WorkerCommand
     {
-        volatile uint32_t unit;  
+        uint16_t unit;
+        rp_drive_c* drive;
         volatile uint32_t bus_address;
         volatile uint32_t word_count;
         volatile FunctionCode function;
@@ -134,13 +135,14 @@ private:
     void on_power_changed(void) override;
     void on_init_changed(void) override;
 
-    void UpdateStatus(bool completion, bool diagForceError);
+    void UpdateStatus(uint16_t unit, bool completion, bool diagForceError);
     void UpdateDesiredSectorTrack();
     void UpdateDesiredCylinder();
     void UpdateOffset();
     void UpdateCurrentCylinder();
 
     rp_drive_c* SelectedDrive();
+    rp_drive_c* GetDrive(uint16_t unit);
 
 private:
     rh11_c* _controller;
