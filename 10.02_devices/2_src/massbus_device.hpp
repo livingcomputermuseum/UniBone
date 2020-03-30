@@ -44,12 +44,14 @@ public:
     // Writable bits
     virtual uint16_t RegisterWritableBits(uint32_t register) = 0;
 
+    // Selects the specified unit
+    virtual void SelectUnit(uint32_t uint) = 0;
 
     //
-    // MASSBUS Register reads and writes
+    // MASSBUS Register reads and writes (to the unit selected by SelectUnit)
     //
-    virtual void WriteRegister(uint32_t unit, uint32_t register, uint16_t value) = 0;
-    virtual uint16_t ReadRegister(uint32_t unit, uint32_t register) = 0;
+    virtual void WriteRegister(uint32_t register, uint16_t value) = 0;
+    virtual uint16_t ReadRegister(uint32_t register) = 0;
 
     //
     // Block transfers

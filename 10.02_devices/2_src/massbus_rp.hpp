@@ -102,8 +102,10 @@ public:
     uint16_t RegisterResetValue(uint32_t register) override;
     uint16_t RegisterWritableBits(uint32_t register) override;
 
-    void WriteRegister(uint32_t unit, uint32_t register, uint16_t value) override;
-    uint16_t ReadRegister(uint32_t unit, uint32_t register) override;
+    void WriteRegister(uint32_t register, uint16_t value) override;
+    uint16_t ReadRegister(uint32_t register) override;
+
+    void SelectUnit(uint32_t unit);
 
     // Background worker functions
     void Worker();
@@ -113,13 +115,9 @@ private:
     struct WorkerCommand
     {
         uint16_t unit;
-        rp_drive_c* drive;
         volatile uint32_t bus_address;
         volatile uint32_t word_count;
         volatile FunctionCode function;
-        volatile uint32_t cylinder;
-        volatile uint32_t track;
-        volatile uint32_t sector;
         volatile bool     ready;
     } _newCommand; 
 
@@ -130,16 +128,13 @@ private:
         Finish = 2,
     } _workerState;
 
-    void DoCommand(uint32_t unit, uint16_t command);
+    void DoCommand(uint16_t command);
 
     void on_power_changed(void) override;
     void on_init_changed(void) override;
 
-    void UpdateStatus(uint16_t unit, bool completion, bool diagForceError);
-    void UpdateDesiredSectorTrack();
-    void UpdateDesiredCylinder();
-    void UpdateOffset();
-    void UpdateCurrentCylinder();
+    void UpdateStatus(uint32_t unit, bool completion, bool diagForceError);
+    void UpdateDriveRegisters();
 
     rp_drive_c* SelectedDrive();
     rp_drive_c* GetDrive(uint16_t unit);
@@ -176,11 +171,6 @@ private:
     volatile uint16_t _error1;
     volatile uint16_t _maint;
     volatile uint16_t _attnSummary;
-    volatile uint16_t _desiredSector;
-    volatile uint16_t _desiredTrack;
-    volatile uint16_t _offset;
-    volatile uint16_t _desiredCylinder;
-    volatile uint16_t _currentCylinder;
     volatile uint16_t _error2;
     volatile uint16_t _error3;
 

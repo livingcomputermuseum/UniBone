@@ -615,7 +615,7 @@ void rh11_c::on_after_register_access(
                 if ((dato_mask & 0x00ff) == 0x00ff)
                 {
                     // Let the massbus device take a crack at the shared bits.
-                    _massbus->WriteRegister(_unit, RHCS1, value & 077);
+                    _massbus->WriteRegister(RHCS1, value & 077);
                 } 
             }
         }
@@ -625,7 +625,7 @@ void rh11_c::on_after_register_access(
         {
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
-                _unit = (value & 07);
+                uint16_t newUnit = (value & 07);
                 _busAddressIncrementProhibit = !!(value & 010);
                 _parityTest = !!(value & 020); 
                 _controllerClear = !!(value & 040);
@@ -634,12 +634,24 @@ void rh11_c::on_after_register_access(
                 DEBUG("RHCS2 write: o%o", value); 
                 DEBUG("RHCS2: perror %d, unit %d inc %d ptest %d clear %d", 
                     _parityError, _unit, _busAddressIncrementProhibit, _parityTest, _controllerClear);
- 
+
+                // On unit change, select new drive
+                if (newUnit != _unit)
+                {
+                    _unit = newUnit;
+                    _massbus->SelectUnit(_unit);
+                }
+                    
                 // TODO: handle System Register Clear (bit 5)     
                 if (_controllerClear)
                 {
                     DEBUG("Controller Clear");
                     _interruptEnable = false;
+
+                    for (uint32_t i=0; i<drivecount; i++)
+                    {
+                        GetDrive(i)->Reset();
+                    }
 
                     _massbus->Reset();
 
@@ -691,7 +703,7 @@ void rh11_c::on_after_register_access(
             {
                 if (UNIBUS_CONTROL_DATO == unibus_control)
                 {
-                    _massbus->WriteRegister(_unit, _unibusToMassbusRegisterMap[device_reg->index], value);
+                    _massbus->WriteRegister(_unibusToMassbusRegisterMap[device_reg->index], value);
                     // Massbus is responsible for writing back the appropriate dati value.
                 }
                 else
@@ -699,7 +711,7 @@ void rh11_c::on_after_register_access(
                     DEBUG("massbus reg read %o", device_reg->index);
                     set_register_dati_value(
                         device_reg,
-                        _massbus->ReadRegister(_unit, _unibusToMassbusRegisterMap[device_reg->index]),
+                        _massbus->ReadRegister(_unibusToMassbusRegisterMap[device_reg->index]),
                         "on_after_register_access");
                 }
             }
@@ -715,6 +727,8 @@ void rh11_c::on_after_register_access(
 void rh11_c::reset_controller(void)
 {
     reset_unibus_registers();
+
+    // TODO: do more
  
 }
 

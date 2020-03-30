@@ -23,12 +23,24 @@ public:
     rp_drive_c(storagecontroller_c *controller, uint32_t driveNumber);
     ~rp_drive_c(void);
 
+    void Reset();
+
     bool on_param_changed(parameter_c *param) override;
 
     uint32_t GetSectorSize(void);
     uint32_t GetType(void);
 
-    bool IsConnected(void) { return _driveNumber == 0; /* todo: make config. parameter */ }
+    void SetDesiredCylinder(uint32_t cylinder) { _desiredCylinder = cylinder; }
+    void SetDesiredTrack(uint32_t track) { _desiredTrack = track; }
+    void SetDesiredSector(uint32_t sector) { _desiredSector = sector; }
+    void SetOffset(uint16_t offset) { _offset = offset; }
+    uint32_t GetDesiredCylinder(void) { return _desiredCylinder; }
+    uint32_t GetDesiredTrack(void) { return _desiredTrack; }
+    uint32_t GetDesiredSector(void) { return _desiredSector; }
+    uint16_t GetOffset(void) { return _offset; }
+    uint32_t GetCurrentCylinder(void) { return _currentCylinder; }
+
+    bool IsConnected(void) { return true; /* todo: make config. parameter */ }
     bool IsPackLoaded(void);
     bool IsDriveReady(void) { return _ready; }
     bool IsWriteLocked(void) { return false; /* for now */ }
@@ -46,18 +58,20 @@ public:
     uint16_t GetDriveType(void) { return _driveInfo.TypeNumber; }
     uint16_t GetSerialNumber(void) { return 012345; }  // TODO: Make configurable parameter
   
-    bool SeekTo(uint32_t cylinder);
-    uint32_t GetCurrentCylinder();
-
-    bool Write(uint32_t cylinder, uint32_t track, uint32_t sector, uint32_t countInWords, uint16_t* buffer);
-    bool Read(uint32_t cylinder, uint32_t track, uint32_t sector, uint32_t countInWords, uint16_t** outBuffer);
-    bool Search(uint32_t cylinder, uint32_t track, uint32_t sector);
+    bool SeekTo();
+    bool Write(uint32_t countInWords, uint16_t* buffer);
+    bool Read(uint32_t countInWords, uint16_t** outBuffer);
+    bool Search();
    
 public:
     void on_power_changed(void) override;
     void on_init_changed(void) override;
 
 private:
+    uint32_t _desiredCylinder;
+    uint32_t _desiredTrack;
+    uint32_t _desiredSector;
+    uint16_t _offset;
     uint32_t _currentCylinder;
     uint32_t _driveNumber;
     bool _ready;

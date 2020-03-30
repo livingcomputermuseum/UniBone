@@ -18,6 +18,10 @@ using namespace std;
 rp_drive_c::rp_drive_c(storagecontroller_c *controller, uint32_t driveNumber) :
      storagedrive_c(controller),
      _driveNumber(driveNumber),
+     _desiredCylinder(0),
+     _currentCylinder(0),
+     _desiredTrack(0),
+     _offset(0),
      _ready(true),
      _lst(false),
      _aoe(false),
@@ -37,6 +41,12 @@ rp_drive_c::~rp_drive_c()
     {
         file_close();
     }
+}
+
+void
+rp_drive_c::Reset()
+{
+
 }
 
 // on_param_changed():
@@ -96,32 +106,25 @@ rp_drive_c::IsPackLoaded()
 }
 
 bool
-rp_drive_c::SeekTo(
-    uint32_t destinationCylinder)
+rp_drive_c::SeekTo()
 {
     // TODO: delay by appropriate amount
 
     timeout_c timeout;
   
-    _iae = !(destinationCylinder < _driveInfo.Cylinders);
+    _iae = !(_desiredCylinder < _driveInfo.Cylinders);
 
     if (IsConnected() && IsPackLoaded() && !_iae)
     {
         timeout.wait_ms(20);
 
-        _currentCylinder = destinationCylinder;
+        _currentCylinder = _desiredCylinder;
         return true;
     }   
     else
     {
         return false;  // no good
     }
-}
-
-uint32_t
-rp_drive_c::GetCurrentCylinder()
-{
-    return _currentCylinder;
 }
 
 
@@ -136,13 +139,10 @@ rp_drive_c::GetCurrentCylinder()
 //
 bool 
 rp_drive_c::Write(
-    uint32_t cylinder, 
-    uint32_t track, 
-    uint32_t sector, 
     size_t countInWords, 
     uint16_t* buffer)
 {
-    _iae = !ValidateCHS(cylinder, track, sector);
+    _iae = !ValidateCHS(_desiredCylinder, _desiredTrack, _desiredSector);
     _wle = IsWriteLocked();
     
     // TODO: handle address overflow
@@ -153,11 +153,11 @@ rp_drive_c::Write(
     }
     else
     {
-        _currentCylinder = cylinder;
-        uint32_t offset = GetSectorForCHS(cylinder, track, sector);
+        _currentCylinder = _desiredCylinder;    
+        uint32_t offset = GetSectorForCHS(_currentCylinder, _desiredTrack, _desiredSector);
         file_write(reinterpret_cast<uint8_t*>(buffer), offset * GetSectorSize(), countInWords * 2);
-        //timeout_c timeout;
-        //timeout.wait_ms(20);
+        timeout_c timeout;
+        timeout.wait_us(500);
  
         return true;
     }
@@ -170,51 +170,45 @@ rp_drive_c::Write(
 //
 bool
 rp_drive_c::Read(
-    uint32_t cylinder,
-    uint32_t track,
-    uint32_t sector,
     size_t countInWords,
     uint16_t** buffer)
 {
 
-    _iae = !ValidateCHS(cylinder, track, sector);
+    _iae = !ValidateCHS(_desiredCylinder, _desiredTrack, _desiredSector);
     _wle = false;
 
     if (!IsConnected() || !IsPackLoaded() || _iae)
     {
         *buffer = nullptr;
-        DEBUG("Failure: connected %d loaded %d valid %d", IsConnected(), IsPackLoaded(), ValidateCHS(cylinder, track, sector));
+        DEBUG("Failure: connected %d loaded %d valid %d", IsConnected(), IsPackLoaded(), _iae); 
         return false;
     }
     else
     {
-        _currentCylinder = cylinder;
+        _currentCylinder = _desiredCylinder;
 
         *buffer = new uint16_t[countInWords];
 
         assert(nullptr != *buffer);
 
-        uint32_t offset = GetSectorForCHS(cylinder, track, sector);
+        uint32_t offset = GetSectorForCHS(_currentCylinder, _desiredTrack, _desiredSector);
         DEBUG("Read from sector offset o%o", offset);
         file_read(reinterpret_cast<uint8_t*>(*buffer), offset * GetSectorSize(), countInWords * 2);
-        //timeout_c timeout;
-        //timeout.wait_ms(20);
+        timeout_c timeout;
+        timeout.wait_us(500);
 
         return true;
     }
 }
 
 bool
-rp_drive_c::Search(
-    uint32_t cylinder,
-    uint32_t track,
-    uint32_t sector)
+rp_drive_c::Search(void)
 {
-    _iae = !ValidateCHS(cylinder, track, sector);
+    _iae = !ValidateCHS(_desiredCylinder, _desiredTrack, _desiredSector);
 
     if (!IsConnected() || !IsPackLoaded() || _iae)
     {
-        DEBUG("Failure: connected &d loaded %d valid %d", IsConnected(), IsPackLoaded(), ValidateCHS(cylinder, track, sector));
+        DEBUG("Failure: connected &d loaded %d valid %d", IsConnected(), IsPackLoaded(), _iae);
         return false; 
     }
     else
@@ -226,7 +220,7 @@ rp_drive_c::Search(
         timeout.wait_ms(20);
         _pip = false;
         DEBUG("Search completed.");
-        _currentCylinder = cylinder;
+        _currentCylinder = _desiredCylinder;
 
         return true;
     }
