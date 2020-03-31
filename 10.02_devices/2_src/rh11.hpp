@@ -19,7 +19,8 @@ using namespace std;
 #include "unibusdevice.hpp"
 #include "storagecontroller.hpp"
 #include "massbus_device.hpp"
-#include "rp_drive.hpp"
+
+class rp_drive_c;
 
 #define RH_DRIVE_COUNT 8
 

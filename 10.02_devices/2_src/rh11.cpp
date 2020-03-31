@@ -14,9 +14,9 @@
 #include "unibusadapter.hpp"
 #include "unibusdevice.hpp"
 #include "storagecontroller.hpp"
-#include "rp_drive.hpp"
 #include "rh11.hpp"   
 #include "massbus_rp.hpp"
+#include "rp_drive.hpp"
 
 // Maps the unibus register index to the MASSBUS register number.
 // -1 entries are local to the rh11.
@@ -214,7 +214,7 @@ rh11_c::rh11_c() :
     drivecount = RH_DRIVE_COUNT;
     for (uint32_t i=0; i<drivecount; i++)
     {
-        rp_drive_c *drive = new rp_drive_c(this, i);
+        rp_drive_c *drive = new rp_drive_c(this, static_cast<massbus_rp_c*>(_massbus.get()), i);
         drive->unitno.value = i;
         drive->name.value = name.value + std::to_string(i);
         drive->log_label = drive->name.value;
@@ -606,7 +606,7 @@ void rh11_c::on_after_register_access(
                     {
                         DEBUG("Forced interrupt.");
                         unibusadapter->INTR(intr_request, nullptr, 0);
-                    } 
+                    }
                 }
 
                 DEBUG("RHCS1: IE %d BA o%o func o%o go %d", _interruptEnable, _busAddress, _function, _go); 

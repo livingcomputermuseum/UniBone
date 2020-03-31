@@ -13,26 +13,39 @@ using namespace std;
 
 #include "logger.hpp"
 #include "utils.hpp"
+#include "rh11.hpp"
+#include "massbus_rp.hpp"
 #include "rp_drive.hpp"
 
-rp_drive_c::rp_drive_c(storagecontroller_c *controller, uint32_t driveNumber) :
+rp_drive_c::rp_drive_c(rh11_c *controller, massbus_rp_c* bus, uint32_t driveNumber) :
      storagedrive_c(controller),
      _driveNumber(driveNumber),
      _desiredCylinder(0),
      _currentCylinder(0),
      _desiredTrack(0),
      _offset(0),
+     _ata(false),
+     _ned(false), 
+     _rmr(false),
      _ready(true),
      _lst(false),
      _aoe(false),
      _iae(false),
      _wle(false),
      _pip(false),
-     _vv(false) 
+     _vv(false),
+     _workerState(WorkerState::Idle),
+     _workerWakeupCond(PTHREAD_COND_INITIALIZER),
+     _workerMutex(PTHREAD_MUTEX_INITIALIZER)
 {
-    set_workers_count(0) ; // needs no worker()
+    set_workers_count(1);
     log_label = "RP";
     SetDriveType("RP06");
+
+    _newCommand = { 0 };
+
+    _controller = controller;
+    _bus = bus;
 }
 
 rp_drive_c::~rp_drive_c() 
@@ -68,9 +81,8 @@ rp_drive_c::on_param_changed(parameter_c *param)
 
             // New image; this is analogous to a new pack being spun up.
             // Set the Volume Valid bit so software knows things have changed.
-            // TODO: should alert massbus_rp so that it can update status regs immediately. 
-            SetVolumeValid();
-
+            _vv = true;
+            UpdateStatus(false, false);
             return true;
         }
         
@@ -81,7 +93,7 @@ rp_drive_c::on_param_changed(parameter_c *param)
 }
 
 //
-// GetBlockSize():
+// GetSectorSize():
 //  Returns the size, in bytes, of a single sector on this drive.
 //  This is either 512 or 576 bytes.
 //
@@ -103,6 +115,364 @@ bool
 rp_drive_c::IsPackLoaded()
 {
     return file_is_open();
+}
+
+void
+rp_drive_c::Select()
+{
+    // Just force an update of status registers for this disk.
+    UpdateStatus(false, false);
+}
+
+void rp_drive_c::DoCommand(
+    uint16_t command)
+{
+    FunctionCode function = static_cast<FunctionCode>((command & RP_FUNC) >> 1);
+
+    // check for GO bit; if unset we have nothing to do here,
+    if ((command & RP_GO) == 0)
+    {
+        return;
+    }
+
+    INFO ("RP function 0%o, unit %o", function, _driveNumber);
+
+    if (!_ready)
+    {
+        // For now, halt -- This should never happen with valid code.
+        // After things are stable, this should set error bits.
+        FATAL("Unit %d - Command sent while not ready!", _driveNumber);
+    }
+ 
+    _ned = false;
+    _ata = false;
+
+    switch(static_cast<FunctionCode>(function))
+    {
+        case FunctionCode::Nop:
+            // Nothing.
+            UpdateStatus(true, false);
+            break;
+
+        case FunctionCode::Unload:
+            // Unsure how best to implement this:
+            // This puts the drive in STANDBY state, meaning the heads are
+            // retracted and the spindle powers down.  The command doesn't actually *finish*
+            // until the pack is manually spun back up.  This could be implemented
+            // by unloading the disk image and waiting until a new one is loaded.
+            // Right now I'm just treating it as a no-op, at least until I can find a good
+            // way to test it using real software.
+            DEBUG("RP Unload");
+            _ata = true;
+            UpdateStatus(true, false);  
+            break;
+
+
+        case FunctionCode::DriveClear:
+            // p. 2-11 of EK-RP056-MM-01:
+            // "The following registers and conditions within the DCL are cleared
+            //  by this command:
+            //   - Status Register (ATA and ERR status bits)
+            //   - All three Error registers
+            //   - Attention Summary Register
+            //   - ECC Position and Pattern Registers
+            //   - The Diagnostic Mode Bit
+            INFO ("RP Drive Clear");
+            _ata = false;
+            _rmr = false;
+            _ned = false;
+            UpdateStatus(false, false);
+            break;
+   
+        case FunctionCode::Release:
+            DEBUG("RP Release"); 
+            // This is a no-op, this only applies to dual-ported configurations,
+            // which we are not.
+            break;
+ 
+        case FunctionCode::ReadInPreset:
+            INFO ("RP Read-In Preset");
+            //
+            // "This command sets the VV (volume valid) bit, clears the desired
+            //  sector/track address register, and clears the FMT, HCI, and ECI
+            //  bits in the offset register.  It is used to bootstrap the device."
+            //
+            _vv = true;      
+            _ready = true;   
+            _desiredSector = 0; 
+            _desiredTrack = 0;  
+            _offset = 0; 
+            UpdateStatus(false, false);
+            break;
+
+        case FunctionCode::PackAcknowledge:
+            DEBUG("RP Pack Acknowledge");
+            _vv = true;
+            UpdateStatus(false, false);
+            break;
+
+        case FunctionCode::ReadData:
+        case FunctionCode::WriteData:
+        case FunctionCode::WriteHeaderAndData:
+        case FunctionCode::ReadHeaderAndData:
+        case FunctionCode::Search:
+        case FunctionCode::Seek:
+        case FunctionCode::Recalibrate:
+        case FunctionCode::Offset:
+        case FunctionCode::ReturnToCenterline:
+            INFO ("RP Read/Write Data or head-motion command");
+            {
+                // If this drive is not connected, head-motion commands cannot be
+                // executed.
+                if (!IsConnected())
+                {
+                    _ata = true;
+                    _ned = true;
+                    UpdateStatus(true, false);
+                    return;
+                }
+                
+                // Clear DRY. 
+                _ready = false;
+
+                if (function == FunctionCode::Search ||
+                    function == FunctionCode::Seek ||
+                    function == FunctionCode::Recalibrate ||
+                    function == FunctionCode::Offset ||
+                    function == FunctionCode::ReturnToCenterline)
+                {    
+                     // Positioning in progress. 
+                     _pip = true;
+                }
+
+                UpdateStatus(false, false);
+ 
+                pthread_mutex_lock(&_workerMutex);
+                
+                // Sanity check: no other command should be executing on this drive
+                // right now.
+                if (_newCommand.ready)
+                {
+                    FATAL("Command o%o sent while worker for drive %d is busy!",
+                        function, _driveNumber);
+                } 
+
+                // Save a copy of command data for the worker to consume
+                _newCommand.function = function;
+                _newCommand.bus_address = _controller->GetBusAddress();
+                _newCommand.word_count = _controller->GetWordCount();
+                _newCommand.ready = true;
+
+                // Wake the worker
+                pthread_cond_signal(&_workerWakeupCond);
+                pthread_mutex_unlock(&_workerMutex);
+            }
+            break;
+
+        default:
+            FATAL("Unimplemented RP function.");
+            break;
+    }    
+}
+
+// Background worker function
+void 
+rp_drive_c::worker(unsigned instance)
+{
+    UNUSED(instance);
+
+    worker_init_realtime_priority(rt_device);
+
+    _workerState = WorkerState::Idle;
+    WorkerCommand command = { 0 };
+
+    timeout_c timeout;
+
+    INFO ("rp_drive worker started.");
+    while (!workers_terminate)
+    {
+        switch(_workerState) 
+        {
+            case WorkerState::Idle:
+                // Wait for work.
+                pthread_mutex_lock(&_workerMutex);
+                while (!_newCommand.ready) 
+                {
+                    pthread_cond_wait(
+                        &_workerWakeupCond,
+                        &_workerMutex);
+                }
+
+                // Make a local copy of the new command
+                command = _newCommand; 
+                pthread_mutex_unlock(&_workerMutex);
+
+                _workerState = WorkerState::Execute;
+                break;
+           
+            case WorkerState::Execute:
+                {
+                switch(command.function)
+                {
+                    case FunctionCode::ReadData:
+                    {
+                        uint16_t* buffer = nullptr;
+                        if (Read(
+                                command.word_count,
+                                &buffer))
+                        {
+                            //
+                            // Data read: do DMA transfer to memory.
+                            //
+                            _controller->DiskReadTransfer(
+                                command.bus_address,
+                                command.word_count,
+                                buffer);
+                            
+                            // Free buffer
+                            delete buffer;
+                        }
+                        else
+                        {
+                            // Read failed: 
+                            DEBUG("Read failed.");
+                            _ata = true;
+                        }
+
+                        _workerState = WorkerState::Finish;
+                    }
+                    break;
+
+                    case FunctionCode::WriteData:
+                    {
+                        //
+                        // Data write: do DMA transfer from memory.
+                        //
+                        uint16_t* buffer = _controller->DiskWriteTransfer(
+                            command.bus_address,
+                            command.word_count);
+
+                        if (!buffer || !Write(
+                                command.word_count,
+                                buffer))
+                        {
+                            // Write failed:
+                            DEBUG("Write failed.");
+                            _ata = true;
+                        }
+
+                        delete buffer;
+
+                        _workerState = WorkerState::Finish;
+                    }
+                    break;
+                  
+                    case FunctionCode::Search:
+                    {
+                        if (!Search())
+                        {
+                            // Search failed
+                            DEBUG("Search failed");
+                        }
+
+                        // Return to ready state, set attention bit.
+                        _ata = true;
+                        _workerState = WorkerState::Finish;
+                    }
+                    break;
+
+                    case FunctionCode::Seek:
+                        if (!SeekTo())
+                        {
+                            // Seek failed
+                            DEBUG("Seek failed");
+                        }
+                        _ata = true;
+                        _workerState = WorkerState::Finish;
+                        break; 
+
+                    case FunctionCode::Offset:
+                    case FunctionCode::ReturnToCenterline:
+                        // We don't support adjusting the head position between
+                        // cylinders so these are both effectively no-ops, but
+                        // they're no-ops that need to take a small amount of time
+                        // to complete.
+                        DEBUG("OFFSET/RETURN TO CL");
+                        timeout.wait_ms(10);
+                        _ata = true;
+                        _workerState = WorkerState::Finish;  
+                        break;
+
+                    default:
+                        FATAL("Unimplemented drive function %d", command.function);
+                        break;
+                }
+                }
+                break;
+
+            case WorkerState::Finish:
+                _workerState = WorkerState::Idle;
+                // Drive is ready again.
+                _ready = true; 
+                _pip = false;
+                pthread_mutex_lock(&_workerMutex);
+                    _newCommand.ready = false;
+                pthread_mutex_unlock(&_workerMutex);
+                UpdateStatus(true, false); 
+                break; 
+                
+        }
+    }
+}
+
+void
+rp_drive_c::ForceDiagnosticError()
+{
+    UpdateStatus(false, true);
+}
+
+//
+// Register update functions
+//
+void
+rp_drive_c::UpdateStatus(
+   bool complete,
+   bool diagForceError)
+{
+   uint16_t error1 =
+       (_rmr ? 04 : 0) |
+       (_aoe ? 01000 : 0) |
+       (_iae ? 02000 : 0) |
+       (_wle ? 04000 : 0);
+
+   bool err = false;
+
+   if (error1 != 0)
+   {
+       err = true;
+       _ata = true;
+   }
+   else if (diagForceError)
+   {
+       _ata = true;
+   }
+
+   uint16_t status =
+        (_vv    ? 0100 : 0) |
+        (_ready ? 0200 : 0) |
+        (0400) |    // Drive preset -- always set for a single-controller disk
+        (_lst   ? 02000 : 0) |   // Last sector read
+        (IsWriteLocked() ? 04000 : 0) |   // Write lock
+        (IsPackLoaded()  ? 010000 : 0) | // Medium online
+        (_pip   ? 020000 : 0) |  // PIP
+        (err    ? 040000 : 0) |  // Composite error
+        (_ata   ? 0100000 : 0);
+
+   INFO ("Unit %d error1: o%o", _driveNumber, error1);
+   INFO ("Unit %d Status: o%o", _driveNumber, status);
+
+   // Inform controller of status update.
+   _bus->DriveStatus(_driveNumber, status, error1, _ata, complete);
 }
 
 bool
@@ -157,7 +527,7 @@ rp_drive_c::Write(
         uint32_t offset = GetSectorForCHS(_currentCylinder, _desiredTrack, _desiredSector);
         file_write(reinterpret_cast<uint8_t*>(buffer), offset * GetSectorSize(), countInWords * 2);
         timeout_c timeout;
-        timeout.wait_us(500);
+        timeout.wait_us(2500);
  
         return true;
     }
@@ -195,7 +565,7 @@ rp_drive_c::Read(
         DEBUG("Read from sector offset o%o", offset);
         file_read(reinterpret_cast<uint8_t*>(*buffer), offset * GetSectorSize(), countInWords * 2);
         timeout_c timeout;
-        timeout.wait_us(500);
+        timeout.wait_us(2500);
 
         return true;
     }
@@ -218,7 +588,6 @@ rp_drive_c::Search(void)
          
         DEBUG("Search commencing.");
         timeout.wait_ms(20);
-        _pip = false;
         DEBUG("Search completed.");
         _currentCylinder = _desiredCylinder;
 

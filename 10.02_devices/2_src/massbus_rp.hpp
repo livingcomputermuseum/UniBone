@@ -16,6 +16,8 @@ using namespace std;
 #include "rh11.hpp"
 #include "massbus_device.hpp"
 
+class rp_drive_c;
+
 // Registers
 enum class Registers
 {
@@ -35,31 +37,6 @@ enum class Registers
     Error3 = 015,
     ECCPosition = 016,
     ECCPattern = 017,
-};
-
-// Control Function codes
-#define RP_GO      01
-#define RP_FUNC   076
-
-enum class FunctionCode
-{
-    Nop = 00,
-    Unload = 01,
-    Recalibrate = 03,
-    DriveClear = 04,
-    Release = 05,
-    Search = 014,
-    WriteCheckData = 024,
-    WriteCheckHeaderAndData = 025,
-    WriteData = 030,
-    WriteHeaderAndData = 031,
-    ReadData = 034,
-    ReadHeaderAndData = 035,
-    Seek = 02,
-    Offset = 06,
-    ReturnToCenterline = 07,
-    PackAcknowledge = 011,
-    ReadInPreset = 010,
 };
 
 //
@@ -105,35 +82,17 @@ public:
     void WriteRegister(uint32_t register, uint16_t value) override;
     uint16_t ReadRegister(uint32_t register) override;
 
+    void DriveStatus(uint32_t unit, uint16_t status, uint16_t error1, bool ata, bool complete);
+
     void SelectUnit(uint32_t unit);
 
     // Background worker functions
-    void Worker();
     void Spin();
 
 private:
-    struct WorkerCommand
-    {
-        uint16_t unit;
-        volatile uint32_t bus_address;
-        volatile uint32_t word_count;
-        volatile FunctionCode function;
-        volatile bool     ready;
-    } _newCommand; 
-
-    enum WorkerState
-    {
-        Idle = 0,
-        Execute = 1,
-        Finish = 2,
-    } _workerState;
-
-    void DoCommand(uint16_t command);
-
     void on_power_changed(void) override;
     void on_init_changed(void) override;
 
-    void UpdateStatus(uint32_t unit, bool completion, bool diagForceError);
     void UpdateDriveRegisters();
 
     rp_drive_c* SelectedDrive();
@@ -167,26 +126,17 @@ private:
     volatile uint32_t _selectedUnit;
 
     // Register data
-    volatile uint16_t _status;
-    volatile uint16_t _error1;
     volatile uint16_t _maint;
     volatile uint16_t _attnSummary;
     volatile uint16_t _error2;
     volatile uint16_t _error3;
 
-    // Status bits that we track
-    volatile bool _err;
-    volatile bool _ata;
-    volatile bool _rmr;
-
     // RH11 ready signal (ugly: this should be in the rh11 code!)
     volatile bool _ned;  // ditto
 
-    // Worker thread
-    pthread_t        _workerThread;
-    pthread_cond_t   _workerWakeupCond;
-    pthread_mutex_t  _workerMutex;  
-
+    // Drive status update lock
+    pthread_mutex_t _updateLock;
+ 
     // Spin thread
     pthread_t        _spinThread;
 };
