@@ -59,7 +59,16 @@ rp_drive_c::~rp_drive_c()
 void
 rp_drive_c::Reset()
 {
+    INFO ("Drive %d reset", _driveNumber);
 
+    // TODO: how to deal with the worker thread. 
+    // In the case of a Controller Clear, for example,
+    // it needs to terminate its work immediately, which may
+    // not be possible if a DMA transfer is in progress.
+    // If we can make the above happen, it's reasonable to block
+    // here until the worker has returned to idle.
+    // (Maybe?)
+   
 }
 
 // on_param_changed():
@@ -137,12 +146,15 @@ void rp_drive_c::DoCommand(
 
     INFO ("RP function 0%o, unit %o", function, _driveNumber);
 
-    if (!_ready)
+    if (!_ready && FunctionCode::DriveClear != function)
     {
         // For now, halt -- This should never happen with valid code.
         // After things are stable, this should set error bits.
         FATAL("Unit %d - Command sent while not ready!", _driveNumber);
     }
+
+    // TODO: when Error Summary bit is set in ER1, the drive will accept no commands
+    // apart from a DRIVE CLEAR command.
  
     _ned = false;
     _ata = false;
@@ -162,7 +174,7 @@ void rp_drive_c::DoCommand(
             // by unloading the disk image and waiting until a new one is loaded.
             // Right now I'm just treating it as a no-op, at least until I can find a good
             // way to test it using real software.
-            DEBUG("RP Unload");
+            INFO ("RP Unload");
             _ata = true;
             UpdateStatus(true, false);  
             break;
@@ -185,9 +197,11 @@ void rp_drive_c::DoCommand(
             break;
    
         case FunctionCode::Release:
-            DEBUG("RP Release"); 
+            INFO ("RP Release"); 
             // This is a no-op, this only applies to dual-ported configurations,
             // which we are not.
+            _ata = false;
+            UpdateStatus(false, false);
             break;
  
         case FunctionCode::ReadInPreset:
@@ -206,7 +220,7 @@ void rp_drive_c::DoCommand(
             break;
 
         case FunctionCode::PackAcknowledge:
-            DEBUG("RP Pack Acknowledge");
+            INFO ("RP Pack Acknowledge");
             _vv = true;
             UpdateStatus(false, false);
             break;
@@ -244,6 +258,13 @@ void rp_drive_c::DoCommand(
                      // Positioning in progress. 
                      _pip = true;
                 }
+                else
+                {
+                     // This is a data transfer command,
+                     // let the controller know so it can clear its READY bit
+                     // for the duration.
+                     _controller->StartDataTransfer();
+                }                  
 
                 UpdateStatus(false, false);
  
@@ -266,6 +287,7 @@ void rp_drive_c::DoCommand(
                 // Wake the worker
                 pthread_cond_signal(&_workerWakeupCond);
                 pthread_mutex_unlock(&_workerMutex);
+                INFO ("Command queued for worker.");
             }
             break;
 
@@ -281,14 +303,14 @@ rp_drive_c::worker(unsigned instance)
 {
     UNUSED(instance);
 
-    worker_init_realtime_priority(rt_device);
+    // worker_init_realtime_priority(rt_device);
 
     _workerState = WorkerState::Idle;
     WorkerCommand command = { 0 };
 
     timeout_c timeout;
 
-    INFO ("rp_drive worker started.");
+    INFO ("rp_drive %d worker started.", _driveNumber);
     while (!workers_terminate)
     {
         switch(_workerState) 
@@ -312,31 +334,69 @@ rp_drive_c::worker(unsigned instance)
            
             case WorkerState::Execute:
                 {
+                INFO ("Worker executing function o%o", command.function);
                 switch(command.function)
                 {
+                    case FunctionCode::ReadHeaderAndData:
                     case FunctionCode::ReadData:
                     {
-                        uint16_t* buffer = nullptr;
-                        if (Read(
-                                command.word_count,
-                                &buffer))
+                        INFO ("Read wc %d", command.word_count);
+                        if (FunctionCode::ReadHeaderAndData == command.function)
                         {
-                            //
-                            // Data read: do DMA transfer to memory.
-                            //
+                            // Per EK-RP056-MM-01 a READ HEADER AND DATA command
+                            // is functionally identical to a READ DATA command
+                            // except four extra words are sent prior to the sector data.
+                            // These are: 
+                            //   1. Cylinder address and format bit:
+                            //      TODO: where is this format bit?
+                            //   2. Sector/Track address:
+                            //      bits 0-4 specify sector, bits 8-12 indicate track.
+                            //      (i.e identical to the DA register format)
+                            //   3, 4. Key Field - programmer defined, at format time.
+                            // We return a header that matches the expected disk address. 
+                            uint16_t* header = new uint16_t[4];
+                            assert(header);
+
+                            header[0] = _desiredCylinder;
+                            header[1] = _desiredSector | (_desiredTrack << 8);
+                            header[2] = 0;
+                            header[3] = 0;
+
                             _controller->DiskReadTransfer(
                                 command.bus_address,
-                                command.word_count,
-                                buffer);
-                            
-                            // Free buffer
-                            delete buffer;
+                                std::min(4, command.word_count),
+                                header);
+
+                            command.bus_address += 8;
+                            command.word_count -= 4;
+                            delete[] header;
                         }
-                        else
+ 
+                        // Any words left?
+                        if (command.word_count > 0)
                         {
-                            // Read failed: 
-                            DEBUG("Read failed.");
-                            _ata = true;
+                            uint16_t* buffer = nullptr;
+                            if (Read(
+                                    command.word_count,
+                                    &buffer))
+                            {
+                                //
+                                // Data read: do DMA transfer to memory.
+                                //
+                                _controller->DiskReadTransfer(
+                                    command.bus_address,
+                                    command.word_count,
+                                    buffer);
+                            
+                                // Free buffer
+                                delete[] buffer;
+                            }
+                            else
+                            {
+                                // Read failed: 
+                                INFO ("Read failed.");
+                                _ata = true;
+                            }
                         }
 
                         _workerState = WorkerState::Finish;
@@ -357,11 +417,11 @@ rp_drive_c::worker(unsigned instance)
                                 buffer))
                         {
                             // Write failed:
-                            DEBUG("Write failed.");
+                            INFO ("Write failed.");
                             _ata = true;
                         }
 
-                        delete buffer;
+                        delete[] buffer;
 
                         _workerState = WorkerState::Finish;
                     }
@@ -372,7 +432,7 @@ rp_drive_c::worker(unsigned instance)
                         if (!Search())
                         {
                             // Search failed
-                            DEBUG("Search failed");
+                            INFO ("Search failed");
                         }
 
                         // Return to ready state, set attention bit.
@@ -381,11 +441,16 @@ rp_drive_c::worker(unsigned instance)
                     }
                     break;
 
+                    case FunctionCode::Recalibrate:
+                        INFO ("RECALIBRATE"); 
+                        // Treat a Recal as a seek to zero.
+                        _desiredCylinder = 0;
+                        // Fall through to seek.
                     case FunctionCode::Seek:
                         if (!SeekTo())
                         {
                             // Seek failed
-                            DEBUG("Seek failed");
+                            INFO ("Seek failed");
                         }
                         _ata = true;
                         _workerState = WorkerState::Finish;
@@ -397,7 +462,7 @@ rp_drive_c::worker(unsigned instance)
                         // cylinders so these are both effectively no-ops, but
                         // they're no-ops that need to take a small amount of time
                         // to complete.
-                        DEBUG("OFFSET/RETURN TO CL");
+                        INFO ("OFFSET/RETURN TO CL");
                         timeout.wait_ms(10);
                         _ata = true;
                         _workerState = WorkerState::Finish;  
@@ -418,7 +483,7 @@ rp_drive_c::worker(unsigned instance)
                 pthread_mutex_lock(&_workerMutex);
                     _newCommand.ready = false;
                 pthread_mutex_unlock(&_workerMutex);
-                UpdateStatus(true, false); 
+                UpdateStatus(true, false);
                 break; 
                 
         }
@@ -550,7 +615,7 @@ rp_drive_c::Read(
     if (!IsConnected() || !IsPackLoaded() || _iae)
     {
         *buffer = nullptr;
-        DEBUG("Failure: connected %d loaded %d valid %d", IsConnected(), IsPackLoaded(), _iae); 
+        INFO ("Failure: connected %d loaded %d valid %d", IsConnected(), IsPackLoaded(), _iae); 
         return false;
     }
     else
@@ -562,7 +627,7 @@ rp_drive_c::Read(
         assert(nullptr != *buffer);
 
         uint32_t offset = GetSectorForCHS(_currentCylinder, _desiredTrack, _desiredSector);
-        DEBUG("Read from sector offset o%o", offset);
+        INFO ("Read from sector offset o%o", offset);
         file_read(reinterpret_cast<uint8_t*>(*buffer), offset * GetSectorSize(), countInWords * 2);
         timeout_c timeout;
         timeout.wait_us(2500);
@@ -578,7 +643,7 @@ rp_drive_c::Search(void)
 
     if (!IsConnected() || !IsPackLoaded() || _iae)
     {
-        DEBUG("Failure: connected &d loaded %d valid %d", IsConnected(), IsPackLoaded(), _iae);
+        INFO ("Failure: connected &d loaded %d valid %d", IsConnected(), IsPackLoaded(), _iae);
         return false; 
     }
     else
@@ -586,9 +651,9 @@ rp_drive_c::Search(void)
         // This is just a no-op, as we don't emulate read errors.  We just delay a tiny bit.
         timeout_c timeout;
          
-        DEBUG("Search commencing.");
+        INFO ("Search commencing.");
         timeout.wait_ms(20);
-        DEBUG("Search completed.");
+        INFO ("Search completed.");
         _currentCylinder = _desiredCylinder;
 
         return true;

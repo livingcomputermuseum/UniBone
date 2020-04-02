@@ -62,13 +62,15 @@ public:
     void SetDesiredTrack(uint32_t track) { _desiredTrack = track; }
     void SetDesiredSector(uint32_t sector) { _desiredSector = sector; }
     void SetOffset(uint16_t offset) { _offset = offset; }
+    void ClearAttention() { _ata = false; }
     uint32_t GetDesiredCylinder(void) { return _desiredCylinder; }
     uint32_t GetDesiredTrack(void) { return _desiredTrack; }
     uint32_t GetDesiredSector(void) { return _desiredSector; }
     uint16_t GetOffset(void) { return _offset; }
     uint32_t GetCurrentCylinder(void) { return _currentCylinder; }
-  
-    uint16_t GetDriveType(void) { return _driveInfo.TypeNumber; }
+    bool GetAttention() { return _ata; }
+ 
+    uint16_t GetDriveType(void) { return  _driveInfo.TypeNumber; }
     uint16_t GetSerialNumber(void) { return 012345; }  // TODO: Make configurable parameter
     uint32_t GetSectorSize(void);
   
@@ -91,9 +93,9 @@ private:
   
     struct WorkerCommand
     {
-        volatile uint32_t bus_address;
-        volatile uint32_t word_count;
-        volatile FunctionCode function;
+        uint32_t bus_address;
+        int32_t word_count;
+        FunctionCode function;
         volatile bool     ready;
     } _newCommand; 
 

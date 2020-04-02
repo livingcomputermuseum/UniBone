@@ -87,7 +87,9 @@ public:
     rh11_c();
     virtual ~rh11_c();   
 
-    void BusStatus(bool completion, bool ready, bool attention, bool error, bool avail, bool ned);
+    void StartDataTransfer();
+    void StopDataTransfer();
+    void BusStatus(bool completion, bool attention, bool error, bool avail, bool ned);
 
     // Unibus register access (for devices on massbus)
     void WriteRegister(uint32_t reg, uint16_t value);

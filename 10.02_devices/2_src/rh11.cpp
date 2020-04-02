@@ -221,34 +221,48 @@ rh11_c::rh11_c() :
         drive->parent = this;
         storagedrives.push_back(drive);
     }
-  
+ 
+    _massbus->SelectUnit(0); 
 }
   
 rh11_c::~rh11_c()
 {
 }
 
+void
+rh11_c::StartDataTransfer()
+{
+    _ready = false;
+    UpdateCS1(false);
+}
+
 // TODO: RENAME!  This is invoked when the drive is finished with the given command.
 void
 rh11_c::BusStatus(
     bool completion,
-    bool ready,
     bool attention,
     bool error,
     bool avail,
     bool ned)
 {
-    DEBUG("Massbus status update attn %d, error %d, ned %d", attention, error, ned);
+    INFO ("Massbus status update attn %d, error %d, ned %d", attention, error, ned);
 
     _attention = attention;
     _error = error;
     _avail = avail;
-    _ready = ready;
-
+   
+    bool ready = false;
     if (completion)
     {
         // clear the GO bit from the CS word if the drive is finished.
-        _go = false; 
+        _go = false;
+
+        // If the controller was busy due to a data transfer,
+        // on completion, we are ready again and may need to interrupt.
+        if (!_ready & completion)
+        {
+            _ready = ready = true;
+        } 
     }
 
     UpdateCS1(false /* no interrupt, yet */);
@@ -280,7 +294,7 @@ rh11_c::UpdateCS1(bool interrupt)
         (_function << 1) |
         (_go ?                0000001 : 0);
 
-    DEBUG("RHCS1 is now o%o", newStatus);
+    INFO ("RHCS1 is now o%o", newStatus);
 
     if (interrupt)
     {
@@ -308,7 +322,7 @@ void rh11_c::UpdateCS2()
         (_busAddressIncrementProhibit ?   0000010 : 0) |
         (_unit);
 
-    DEBUG("RHCS2 is now o%o", newStatus);
+    INFO ("RHCS2 is now o%o", newStatus);
 
     set_register_dati_value(
         RH_reg[RHCS2],
@@ -566,7 +580,7 @@ void rh11_c::on_after_register_access(
                 // We thus update only the affected bits, and only send the function
                 // code to the Massbus when the LSB is written.
 
-                DEBUG("RHCS1: DATO o%o MASK o%o", value, dato_mask);
+                INFO ("RHCS1: DATO o%o MASK o%o", value, dato_mask);
 
                 if ((dato_mask & 0xff00) == 0xff00)
                 {
@@ -604,12 +618,12 @@ void rh11_c::on_after_register_access(
                     // 
                     if (ready && _interruptEnable)
                     {
-                        DEBUG("Forced interrupt.");
+                        INFO ("Forced interrupt.");
                         unibusadapter->INTR(intr_request, nullptr, 0);
                     }
                 }
 
-                DEBUG("RHCS1: IE %d BA o%o func o%o go %d", _interruptEnable, _busAddress, _function, _go); 
+                INFO ("RHCS1: IE %d BA o%o func o%o go %d", _interruptEnable, _busAddress, _function, _go); 
                 UpdateCS1(false /* no interrupt */);
 
                 if ((dato_mask & 0x00ff) == 0x00ff)
@@ -631,8 +645,8 @@ void rh11_c::on_after_register_access(
                 _controllerClear = !!(value & 040);
                 _parityError = !!(value & 0020000);
  
-                DEBUG("RHCS2 write: o%o", value); 
-                DEBUG("RHCS2: perror %d, unit %d inc %d ptest %d clear %d", 
+                INFO ("RHCS2 write: o%o", value); 
+                INFO ("RHCS2: perror %d, unit %d inc %d ptest %d clear %d", 
                     _parityError, _unit, _busAddressIncrementProhibit, _parityTest, _controllerClear);
 
                 // On unit change, select new drive
@@ -645,7 +659,7 @@ void rh11_c::on_after_register_access(
                 // TODO: handle System Register Clear (bit 5)     
                 if (_controllerClear)
                 {
-                    DEBUG("Controller Clear");
+                    INFO ("Controller Clear");
                     _interruptEnable = false;
 
                     for (uint32_t i=0; i<drivecount; i++)
@@ -659,7 +673,7 @@ void rh11_c::on_after_register_access(
                     _ned = false;
                     _nxm = false;
 
-                    DEBUG("RHCS2: is now o%o", value);
+                    INFO ("RHCS2: is now o%o", value);
                     _controllerClear = false;
                 }
 
@@ -672,7 +686,7 @@ void rh11_c::on_after_register_access(
         {
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
-                DEBUG("RHWC: o%o", value);
+                INFO ("RHWC: o%o", value);
 
                 set_register_dati_value(
                     RH_reg[RHWC],
@@ -687,7 +701,7 @@ void rh11_c::on_after_register_access(
             if (UNIBUS_CONTROL_DATO == unibus_control)
             {
                _busAddress = (_busAddress & 0x30000) | value;
-               DEBUG("RHBA: o%o", _busAddress);
+               INFO ("RHBA: o%o", _busAddress);
  
                set_register_dati_value(
                    RH_reg[RHWC],

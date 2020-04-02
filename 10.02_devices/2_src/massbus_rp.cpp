@@ -107,6 +107,7 @@ massbus_rp_c::SelectUnit(
         // may cause status register updates.
         SelectedDrive()->Select();
         UpdateDriveRegisters();
+        UpdateDriveInfo();
     } 
 }
 
@@ -122,9 +123,6 @@ massbus_rp_c::WriteRegister(
     switch(static_cast<Registers>(reg))
     {
         case Registers::Control:
-            //
-            // Select unit as necessary.
-            //
             drive->DoCommand(value);
             break;
 
@@ -142,9 +140,16 @@ massbus_rp_c::WriteRegister(
         case Registers::AttentionSummary:
             // Clear bits in the Attention Summary register specified in the
             // written value:
-            _attnSummary &= ~(value & 0xff);
-            _controller->WriteRegister(reg, _attnSummary);
-            DEBUG("Attention Summary write o%o, value is now o%o", value, _attnSummary); 
+            for(int i=0;i<8;i++)
+            {
+                if (value & (0x1 << i))
+                {
+                    GetDrive(i)->ClearAttention();
+                }
+            }
+
+            UpdateAttentionSummary();
+            INFO ("Attention Summary write o%o, value is now o%o", value, _attnSummary); 
             break;
 
         case Registers::Error1:
@@ -167,19 +172,10 @@ uint16_t
 massbus_rp_c::ReadRegister(
     uint32_t reg)
 {
-    DEBUG("RP reg read: unit %d register 0%o", _selectedUnit, reg);
+    INFO ("RP reg read: unit %d register 0%o", _selectedUnit, reg);
   
     switch(static_cast<Registers>(reg))
     {
-
-        case Registers::DriveType:
-            return SelectedDrive()->GetDriveType() | 020000;    // Moving head (MOVE TO CONSTANT)
-            break;
-
-        case Registers::SerialNo:
-            return SelectedDrive()->GetSerialNumber();
-            break;
-
         default: 
             FATAL("Unimplemented register read %o", reg);
             break;
@@ -206,35 +202,52 @@ massbus_rp_c::DriveStatus(
    {
        _controller->WriteRegister(static_cast<uint32_t>(Registers::Status), status);
        _controller->WriteRegister(static_cast<uint32_t>(Registers::Error1), error1);
+       UpdateDriveRegisters();
    }
  
    // Update the Attention Summary register for the reporting drive:
-   if (ata)
+   // if (ata) // TODO: be nice to avoid doing this every time.
    {
-       _attnSummary |= (0x1 << unit);
+       UpdateAttentionSummary();
        INFO ("Attention Summary is now o%o", _attnSummary); 
    }
 
-   _controller->WriteRegister(static_cast<uint32_t>(Registers::AttentionSummary), _attnSummary);
-
    // Inform controller of status update.
-   // TODO: ready status is a hack that serializes drive commands;
-   //  a real RH11/RP06 setup allows overlapped seeks, we do not (yet).
-  
-   bool ready = true;
-  
-   for(int i=0;i<8;i++)
-   {
-       if (GetDrive(i)->IsConnected() && !GetDrive(i)->IsDriveReady())
-       {     
-           ready = false;// We're ready if there isn't a command in progress right now.
-           break;
-       }
-   }
 
-   _controller->BusStatus(complete, ready, ata, (error1 != 0), SelectedDrive()->IsConnected(), _ned);
+   _controller->BusStatus(complete, ata, (error1 != 0), SelectedDrive()->IsConnected(), _ned);
 
    pthread_mutex_unlock(&_updateLock);
+}
+
+void
+massbus_rp_c::UpdateAttentionSummary()
+{
+    //
+    // Collect summary bits from all drives
+    //
+    _attnSummary = 0;
+    for(int i=0;i<8;i++)
+    {
+        bool attn = GetDrive(i)->GetAttention();
+        if (attn)
+        {
+            _attnSummary |= (0x1 << i);
+        }         
+    }
+
+    _controller->WriteRegister(static_cast<uint32_t>(Registers::AttentionSummary), _attnSummary);
+}
+
+void
+massbus_rp_c::UpdateDriveInfo()
+{
+    rp_drive_c* drive = SelectedDrive();
+
+    _controller->WriteRegister(static_cast<uint32_t>(Registers::DriveType),
+        drive->GetDriveType() | 020000);
+
+    _controller->WriteRegister(static_cast<uint32_t>(Registers::SerialNo),
+        drive->GetSerialNumber());
 }
 
 void
